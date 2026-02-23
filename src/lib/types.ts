@@ -103,7 +103,7 @@ export interface KPIData {
 }
 
 export interface TeamPerformanceData {
-    team: string;
+    name: string;
     score: number;
     members: number;
     velocity: number;

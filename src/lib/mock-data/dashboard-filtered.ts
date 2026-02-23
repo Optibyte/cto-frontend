@@ -99,33 +99,33 @@ function applyTeamMultiplier(kpi: KPISet, teamId: string): KPISet {
 // ========== PROJECT-SPECIFIC TEAM PERFORMANCE ==========
 
 const allTeamPerformance: TeamPerformanceData[] = [
-    { team: 'Team Alpha', score: 92, members: 8, velocity: 245, quality: 96 },
-    { team: 'Team Beta', score: 78, members: 6, velocity: 180, quality: 85 },
-    { team: 'Team Gamma', score: 85, members: 10, velocity: 320, quality: 88 },
-    { team: 'Team Delta', score: 65, members: 5, velocity: 140, quality: 72 },
-    { team: 'Team Epsilon', score: 88, members: 7, velocity: 210, quality: 92 },
+    { name: 'Alpha', score: 92, members: 8, velocity: 245, quality: 96 },
+    { name: 'Beta', score: 78, members: 6, velocity: 180, quality: 85 },
+    { name: 'Gamma', score: 85, members: 10, velocity: 320, quality: 88 },
+    { name: 'Delta', score: 65, members: 5, velocity: 140, quality: 72 },
+    { name: 'Epsilon', score: 88, members: 7, velocity: 210, quality: 92 },
 ];
 
 const projectTeamPerformance: Record<string, TeamPerformanceData[]> = {
     banking: [
-        { team: 'Core Banking', score: 94, members: 6, velocity: 78, quality: 96 },
-        { team: 'Payments', score: 88, members: 5, velocity: 65, quality: 91 },
-        { team: 'Compliance', score: 82, members: 4, velocity: 42, quality: 97 },
+        { name: 'Core Banking', score: 94, members: 6, velocity: 78, quality: 96 },
+        { name: 'Payments', score: 88, members: 5, velocity: 65, quality: 91 },
+        { name: 'Compliance', score: 82, members: 4, velocity: 42, quality: 97 },
     ],
     ecommerce: [
-        { team: 'Storefront', score: 90, members: 8, velocity: 92, quality: 89 },
-        { team: 'Checkout', score: 85, members: 5, velocity: 58, quality: 93 },
-        { team: 'Inventory', score: 76, members: 6, velocity: 70, quality: 82 },
-        { team: 'Analytics', score: 81, members: 4, velocity: 45, quality: 88 },
+        { name: 'Storefront', score: 90, members: 8, velocity: 92, quality: 89 },
+        { name: 'Checkout', score: 85, members: 5, velocity: 58, quality: 93 },
+        { name: 'Inventory', score: 76, members: 6, velocity: 70, quality: 82 },
+        { name: 'Analytics', score: 81, members: 4, velocity: 45, quality: 88 },
     ],
     hrms: [
-        { team: 'Employee Mgmt', score: 91, members: 5, velocity: 42, quality: 95 },
-        { team: 'Payroll', score: 87, members: 4, velocity: 35, quality: 97 },
+        { name: 'Employee Mgmt', score: 91, members: 5, velocity: 42, quality: 95 },
+        { name: 'Payroll', score: 87, members: 4, velocity: 35, quality: 97 },
     ],
     'ai-analytics': [
-        { team: 'ML Pipeline', score: 83, members: 6, velocity: 33, quality: 86 },
-        { team: 'Data Platform', score: 79, members: 5, velocity: 28, quality: 91 },
-        { team: 'Visualization', score: 88, members: 3, velocity: 22, quality: 94 },
+        { name: 'ML Pipeline', score: 83, members: 6, velocity: 33, quality: 86 },
+        { name: 'Data Platform', score: 79, members: 5, velocity: 28, quality: 91 },
+        { name: 'Visualization', score: 88, members: 3, velocity: 22, quality: 94 },
     ],
 };
 
@@ -178,7 +178,8 @@ export function getFilteredKPIData(projectId: string, teamId: string): KPISet {
 }
 
 export function getFilteredTeamPerformance(projectId: string, _teamId: string): TeamPerformanceData[] {
-    return projectId === 'all' ? allTeamPerformance : (projectTeamPerformance[projectId] || []);
+    const data = projectId === 'all' ? allTeamPerformance : (projectTeamPerformance[projectId] || []);
+    return [...data].sort((a, b) => b.score - a.score);
 }
 
 export function getFilteredSLAStatus(projectId: string, _teamId: string): { met: number; atRisk: number; missed: number } {
