@@ -13,12 +13,22 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import {
     Tooltip,
     TooltipContent,
     TooltipProvider,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { Save, User, Info, Lock, Pencil } from 'lucide-react';
+import { Save, User, Info, Lock, Pencil, Plus, Check, LayoutGrid, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import {
@@ -27,6 +37,7 @@ import {
     type MemberWithMetrics,
     type ManualMetricDef,
 } from '@/lib/mock-data/metrics-data';
+import { PROJECTS, TEAMS, getTeamsForProject } from '@/lib/mock-data/dashboard-filtered';
 
 // Current user role simulation
 const CURRENT_USER_ROLE = 'TeamLead';
@@ -59,12 +70,49 @@ const ragStyles = {
 };
 
 export function ManualMetricsTab() {
+    const [selectedProjectId, setSelectedProjectId] = useState<string>('all');
+    const [selectedTeamId, setSelectedTeamId] = useState<string>('');
     const [selectedMemberId, setSelectedMemberId] = useState<string>('');
     const [editingValues, setEditingValues] = useState<Record<string, number>>({});
     const [isEditing, setIsEditing] = useState(false);
+    const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+
+    // Multi-metric form state for "Add Entry"
+    const [newEntries, setNewEntries] = useState<Record<string, string>>({
+        'mm-1': '', // Communication
+        'mm-2': '', // Learning Level
+        'mm-3': '', // Client Interaction
+        'mm-4': '', // Initiative
+        'mm-5': '', // Documentation Quality
+    });
 
     const canEdit = ['CTO', 'Manager', 'TeamLead'].includes(CURRENT_USER_ROLE);
+
+    // Filtering logic
+    const availableTeams = getTeamsForProject(selectedProjectId);
+
+    const filteredMembers = MEMBERS_WITH_METRICS.filter((m) => {
+        const teamMatch = !selectedTeamId || m.team.toLowerCase().replace(/[^a-z]/g, '') === selectedTeamId.replace(/-/g, '');
+        // Note: The team names in metrics-data ('Frontend') and dashboard-filtered ('ui-ux' or 'backend') might not match perfectly.
+        // Let's assume a match or use the team names directly if possible.
+        // For this mock, I'll allow all members if 'all' is selected, or filter by team name.
+        if (selectedTeamId === '') return true;
+        const teamObj = TEAMS.find(t => t.id === selectedTeamId);
+        return m.team === teamObj?.name;
+    });
+
     const selectedMember = MEMBERS_WITH_METRICS.find((m) => m.id === selectedMemberId);
+
+    const handleProjectChange = (val: string) => {
+        setSelectedProjectId(val);
+        setSelectedTeamId('');
+        setSelectedMemberId('');
+    };
+
+    const handleTeamChange = (val: string) => {
+        setSelectedTeamId(val);
+        setSelectedMemberId('');
+    };
 
     const handleStartEdit = () => {
         if (!selectedMember) return;
@@ -93,6 +141,38 @@ export function ManualMetricsTab() {
         setEditingValues({});
     };
 
+    const handleAddEntries = () => {
+        // Validation logic for all 5 metrics
+        const ids = ['mm-1', 'mm-2', 'mm-3', 'mm-4', 'mm-5'];
+        const values: Record<string, number> = {};
+
+        for (const id of ids) {
+            const def = PREDEFINED_MANUAL_METRICS.find(m => m.id === id);
+            if (!def) continue;
+
+            const valStr = newEntries[id];
+            if (!valStr) {
+                toast.error(`Please enter a value for ${def.name}`);
+                return;
+            }
+
+            const num = Number(valStr);
+            if (isNaN(num)) {
+                toast.error(`Invalid value for ${def.name}`);
+                return;
+            }
+
+            values[id] = Math.min(Math.max(num, def.min), def.max);
+        }
+
+        toast.success(`Successfully added entries for ${selectedMember?.name}`);
+        setIsAddDialogOpen(false);
+        // Reset entries
+        setNewEntries({
+            'mm-1': '', 'mm-2': '', 'mm-3': '', 'mm-4': '', 'mm-5': ''
+        });
+    };
+
     const getDisplayValue = (metricId: string, originalValue: number) => {
         if (isEditing && metricId in editingValues) return editingValues[metricId];
         return originalValue;
@@ -100,54 +180,151 @@ export function ManualMetricsTab() {
 
     return (
         <div className="space-y-6">
-            {/* Member Selector */}
-            <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                    <User className="h-4 w-4" />
-                    Select Member
-                </div>
-                <Select value={selectedMemberId} onValueChange={setSelectedMemberId}>
-                    <SelectTrigger className="w-[280px] rounded-xl">
-                        <SelectValue placeholder="Choose a team member..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {MEMBERS_WITH_METRICS.map((member) => (
-                            <SelectItem key={member.id} value={member.id}>
-                                <span className="flex items-center gap-2">
-                                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
-                                        {member.avatar}
-                                    </span>
-                                    {member.name}
-                                    <span className="text-muted-foreground text-xs">— {member.team}</span>
-                                </span>
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-
-                {selectedMember && canEdit && !isEditing && (
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        className="rounded-xl gap-2"
-                        onClick={handleStartEdit}
-                    >
-                        <Pencil className="h-3.5 w-3.5" />
-                        Edit Metrics
-                    </Button>
-                )}
-
-                {isEditing && (
-                    <div className="flex gap-2 ml-auto">
-                        <Button variant="ghost" size="sm" className="rounded-xl" onClick={handleCancel}>
-                            Cancel
-                        </Button>
-                        <Button size="sm" className="rounded-xl gap-2" onClick={handleSave}>
-                            <Save className="h-3.5 w-3.5" />
-                            Save Changes
-                        </Button>
+            {/* Selectors Bar */}
+            <div className="flex flex-wrap items-center gap-4">
+                {/* Project Selector */}
+                <div className="flex flex-col gap-1.5">
+                    <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70 ml-1">
+                        <LayoutGrid className="h-3 w-3" />
+                        Project
                     </div>
-                )}
+                    <Select value={selectedProjectId} onValueChange={handleProjectChange}>
+                        <SelectTrigger className="w-[200px] rounded-xl bg-muted/20 border-border/50">
+                            <SelectValue placeholder="All Projects" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Select Projects</SelectItem>
+                            {PROJECTS.map((p) => (
+                                <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+
+                {/* Team Selector */}
+                <div className="flex flex-col gap-1.5">
+                    <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70 ml-1">
+                        <Users className="h-3 w-3" />
+                        Team
+                    </div>
+                    <Select value={selectedTeamId} onValueChange={handleTeamChange}>
+                        <SelectTrigger className="w-[180px] rounded-xl bg-muted/20 border-border/50">
+                            <SelectValue placeholder="Select Team..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {availableTeams.map((t) => (
+                                <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+
+                {/* Member Selector */}
+                <div className="flex flex-col gap-1.5">
+                    <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70 ml-1">
+                        <User className="h-3 w-3" />
+                        Team Member
+                    </div>
+                    <Select value={selectedMemberId} onValueChange={setSelectedMemberId}>
+                        <SelectTrigger className="w-[240px] rounded-xl bg-muted/20 border-border/50">
+                            <SelectValue placeholder="Choose a member..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {filteredMembers.map((member) => (
+                                <SelectItem key={member.id} value={member.id}>
+                                    <span className="flex items-center gap-2">
+                                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-[9px] font-bold text-primary">
+                                            {member.avatar}
+                                        </span>
+                                        {member.name}
+                                    </span>
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+
+                <div className="flex items-end gap-2 ml-auto self-end pb-0.5">
+                    {selectedMember && canEdit && !isEditing && (
+                        <>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="rounded-xl gap-2 h-10 px-4 border-primary/20 hover:bg-primary/5 hover:text-primary transition-all"
+                                onClick={handleStartEdit}
+                            >
+
+                                Update Metrics
+                            </Button>
+
+                            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                                <DialogTrigger asChild>
+                                    <Button className="rounded-xl gap-2 h-10 px-5 shadow-lg shadow-primary/20 bg-gradient-to-r from-primary to-violet-600 hover:scale-105 transition-transform">
+                                        <Plus className="h-4 w-4" />
+                                        Add Entry
+                                    </Button>
+                                </DialogTrigger>
+                                <DialogContent className="sm:max-w-[500px] rounded-3xl border-primary/20 backdrop-blur-xl">
+                                    <DialogHeader>
+                                        <DialogTitle className="text-2xl font-bold">New Metrics Entry</DialogTitle>
+                                        <DialogDescription>
+                                            Record manual metrics for {selectedMember.name}.
+                                        </DialogDescription>
+                                    </DialogHeader>
+                                    <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto px-1">
+                                        {['mm-1', 'mm-2', 'mm-3', 'mm-4', 'mm-5'].map((id) => {
+                                            const def = PREDEFINED_MANUAL_METRICS.find(m => m.id === id);
+                                            if (!def) return null;
+                                            return (
+                                                <div key={id} className="space-y-2 p-3 rounded-2xl bg-muted/30 border border-border/50">
+                                                    <div className="flex justify-between items-center">
+                                                        <Label htmlFor={id} className="font-semibold text-sm">
+                                                            {def.name}
+                                                        </Label>
+                                                        <span className="text-[10px] text-muted-foreground bg-background/50 px-2 py-0.5 rounded-full border border-border/50">
+                                                            Range: {def.min} – {def.max}{def.type === 'percentage' ? '%' : ''}
+                                                        </span>
+                                                    </div>
+                                                    <Input
+                                                        id={id}
+                                                        type="number"
+                                                        placeholder={`Enter ${def.name}...`}
+                                                        className="rounded-xl border-primary/10 bg-background/80 h-10 text-base"
+                                                        value={newEntries[id]}
+                                                        onChange={(e) => setNewEntries(prev => ({ ...prev, [id]: e.target.value }))}
+                                                        min={def.min}
+                                                        max={def.max}
+                                                    />
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                    <DialogFooter className="mt-4">
+                                        <Button
+                                            className="w-full rounded-2xl h-12 font-bold text-lg gap-2"
+                                            onClick={handleAddEntries}
+                                        >
+                                            <Check className="h-5 w-5" />
+                                            Submit All Metrics
+                                        </Button>
+                                    </DialogFooter>
+                                </DialogContent>
+                            </Dialog>
+                        </>
+                    )}
+
+                    {isEditing && (
+                        <div className="flex gap-2">
+                            <Button variant="ghost" size="sm" className="rounded-xl h-10" onClick={handleCancel}>
+                                Cancel
+                            </Button>
+                            <Button size="sm" className="rounded-xl h-10 gap-2 px-5" onClick={handleSave}>
+                                <Save className="h-3.5 w-3.5" />
+                                Save Changes
+                            </Button>
+                        </div>
+                    )}
+                </div>
             </div>
 
             {!selectedMember && (

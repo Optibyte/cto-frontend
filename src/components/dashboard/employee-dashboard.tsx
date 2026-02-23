@@ -2,7 +2,8 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { KPICard } from '@/components/dashboard/kpi-card';
-import { CheckSquare, Clock, Zap, Star, ListTodo, Calendar, Trophy, TrendingUp } from 'lucide-react';
+import { CheckSquare, Clock, Zap, Star, ListTodo, Calendar, Trophy, TrendingUp, Activity } from 'lucide-react';
+import { DateRangeFilter } from '@/components/filters/date-range-filter';
 
 // Mock data for Employee dashboard
 const employeeKPIs = {
@@ -46,10 +47,21 @@ export function EmployeeDashboard() {
 
     return (
         <div className="space-y-6 animate-in fade-in duration-700">
-            {/* Header */}
-            <div>
-                <h1 className="text-3xl font-bold tracking-tight">My Dashboard</h1>
-                <p className="text-muted-foreground">Personal tasks, performance, and goals</p>
+            {/* Dashboard Header Section */}
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-border/10 pb-6">
+                <div className="space-y-1">
+                    <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+                        My Dashboard
+                    </h1>
+                    <p className="text-muted-foreground flex items-center gap-2">
+                        <Activity className="h-4 w-4 text-primary/70" />
+                        Personal tasks, performance, and goals
+                    </p>
+                </div>
+                <div className="flex items-center gap-3">
+                    <div className="hidden md:block h-8 w-px bg-border/20 mx-2" />
+                    <DateRangeFilter />
+                </div>
             </div>
 
             {/* KPI Cards */}

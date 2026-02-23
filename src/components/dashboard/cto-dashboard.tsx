@@ -14,6 +14,7 @@ import {
 } from '@/lib/mock-data/dashboard-filtered';
 
 import { PerformanceTrendChart } from '@/components/dashboard/performance-trend-chart';
+import { DateRangeFilter } from '@/components/filters/date-range-filter';
 
 export function CTODashboard() {
     const { selectedProject, selectedTeam } = useAppSelector((state) => state.dashboard);
@@ -35,6 +36,23 @@ export function CTODashboard() {
 
     return (
         <div className="space-y-8 animate-in fade-in duration-700">
+            {/* Dashboard Header Section */}
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-border/10 pb-6">
+                <div className="space-y-1">
+                    <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+                        {projectName}
+                    </h1>
+                    <p className="text-muted-foreground flex items-center gap-2">
+                        <Activity className="h-4 w-4 text-primary/70" />
+                        Real-time performance overview and health metrics
+                    </p>
+                </div>
+                <div className="flex items-center gap-3">
+                    <div className="hidden md:block h-8 w-px bg-border/20 mx-2" />
+                    <DateRangeFilter />
+                </div>
+            </div>
+
             {/* Top Stats Section */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <KPICard

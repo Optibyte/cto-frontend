@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, X, ChevronDown } from 'lucide-react';
 import {
     Dialog,
     DialogContent,
@@ -182,9 +182,14 @@ export function DateRangePicker({ value, onChange }: DateRangePickerProps) {
 
     return (
         <>
-            <Button variant="outline" className="gap-2" onClick={() => setIsOpen(true)}>
-                <CalendarIcon className="h-4 w-4" />
-                <span>{displayText}</span>
+            <Button
+                variant="outline"
+                onClick={() => setIsOpen(true)}
+                className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium border border-border/50 bg-card/90 hover:bg-primary/10 hover:border-primary/30 transition-all duration-200 min-w-[180px] h-auto"
+            >
+                <CalendarIcon className="h-4 w-4 text-primary" />
+                <span className="flex-1 text-left truncate">{displayText}</span>
+                <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
             </Button>
 
             <Dialog open={isOpen} onOpenChange={setIsOpen}>

@@ -4,12 +4,20 @@ interface DashboardFilterState {
     selectedProject: string;
     selectedTeam: string;
     isFiltering: boolean;
+    dateRange: {
+        from: string;
+        to: string;
+    } | null;
 }
 
 const initialState: DashboardFilterState = {
     selectedProject: 'all',
     selectedTeam: 'all',
     isFiltering: false,
+    dateRange: {
+        from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+        to: new Date().toISOString(),
+    },
 };
 
 const dashboardSlice = createSlice({
@@ -25,6 +33,10 @@ const dashboardSlice = createSlice({
             state.selectedTeam = action.payload;
             state.isFiltering = true;
         },
+        setDateRange(state, action: PayloadAction<{ from: string; to: string }>) {
+            state.dateRange = action.payload;
+            state.isFiltering = true;
+        },
         setIsFiltering(state, action: PayloadAction<boolean>) {
             state.isFiltering = action.payload;
         },
@@ -37,6 +49,7 @@ const dashboardSlice = createSlice({
 export const {
     setSelectedProject,
     setSelectedTeam,
+    setDateRange,
     setIsFiltering,
     resetFilters,
 } = dashboardSlice.actions;

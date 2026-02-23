@@ -13,8 +13,20 @@ export function TeamPerformanceChart({ data }: TeamPerformanceChartProps) {
         <ResponsiveContainer width="100%" height={350}>
             <BarChart data={data}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="team" stroke="hsl(var(--muted-foreground))" />
-                <YAxis stroke="hsl(var(--muted-foreground))" />
+                <XAxis
+                    dataKey="name"
+                    stroke="hsl(var(--muted-foreground))"
+                    fontSize={12}
+                    tickLine={false}
+                    axisLine={false}
+                    dy={10}
+                />
+                <YAxis
+                    stroke="hsl(var(--muted-foreground))"
+                    fontSize={12}
+                    tickLine={false}
+                    axisLine={false}
+                />
                 <Tooltip
                     cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }}
                     content={({ active, payload, label }) => {
