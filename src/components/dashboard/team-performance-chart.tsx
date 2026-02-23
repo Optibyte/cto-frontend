@@ -16,10 +16,32 @@ export function TeamPerformanceChart({ data }: TeamPerformanceChartProps) {
                 <XAxis dataKey="team" stroke="hsl(var(--muted-foreground))" />
                 <YAxis stroke="hsl(var(--muted-foreground))" />
                 <Tooltip
-                    contentStyle={{
-                        backgroundColor: 'hsl(var(--card))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '8px',
+                    cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }}
+                    content={({ active, payload, label }) => {
+                        if (active && payload && payload.length) {
+                            return (
+                                <div className="bg-[#1e1e2e]/90 backdrop-blur-md border border-white/10 p-4 rounded-xl shadow-2xl ring-1 ring-white/5">
+                                    <p className="text-sm font-bold text-white mb-2">{label}</p>
+                                    <div className="space-y-1.5">
+                                        {payload.map((entry: any, index: number) => (
+                                            <div key={index} className="flex items-center gap-2">
+                                                <div
+                                                    className="h-2 w-2 rounded-full"
+                                                    style={{ backgroundColor: entry.color || entry.fill }}
+                                                />
+                                                <span className="text-xs font-medium text-gray-400">
+                                                    {entry.name}:
+                                                </span>
+                                                <span className="text-xs font-bold text-white">
+                                                    {entry.value}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            );
+                        }
+                        return null;
                     }}
                 />
                 <Legend />

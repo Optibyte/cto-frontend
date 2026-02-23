@@ -13,8 +13,8 @@ export function ResourceAllocation({ data }: ResourceAllocationProps) {
     const totalTeam = data.length > 0 ? data[0].total : 50;
 
     return (
-        <Card className="lg:col-span-2 h-full">
-            <CardHeader className="pb-3">
+        <div className="h-full">
+            <CardHeader className="pb-3 border-b border-white/5 bg-white/5 mb-4">
                 <div className="flex items-center justify-between">
                     <CardTitle className="flex items-center gap-2 text-base">
                         <PieChart className="h-5 w-5 text-primary" />
@@ -78,6 +78,6 @@ export function ResourceAllocation({ data }: ResourceAllocationProps) {
                     </div>
                 )}
             </CardContent>
-        </Card>
+        </div>
     );
 }

@@ -68,12 +68,32 @@ export function TeamLevel() {
                                 <XAxis dataKey="name" stroke="#71717a" fontSize={12} tickLine={false} axisLine={false} />
                                 <YAxis stroke="#71717a" fontSize={12} tickLine={false} axisLine={false} />
                                 <Tooltip
-                                    contentStyle={{
-                                        backgroundColor: '#1e1e2e',
-                                        border: '1px solid rgba(139, 92, 246, 0.3)',
-                                        borderRadius: '12px',
-                                        boxShadow: '0 10px 40px rgba(0,0,0,0.3)',
-                                        color: '#ededed',
+                                    cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }}
+                                    content={({ active, payload, label }) => {
+                                        if (active && payload && payload.length) {
+                                            return (
+                                                <div className="bg-[#1e1e2e]/90 backdrop-blur-md border border-white/10 p-4 rounded-xl shadow-2xl ring-1 ring-white/5">
+                                                    <p className="text-sm font-bold text-white mb-2">{label}</p>
+                                                    <div className="space-y-1.5">
+                                                        {payload.map((entry: any, index: number) => (
+                                                            <div key={index} className="flex items-center gap-2">
+                                                                <div
+                                                                    className="h-2 w-2 rounded-full"
+                                                                    style={{ backgroundColor: entry.color || entry.fill }}
+                                                                />
+                                                                <span className="text-xs font-medium text-gray-400">
+                                                                    {entry.name}:
+                                                                </span>
+                                                                <span className="text-xs font-bold text-white">
+                                                                    {entry.value}
+                                                                </span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            );
+                                        }
+                                        return null;
                                     }}
                                 />
                                 <Bar

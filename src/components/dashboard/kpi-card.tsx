@@ -46,17 +46,19 @@ export function KPICard({
     return (
         <Card className={cn(
             'overflow-hidden relative group',
-            'rounded-2xl border border-border/40',
-            'shadow-lg shadow-black/5 dark:shadow-black/20',
-            'transition-all duration-300 ease-out',
-            'hover:-translate-y-1 hover:shadow-2xl hover:shadow-primary/10',
-            'hover:border-primary/30',
-            'fade-in backdrop-blur-sm',
+            'rounded-2xl border border-white/5',
+            'shadow-2xl shadow-black/20 dark:shadow-primary/5',
+            'transition-all duration-500 ease-in-out',
+            'hover:-translate-y-2 hover:shadow-primary/20',
+            'bg-card/40 backdrop-blur-xl',
             className
         )}>
+            {/* Animated Gradient Border Overlay */}
+            <div className="absolute inset-0 border border-primary/10 rounded-2xl pointer-events-none group-hover:border-primary/40 transition-colors duration-700" />
+
             {/* Subtle Gradient Background */}
             <div className={cn(
-                'absolute inset-0 bg-gradient-to-br opacity-30 group-hover:opacity-50 transition-opacity duration-300',
+                'absolute inset-0 bg-gradient-to-br opacity-40 group-hover:opacity-60 transition-opacity duration-500',
                 gradientClass
             )} />
 
