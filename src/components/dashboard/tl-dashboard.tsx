@@ -1,218 +1,203 @@
 'use client';
 
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { KPICard } from '@/components/dashboard/kpi-card';
-import { Target, AlertCircle, GitPullRequest, Bug, Code, CheckCircle2, Clock, Activity } from 'lucide-react';
+import { LearningMetricsCards } from '@/components/dashboard/learning-metrics-cards';
+import { MetricSelector } from '@/components/dashboard/metric-selector';
+import { ChartCustomizer, ChartCustomization } from '@/components/dashboard/chart-customizer';
 import { DateRangeFilter } from '@/components/filters/date-range-filter';
+import { mockLearningMetrics } from '@/lib/mock-data/learning-metrics';
+import { Activity, BarChart3, TrendingUp, Target, Users2, ShieldCheck } from 'lucide-react';
+import {
+    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, LineChart, Line
+} from 'recharts';
+import { useAppSelector } from '@/redux/store';
 
-// Mock data for Team Lead dashboard
-const tlKPIs = {
-    sprintProgress: { current: 72, previous: 65, change: 10.8, trend: 'up' as const, sparkline: [55, 58, 62, 65, 68, 70, 72] },
-    openIssues: { current: 14, previous: 18, change: -22.2, trend: 'down' as const, sparkline: [22, 20, 19, 18, 16, 15, 14] },
-    codeReviewPending: { current: 6, previous: 9, change: -33.3, trend: 'down' as const, sparkline: [12, 10, 9, 8, 7, 6, 6] },
-    bugCount: { current: 3, previous: 5, change: -40, trend: 'down' as const, sparkline: [8, 7, 6, 5, 4, 3, 3] },
-};
-
-const taskAllocation = [
-    { developer: 'Alice Johnson', assigned: 5, inProgress: 2, completed: 3, blocked: 0 },
-    { developer: 'Bob Williams', assigned: 4, inProgress: 1, completed: 2, blocked: 1 },
-    { developer: 'David Chen', assigned: 3, inProgress: 2, completed: 1, blocked: 0 },
-    { developer: 'Eva Martinez', assigned: 6, inProgress: 3, completed: 3, blocked: 0 },
+const tlTeamPerformanceData = [
+    { name: 'Alice Johnson', completed: 15, certifications: 4, skillPoints: 350, speed: 92 },
+    { name: 'Bob Williams', completed: 12, certifications: 2, skillPoints: 280, speed: 85 },
+    { name: 'Carol Davis', completed: 18, certifications: 5, skillPoints: 420, speed: 94 },
+    { name: 'David Chen', completed: 8, certifications: 1, skillPoints: 190, speed: 78 },
+    { name: 'Eva Martinez', completed: 14, certifications: 3, skillPoints: 310, speed: 88 },
 ];
 
-const prQueue = [
-    { id: '#342', title: 'feat: Add OAuth2 integration', author: 'Alice Johnson', status: 'needs-review', changes: '+245 / -18', time: '30m ago' },
-    { id: '#339', title: 'fix: Memory leak in data processing', author: 'Bob Williams', status: 'changes-requested', changes: '+12 / -45', time: '2h ago' },
-    { id: '#337', title: 'refactor: Migrate to TypeScript strict mode', author: 'Eva Martinez', status: 'approved', changes: '+890 / -650', time: '4h ago' },
-    { id: '#335', title: 'docs: Update API documentation', author: 'David Chen', status: 'needs-review', changes: '+120 / -30', time: '6h ago' },
+const tlTeamTrendData = [
+    { week: 'W1', avgScore: 72, activeUsers: 4, completions: 3 },
+    { week: 'W2', avgScore: 75, activeUsers: 5, completions: 5 },
+    { week: 'W3', avgScore: 78, activeUsers: 4, completions: 4 },
+    { week: 'W4', avgScore: 82, activeUsers: 5, completions: 6 },
+    { week: 'W5', avgScore: 85, activeUsers: 5, completions: 8 },
 ];
 
-const codeQualityMetrics = [
-    { metric: 'Test Coverage', value: 84, target: 80, status: 'good' },
-    { metric: 'Code Duplication', value: 3.2, target: 5, status: 'good' },
-    { metric: 'Tech Debt Ratio', value: 8.5, target: 10, status: 'warning' },
-    { metric: 'Lint Errors', value: 0, target: 0, status: 'good' },
-];
+const CHART_AXIS_OPTIONS = ['name', 'completed', 'certifications', 'skillPoints', 'speed'];
 
 export function TLDashboard() {
+    const { selectedTeam } = useAppSelector((state) => state.dashboard);
+    const [selectedMetricIds, setSelectedMetricIds] = useState<string[]>(
+        mockLearningMetrics.map((m) => m.id)
+    );
+    const [drillLevel, setDrillLevel] = useState(0);
+    const [chartConfig, setChartConfig] = useState<ChartCustomization>({
+        xAxis: 'name',
+        yAxis: 'completed',
+        colorScheme: 'forest',
+        showValues: true,
+    });
+
+    const visibleMetrics = mockLearningMetrics.filter((m) => selectedMetricIds.includes(m.id));
+
+    const getBarColor = () => {
+        const schemes: Record<string, string> = {
+            default: '#8b5cf6',
+            ocean: '#0ea5e9',
+            sunset: '#f43f5e',
+            forest: '#22c55e',
+            neon: '#d946ef',
+        };
+        return schemes[chartConfig.colorScheme] || '#22c55e';
+    };
+
+    const teamDisplayName = selectedTeam === 'all' ? 'Team' : selectedTeam.toUpperCase();
+
     return (
-        <div className="space-y-6 animate-in fade-in duration-700">
-            {/* Dashboard Header Section */}
+        <div className="space-y-8 animate-in fade-in duration-700">
+            {/* Dashboard Header */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-border/10 pb-6">
                 <div className="space-y-1">
-                    <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-                        Team Lead Dashboard
+                    <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-emerald-500 to-teal-600 bg-clip-text text-transparent flex items-center gap-3">
+                        <Users2 className="h-8 w-8 text-emerald-500" />
+                        {teamDisplayName} Lead Dashboard
                     </h1>
                     <p className="text-muted-foreground flex items-center gap-2">
-                        <Activity className="h-4 w-4 text-primary/70" />
-                        Sprint management, code quality, and task allocation
+                        <Activity className="h-4 w-4 text-emerald-500/70" />
+                        Team-level learning tracking and skill development
                     </p>
                 </div>
                 <div className="flex items-center gap-3">
-                    <div className="hidden md:block h-8 w-px bg-border/20 mx-2" />
+                    <MetricSelector
+                        metrics={mockLearningMetrics}
+                        selectedIds={selectedMetricIds}
+                        onSelectionChange={setSelectedMetricIds}
+                    />
+                    <div className="hidden md:block h-8 w-px bg-border/20 mx-1" />
                     <DateRangeFilter />
                 </div>
             </div>
 
-            {/* KPI Cards */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <KPICard
-                    title="Sprint Progress"
-                    value={tlKPIs.sprintProgress.current}
-                    unit="%"
-                    change={tlKPIs.sprintProgress.change}
-                    trend={tlKPIs.sprintProgress.trend}
-                    icon={Target}
-                    sparklineData={tlKPIs.sprintProgress.sparkline}
-                />
-                <KPICard
-                    title="Open Issues"
-                    value={tlKPIs.openIssues.current}
-                    unit="issues"
-                    change={tlKPIs.openIssues.change}
-                    trend={tlKPIs.openIssues.trend}
-                    icon={AlertCircle}
-                    sparklineData={tlKPIs.openIssues.sparkline}
-                />
-                <KPICard
-                    title="PR Review Pending"
-                    value={tlKPIs.codeReviewPending.current}
-                    unit="PRs"
-                    change={tlKPIs.codeReviewPending.change}
-                    trend={tlKPIs.codeReviewPending.trend}
-                    icon={GitPullRequest}
-                    sparklineData={tlKPIs.codeReviewPending.sparkline}
-                />
-                <KPICard
-                    title="Bug Count"
-                    value={tlKPIs.bugCount.current}
-                    unit="bugs"
-                    change={tlKPIs.bugCount.change}
-                    trend={tlKPIs.bugCount.trend}
-                    icon={Bug}
-                    sparklineData={tlKPIs.bugCount.sparkline}
-                />
+            {/* Learning Metrics Cards */}
+            <div className="space-y-4">
+                <div className="flex items-center gap-2 px-1">
+                    <ShieldCheck className="h-5 w-5 text-emerald-500" />
+                    <h2 className="text-xl font-bold tracking-tight">Team Learning Progress</h2>
+                    <span className="text-xs text-muted-foreground ml-2">({visibleMetrics.length} tracking)</span>
+                </div>
+                <LearningMetricsCards metrics={visibleMetrics} />
             </div>
 
-            {/* Main Content Grid */}
-            <div className="grid gap-6 lg:grid-cols-3">
-                {/* Task Allocation - 2 columns */}
-                <Card className="lg:col-span-2">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <Target className="h-5 w-5 text-primary" />
-                            Task Allocation
+            {/* Member Performance Chart */}
+            <Card className="border-border/40 shadow-xl shadow-black/5 dark:shadow-black/20 overflow-hidden group bg-card/50 backdrop-blur-md relative">
+                <div className="absolute inset-0 border border-emerald-500/10 rounded-2xl pointer-events-none group-hover:border-emerald-500/30 transition-colors duration-500" />
+                <CardHeader className="flex flex-row items-center justify-between pb-2 relative z-10">
+                    <div className="space-y-1">
+                        <CardTitle className="text-lg font-bold flex items-center gap-2">
+                            <BarChart3 className="h-5 w-5 text-emerald-500" />
+                            Member Learning Distribution {drillLevel > 0 && `(Level ${drillLevel})`}
                         </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="space-y-3">
-                            {taskAllocation.map((dev, index) => (
-                                <div
-                                    key={index}
-                                    className="flex items-center justify-between p-3 rounded-xl bg-muted/50 hover:bg-muted/80 transition-colors"
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary/80 to-primary/40 flex items-center justify-center text-sm font-semibold text-primary-foreground">
-                                            {dev.developer.split(' ').map(n => n[0]).join('')}
-                                        </div>
-                                        <p className="text-sm font-medium">{dev.developer}</p>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                        <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-blue-500/10">
-                                            <span className="text-xs font-medium text-blue-500">{dev.assigned}</span>
-                                            <span className="text-xs text-blue-500/70">assigned</span>
-                                        </div>
-                                        <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-500/10">
-                                            <span className="text-xs font-medium text-amber-500">{dev.inProgress}</span>
-                                            <span className="text-xs text-amber-500/70">active</span>
-                                        </div>
-                                        <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-500/10">
-                                            <span className="text-xs font-medium text-emerald-500">{dev.completed}</span>
-                                            <span className="text-xs text-emerald-500/70">done</span>
-                                        </div>
-                                        {dev.blocked > 0 && (
-                                            <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-red-500/10">
-                                                <span className="text-xs font-medium text-red-500">{dev.blocked}</span>
-                                                <span className="text-xs text-red-500/70">blocked</span>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </CardContent>
-                </Card>
-
-                {/* Code Quality - 1 column */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <Code className="h-5 w-5 text-primary" />
-                            Code Quality
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        {codeQualityMetrics.map((metric, index) => (
-                            <div key={index} className="space-y-2">
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-muted-foreground">{metric.metric}</span>
-                                    <span className="font-medium">
-                                        {metric.value}{metric.metric === 'Test Coverage' || metric.metric === 'Code Duplication' || metric.metric === 'Tech Debt Ratio' ? '%' : ''}
-                                    </span>
-                                </div>
-                                <div className="h-2 rounded-full bg-muted overflow-hidden">
-                                    <div
-                                        className={`h-full rounded-full transition-all duration-500 ${metric.status === 'good'
-                                            ? 'bg-gradient-to-r from-emerald-500 to-emerald-400'
-                                            : 'bg-gradient-to-r from-amber-500 to-amber-400'
-                                            }`}
-                                        style={{ width: `${Math.min((metric.value / metric.target) * 100, 100)}%` }}
-                                    />
-                                </div>
-                            </div>
-                        ))}
-                    </CardContent>
-                </Card>
-            </div>
-
-            {/* PR Review Queue */}
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <GitPullRequest className="h-5 w-5 text-primary" />
-                        Pull Request Queue
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="space-y-3">
-                        {prQueue.map((pr) => (
-                            <div
-                                key={pr.id}
-                                className="flex items-center justify-between p-3 rounded-xl bg-muted/50 hover:bg-muted/80 transition-colors"
-                            >
-                                <div className="flex-1">
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-xs font-mono text-primary">{pr.id}</span>
-                                        <p className="text-sm font-medium">{pr.title}</p>
-                                    </div>
-                                    <p className="text-xs text-muted-foreground mt-1">by {pr.author} • {pr.time}</p>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <span className="text-xs font-mono text-muted-foreground">{pr.changes}</span>
-                                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${pr.status === 'approved'
-                                        ? 'bg-emerald-500/10 text-emerald-500'
-                                        : pr.status === 'needs-review'
-                                            ? 'bg-blue-500/10 text-blue-500'
-                                            : 'bg-amber-500/10 text-amber-500'
-                                        }`}>
-                                        {pr.status === 'needs-review' ? 'Needs Review' : pr.status === 'approved' ? 'Approved' : 'Changes Req.'}
-                                    </span>
-                                </div>
-                            </div>
-                        ))}
+                        <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Individual Contributions & Growth</p>
                     </div>
+                    <ChartCustomizer
+                        axisOptions={CHART_AXIS_OPTIONS}
+                        customization={chartConfig}
+                        onCustomizationChange={setChartConfig}
+                        onDrillUp={drillLevel > 0 ? () => setDrillLevel(drillLevel - 1) : undefined}
+                        onDrillDown={() => setDrillLevel(drillLevel + 1)}
+                    />
+                </CardHeader>
+                <CardContent className="pt-4 relative z-10">
+                    <ResponsiveContainer width="100%" height={320}>
+                        <BarChart data={tlTeamPerformanceData}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
+                            <XAxis dataKey={chartConfig.xAxis} tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
+                            <YAxis tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
+                            <Tooltip
+                                contentStyle={{
+                                    backgroundColor: 'hsl(var(--popover))',
+                                    border: '1px solid hsl(var(--border))',
+                                    borderRadius: '12px',
+                                    fontSize: '12px',
+                                }}
+                            />
+                            <Legend />
+                            <Bar
+                                dataKey={chartConfig.yAxis}
+                                fill={getBarColor()}
+                                radius={[6, 6, 0, 0]}
+                                label={chartConfig.showValues ? { position: 'top', fontSize: 11 } : false}
+                            />
+                        </BarChart>
+                    </ResponsiveContainer>
                 </CardContent>
             </Card>
+
+            {/* Team Week-over-Week Trend */}
+            <Card className="border-border/40 shadow-xl shadow-black/5 dark:shadow-black/20 overflow-hidden group bg-card/50 backdrop-blur-md relative">
+                <div className="absolute inset-0 border border-emerald-500/10 rounded-2xl pointer-events-none group-hover:border-emerald-500/30 transition-colors duration-500" />
+                <CardHeader className="pb-2 relative z-10">
+                    <div className="space-y-1">
+                        <CardTitle className="text-lg font-bold flex items-center gap-2">
+                            <TrendingUp className="h-5 w-5 text-emerald-500" />
+                            Sprint-wise Learning Velocity
+                        </CardTitle>
+                        <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Team Performance Progression</p>
+                    </div>
+                </CardHeader>
+                <CardContent className="pt-4 relative z-10">
+                    <ResponsiveContainer width="100%" height={280}>
+                        <LineChart data={tlTeamTrendData}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
+                            <XAxis dataKey="week" tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
+                            <YAxis tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
+                            <Tooltip
+                                contentStyle={{
+                                    backgroundColor: 'hsl(var(--popover))',
+                                    border: '1px solid hsl(var(--border))',
+                                    borderRadius: '12px',
+                                    fontSize: '12px',
+                                }}
+                            />
+                            <Legend />
+                            <Line type="monotone" dataKey="avgScore" stroke="#10b981" strokeWidth={3} dot={{ r: 6 }} activeDot={{ r: 8 }} name="Avg Score" />
+                            <Line type="monotone" dataKey="completions" stroke="#8b5cf6" strokeWidth={2} strokeDasharray="5 5" name="Completions" />
+                            <Line type="monotone" dataKey="activeUsers" stroke="#3b82f6" strokeWidth={2} name="Active Members" />
+                        </LineChart>
+                    </ResponsiveContainer>
+                </CardContent>
+            </Card>
+
+            {/* Quick Stats Grid */}
+            <div className="grid gap-4 md:grid-cols-4">
+                {[
+                    { label: 'Active Learners', value: '5/5', sub: 'Entire team', icon: Users2 },
+                    { label: 'Avg Skill Score', value: '82', sub: '+5 from last week', icon: Target },
+                    { label: 'Certifications', value: '15', sub: 'Total achieved', icon: ShieldCheck },
+                    { label: 'Weekly Active', value: '100%', sub: 'Participation rate', icon: Activity },
+                ].map((stat, i) => (
+                    <Card key={i} className="border-border/40 shadow-lg bg-card/50 backdrop-blur-md group hover:shadow-xl hover:border-emerald-500/30 transition-all">
+                        <CardContent className="pt-5 pb-4">
+                            <div className="flex flex-col gap-2">
+                                <div className="h-8 w-8 rounded-lg bg-emerald-500/10 flex items-center justify-center group-hover:bg-emerald-500/20 transition-colors">
+                                    <stat.icon className="h-4 w-4 text-emerald-500" />
+                                </div>
+                                <div>
+                                    <p className="text-xl font-extrabold">{stat.value}</p>
+                                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{stat.label}</p>
+                                    <p className="text-[9px] text-muted-foreground/70">{stat.sub}</p>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                ))}
+            </div>
         </div>
     );
 }

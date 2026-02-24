@@ -25,7 +25,7 @@ export default function EditTeamPage({ params }: { params: Promise<{ id: string 
     const router = useRouter();
     const { id: teamId } = use(params);
 
-    const { data: team, isLoading: isLoadingTeam } = useTeam(teamId);
+    const { data: team, isLoading: isLoadingTeam } = useTeam(teamId) as any;
     const { mutate: updateTeam, isPending: isUpdating } = useUpdateTeam();
     const { data: users = [], isLoading: isLoadingUsers }: { data: any[] | undefined, isLoading: boolean } = useUsers() as any;
     const { data: accounts = [], isLoading: isLoadingAccounts } = useAccounts() as any;

@@ -17,9 +17,10 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2, Hash } from 'lucide-react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { MOCK_PRODUCTS, MOCK_MARKETS } from '@/lib/constants';
 
 export default function CreateTeamPage() {
     const router = useRouter();
@@ -32,7 +33,12 @@ export default function CreateTeamPage() {
         description: '',
         teamLeadId: '',
         accountId: '',
+        product: '',
+        market: '',
     });
+
+    // Auto-generate team ID
+    const autoTeamId = `TEAM-${String(Date.now()).slice(-6)}`;
 
     const handleSubmit = (e: FormEvent) => {
         e.preventDefault();
@@ -111,6 +117,15 @@ export default function CreateTeamPage() {
                             </Select>
                         </div>
 
+                        {/* Auto Team ID */}
+                        <div className="flex items-center gap-3 p-3 rounded-xl bg-primary/5 border border-primary/20">
+                            <Hash className="h-5 w-5 text-primary" />
+                            <div>
+                                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Auto-Assigned Team ID</p>
+                                <p className="text-lg font-extrabold text-primary">{autoTeamId}</p>
+                            </div>
+                        </div>
+
                         <div className="space-y-2">
                             <Label htmlFor="name">Team Name</Label>
                             <Input
@@ -155,6 +170,45 @@ export default function CreateTeamPage() {
                                     )}
                                 </SelectContent>
                             </Select>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label>Product</Label>
+                                <Select
+                                    value={formData.product}
+                                    onValueChange={(value: string) => setFormData({ ...formData, product: value })}
+                                >
+                                    <SelectTrigger className="rounded-xl border-border/50 min-h-[44px]">
+                                        <SelectValue placeholder="Select a product" />
+                                    </SelectTrigger>
+                                    <SelectContent className="rounded-xl border-border/50">
+                                        {MOCK_PRODUCTS.map((p) => (
+                                            <SelectItem key={p.id} value={p.id} className="rounded-lg">
+                                                {p.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Market</Label>
+                                <Select
+                                    value={formData.market}
+                                    onValueChange={(value: string) => setFormData({ ...formData, market: value })}
+                                >
+                                    <SelectTrigger className="rounded-xl border-border/50 min-h-[44px]">
+                                        <SelectValue placeholder="Select a market" />
+                                    </SelectTrigger>
+                                    <SelectContent className="rounded-xl border-border/50">
+                                        {MOCK_MARKETS.map((m) => (
+                                            <SelectItem key={m.id} value={m.id} className="rounded-lg">
+                                                {m.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
                         </div>
 
                         <div className="pt-6 flex justify-end gap-3 border-t border-border/30">

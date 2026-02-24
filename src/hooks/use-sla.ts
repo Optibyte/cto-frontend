@@ -28,7 +28,7 @@ export function useSLABreaches(slaId?: string) {
     return useQuery({
         queryKey: ['sla', 'breaches', slaId],
         queryFn: async () => {
-            const { data } = await slaAPI.getBreaches(slaId);
+            const { data } = await slaAPI.getBreaches(slaId!);
             return data;
         },
     });
