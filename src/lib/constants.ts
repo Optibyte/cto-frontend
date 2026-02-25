@@ -41,6 +41,46 @@ export const USER_ROLES = [
     { value: 'Manager', label: 'Manager' },
     { value: 'TeamLead', label: 'Team Lead' },
     { value: 'Employee', label: 'Employee' },
+    { value: 'Market', label: 'Market' },
+    { value: 'Accounts', label: 'Accounts' },
+] as const;
+
+export const METRIC_CLASSES = [
+    { value: 'A', label: 'Class A – Critical' },
+    { value: 'B', label: 'Class B – Important' },
+    { value: 'C', label: 'Class C – Standard' },
+] as const;
+
+export const UPDATE_FREQUENCIES = [
+    { value: 'daily', label: 'Daily' },
+    { value: 'weekly', label: 'Weekly' },
+    { value: 'monthly', label: 'Monthly' },
+] as const;
+
+export const METRIC_DATA_TYPES = [
+    { value: 'int', label: 'Integer' },
+    { value: 'float', label: 'Float' },
+    { value: 'string', label: 'String' },
+    { value: 'boolean', label: 'Boolean' },
+    { value: 'percentage', label: 'Percentage' },
+] as const;
+
+export const MOCK_ACCOUNTS = [
+    { id: 'acc-1', name: 'Optibyte Solutions' },
+    { id: 'acc-2', name: 'TechCorp Inc.' },
+    { id: 'acc-3', name: 'DataFlow Systems' },
+] as const;
+
+export const MOCK_MARKETS = [
+    { id: 'mkt-1', name: 'North America' },
+    { id: 'mkt-2', name: 'Europe' },
+    { id: 'mkt-3', name: 'Asia Pacific' },
+] as const;
+
+export const MOCK_PRODUCTS = [
+    { id: 'prod-1', name: 'Platform Core' },
+    { id: 'prod-2', name: 'Analytics Suite' },
+    { id: 'prod-3', name: 'Mobile App' },
 ] as const;
 
 export const SLA_STATUSES = [

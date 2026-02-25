@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/componen
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Plus, Users, TrendingUp, Search, Trash2, Edit } from 'lucide-react';
+import { Plus, Users, TrendingUp, Search, Trash2, Edit, UsersRound } from 'lucide-react';
 import Link from 'next/link';
 import { useTeams, useDeleteTeam } from '@/hooks/use-teams';
 import { toast } from 'sonner';
@@ -135,10 +135,15 @@ export default function TeamsPage() {
                             </div>
                         </CardContent>
                         <CardFooter className="flex justify-end gap-2 border-t border-border/30 pt-4">
-                            <Link href={`/teams/edit`} className="flex-1">
-                                <Button variant="outline" size="sm" className="w-full rounded-xl border-border/50 hover:bg-accent/50 transition-all">
-                                    <Edit className="h-4 w-4 mr-2" />
-                                    Edit
+                            <Link href={`/teams/${team.id}/members`} className="flex-1">
+                                <Button variant="outline" size="sm" className="w-full rounded-xl border-border/50 hover:bg-primary/5 hover:border-primary/30 transition-all">
+                                    <UsersRound className="h-4 w-4 mr-2" />
+                                    Manage Members
+                                </Button>
+                            </Link>
+                            <Link href={`/teams/edit`}>
+                                <Button variant="outline" size="sm" className="rounded-xl border-border/50 hover:bg-accent/50 transition-all">
+                                    <Edit className="h-4 w-4" />
                                 </Button>
                             </Link>
                             <Button
