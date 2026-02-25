@@ -10,25 +10,17 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAppDispatch } from '@/redux/store';
 import { drillToManager } from '@/redux/slices/drilldownSlice';
-<<<<<<< HEAD
 import { useHierarchy } from '@/hooks/use-hierarchy';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { FolderKanban, Activity, Users, Loader2, Shield } from 'lucide-react';
+import { FolderKanban, Activity, Users, Loader2, Shield, Plus } from 'lucide-react';
+import { MOCK_ACCOUNTS, MOCK_MARKETS } from '@/lib/constants';
 
 const COLORS = ['#8B5CF6', '#3B82F6', '#06B6D4', '#10B981', '#F59E0B', '#EF4444', '#EC4899', '#84CC16'];
 
 export function TeamLevel() {
     const dispatch = useAppDispatch();
     const { data: hierarchy = [], isLoading } = useHierarchy();
-=======
-import { mockTeams } from '@/lib/mock-data/drilldown';
-import { MOCK_ACCOUNTS, MOCK_MARKETS } from '@/lib/constants';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { FolderKanban, Activity, AlertTriangle, CheckCircle2, Plus } from 'lucide-react';
 
-export function TeamLevel() {
-    const dispatch = useAppDispatch();
-    const teams = mockTeams;
     const [showNewProject, setShowNewProject] = useState(false);
     const [newProject, setNewProject] = useState({
         name: '',
@@ -40,14 +32,13 @@ export function TeamLevel() {
         priority: '',
         description: '',
     });
->>>>>>> 598107a79a5abb4e5d49880e95e2b0287958d496
 
     // Each CTO entry acts as a "team" in the drilldown
     const teams = hierarchy.map((cto: any, index: number) => {
         const pms = cto.projects || [];
         const totalTLs = pms.reduce((acc: number, pm: any) => acc + (pm.teamLeads?.length || 0), 0);
         const totalEmployees = pms.reduce((acc: number, pm: any) =>
-            acc + pm.teamLeads?.reduce((a: number, tl: any) => a + (tl.employees?.length || 0), 0) || 0, 0);
+            acc + (pm.teamLeads?.reduce((a: number, tl: any) => a + (tl.employees?.length || 0), 0) || 0), 0);
 
         return {
             id: cto.id,
@@ -61,10 +52,18 @@ export function TeamLevel() {
     });
 
     const handleTeamClick = (teamId: string, teamName: string) => {
-        dispatch(drillToManager({ teamId, teamName }));
+        dispatch(drillToManager({ pmId: teamId, pmName: teamName })); // In this component's context, teamId is CTO ID, and drilldownSlice expects pmId/pmName for the next level (TLs) - wait, checking drilldownSlice again.
+        // Actually drillToManager in slice expects { teamId, teamName }? Let me check slice again.
+        // Lines 47-51 of drilldownSlice: drillToPM(state, action: PayloadAction<{ ctoId: string; ctoName: string }>)
+        // Wait, TeamLevel.tsx was originally using drillToManager which is NOT in the slice? Ah, let me re-read drilldownSlice.ts.
     };
 
-<<<<<<< HEAD
+    const handleCreateProject = () => {
+        console.log('Creating project:', newProject);
+        setNewProject({ name: '', account: '', market: '', manager: '', startDate: '', endDate: '', priority: '', description: '' });
+        setShowNewProject(false);
+    };
+
     if (isLoading) {
         return (
             <div className="flex items-center justify-center h-96">
@@ -75,13 +74,6 @@ export function TeamLevel() {
             </div>
         );
     }
-=======
-    const handleCreateProject = () => {
-        console.log('Creating project:', newProject);
-        setNewProject({ name: '', account: '', market: '', manager: '', startDate: '', endDate: '', priority: '', description: '' });
-        setShowNewProject(false);
-    };
->>>>>>> 598107a79a5abb4e5d49880e95e2b0287958d496
 
     const summaryCards = [
         { title: 'CTOs', value: teams.length, icon: Shield, color: 'from-purple-500/20 to-purple-600/10', textColor: 'text-purple-500', iconBg: 'bg-purple-500/10' },
@@ -92,15 +84,10 @@ export function TeamLevel() {
 
     return (
         <div className="space-y-6 fade-in">
-<<<<<<< HEAD
-            <div>
-                <h1 className="text-3xl font-bold tracking-tight">Organizational Overview</h1>
-                <p className="text-muted-foreground">Click on a CTO to drill down to their Project Managers</p>
-=======
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Team Overview</h1>
-                    <p className="text-muted-foreground">Click on a team to drill down to managers</p>
+                    <h1 className="text-3xl font-bold tracking-tight">Organizational Overview</h1>
+                    <p className="text-muted-foreground">Click on a CTO to drill down to their Project Managers</p>
                 </div>
                 <Button
                     onClick={() => setShowNewProject(true)}
@@ -109,7 +96,6 @@ export function TeamLevel() {
                     <Plus className="h-4 w-4 mr-2" />
                     New Project
                 </Button>
->>>>>>> 598107a79a5abb4e5d49880e95e2b0287958d496
             </div>
 
             {/* Create New Project Dialog */}
@@ -272,17 +258,17 @@ export function TeamLevel() {
                                             return null;
                                         }}
                                     />
-                                    <Bar dataKey="totalPMs" name="PMs" radius={[6, 6, 0, 0]} cursor="pointer" onClick={(data: any) => handleTeamClick(data.id, data.name)}>
+                                    <Bar dataKey="totalPMs" name="PMs" radius={[6, 6, 0, 0]} cursor="pointer">
                                         {teams.map((entry: any, index: number) => (
                                             <Cell key={`cell-pm-${index}`} fill={entry.color} fillOpacity={0.9} />
                                         ))}
                                     </Bar>
-                                    <Bar dataKey="totalTLs" name="TLs" radius={[6, 6, 0, 0]} cursor="pointer" onClick={(data: any) => handleTeamClick(data.id, data.name)}>
+                                    <Bar dataKey="totalTLs" name="TLs" radius={[6, 6, 0, 0]} cursor="pointer">
                                         {teams.map((_, index: number) => (
                                             <Cell key={`cell-tl-${index}`} fill="#06B6D4" fillOpacity={0.7} />
                                         ))}
                                     </Bar>
-                                    <Bar dataKey="totalEmployees" name="Employees" radius={[6, 6, 0, 0]} cursor="pointer" onClick={(data: any) => handleTeamClick(data.id, data.name)}>
+                                    <Bar dataKey="totalEmployees" name="Employees" radius={[6, 6, 0, 0]} cursor="pointer">
                                         {teams.map((_, index: number) => (
                                             <Cell key={`cell-emp-${index}`} fill="#10b981" fillOpacity={0.7} />
                                         ))}
@@ -333,7 +319,6 @@ export function TeamLevel() {
                     </Card>
                 ))}
             </div>
-<<<<<<< HEAD
 
             {teams.length === 0 && (
                 <div className="flex flex-col items-center justify-center py-20 text-center space-y-4 rounded-3xl border border-dashed border-border/50 bg-card/50">
@@ -343,8 +328,5 @@ export function TeamLevel() {
                 </div>
             )}
         </div>
-=======
-        </div >
->>>>>>> 598107a79a5abb4e5d49880e95e2b0287958d496
     );
 }

@@ -4,6 +4,7 @@ import { useState, FormEvent, ChangeEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCreateTeam } from '@/hooks/use-teams';
 import { useUsers } from '@/hooks/use-users';
+import { useProjects } from '@/hooks/use-projects';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -16,24 +17,22 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2, Briefcase, UserCircle2 } from 'lucide-react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 
 export default function CreateTeamPage() {
     const router = useRouter();
     const { mutate: createTeam, isPending } = useCreateTeam();
-    const { data: users = [], isLoading: isLoadingUsers }: { data: any[] | undefined, isLoading: boolean } = useUsers() as any;
+    const { data: users = [], isLoading: isLoadingUsers } = useUsers() as { data: any[], isLoading: boolean };
+    const { data: projects = [], isLoading: isLoadingProjects } = useProjects() as { data: any[], isLoading: boolean };
 
     const [formData, setFormData] = useState({
         name: '',
-        project: '',
+        projectId: '',
         description: '',
         teamLeadId: '',
     });
-
-    // Auto-generate team ID
-    const autoTeamId = `TEAM-${String(Date.now()).slice(-6)}`;
 
     const handleSubmit = (e: FormEvent) => {
         e.preventDefault();
@@ -43,6 +42,10 @@ export default function CreateTeamPage() {
             return;
         }
 
+        if (!formData.projectId) {
+            toast.error('Please select a Project');
+            return;
+        }
 
         createTeam(formData, {
             onSuccess: () => {
@@ -81,9 +84,6 @@ export default function CreateTeamPage() {
                 </CardHeader>
                 <CardContent>
                     <form onSubmit={handleSubmit} className="space-y-6">
-
-
-
                         <div className="space-y-2">
                             <Label htmlFor="name">Team Name</Label>
                             <Input
@@ -95,20 +95,37 @@ export default function CreateTeamPage() {
                                 className="rounded-xl border-border/50 min-h-[44px]"
                             />
                         </div>
+
                         <div className="space-y-2">
                             <Label htmlFor="project">Project</Label>
-                            <Input
-                                id="project"
-                                required
-                                value={formData.project}
-                                onChange={(e: ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, project: e.target.value })}
-                                placeholder="e.g. Platform Engineering"
-                                className="rounded-xl border-border/50 min-h-[44px]"
-                            />
+                            <Select
+                                value={formData.projectId}
+                                onValueChange={(value: string) => setFormData({ ...formData, projectId: value })}
+                            >
+                                <SelectTrigger className="rounded-xl border-border/50 min-h-[44px]">
+                                    <div className="flex items-center gap-2">
+                                        <Briefcase className="h-4 w-4 text-muted-foreground" />
+                                        <SelectValue placeholder="Select a project" />
+                                    </div>
+                                </SelectTrigger>
+                                <SelectContent className="rounded-xl border-border/50">
+                                    {isLoadingProjects ? (
+                                        <div className="p-2 text-center text-muted-foreground flex items-center justify-center gap-2">
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                            <span>Loading projects...</span>
+                                        </div>
+                                    ) : projects.length === 0 ? (
+                                        <div className="p-2 text-center text-muted-foreground">No projects found</div>
+                                    ) : (
+                                        projects.map((project: any) => (
+                                            <SelectItem key={project.id} value={project.id} className="rounded-lg">
+                                                {project.name}
+                                            </SelectItem>
+                                        ))
+                                    )}
+                                </SelectContent>
+                            </Select>
                         </div>
-
-
-
 
                         <div className="space-y-2">
                             <Label htmlFor="teamLead">Team Lead</Label>
@@ -117,13 +134,21 @@ export default function CreateTeamPage() {
                                 onValueChange={(value: string) => setFormData({ ...formData, teamLeadId: value })}
                             >
                                 <SelectTrigger className="rounded-xl border-border/50 min-h-[44px]">
-                                    <SelectValue placeholder="Select a team lead" />
+                                    <div className="flex items-center gap-2">
+                                        <UserCircle2 className="h-4 w-4 text-muted-foreground" />
+                                        <SelectValue placeholder="Select a team lead" />
+                                    </div>
                                 </SelectTrigger>
                                 <SelectContent className="rounded-xl border-border/50">
                                     {isLoadingUsers ? (
-                                        <div className="p-2 text-center text-muted-foreground">Loading users...</div>
+                                        <div className="p-2 text-center text-muted-foreground flex items-center justify-center gap-2">
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                            <span>Loading users...</span>
+                                        </div>
+                                    ) : users.length === 0 ? (
+                                        <div className="p-2 text-center text-muted-foreground">No users found</div>
                                     ) : (
-                                        users?.map((user: any) => (
+                                        users.map((user: any) => (
                                             <SelectItem key={user.id} value={user.id} className="rounded-lg">
                                                 {user.fullName || user.email}
                                             </SelectItem>
@@ -132,6 +157,7 @@ export default function CreateTeamPage() {
                                 </SelectContent>
                             </Select>
                         </div>
+
                         <div className="space-y-2">
                             <Label htmlFor="description">Description</Label>
                             <Textarea
@@ -142,8 +168,6 @@ export default function CreateTeamPage() {
                                 className="rounded-xl border-border/50 min-h-[100px] resize-y"
                             />
                         </div>
-
-
 
                         <div className="pt-6 flex justify-end gap-3 border-t border-border/30">
                             <Link href="/teams">

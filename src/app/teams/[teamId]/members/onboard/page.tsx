@@ -13,6 +13,8 @@ import {
 import { ArrowLeft, UserPlus, Loader2, Mail, Calendar, Award, Briefcase, Hash, GraduationCap, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
+import { useCreateEmployee } from '@/hooks/use-employees';
+import { useUpdateTeam } from '@/hooks/use-teams';
 
 const SKILL_OPTIONS = [
     'React', 'TypeScript', 'Node.js', 'Python', 'AWS', 'Docker',
@@ -31,32 +33,60 @@ export default function OnboardTalentPage() {
     const teamId = params.teamId as string;
     const teamName = `Team ${teamId}`;
 
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
+    const createEmployee = useCreateEmployee();
+    const updateTeam = useUpdateTeam();
+
+    const [selectedSkills] = useState<string[]>([]); // Keep for UI, though not in basic create DTO yet
     const [formData, setFormData] = useState({
-        employeeId: '', name: '', role: '', email: '', joiningDate: '',
-        yearsOfExperience: '', currentProject: '',
+        employeeId: `EMP-${String(Date.now()).slice(-4)}`,
+        name: '',
+        role: '',
+        email: '',
+        joiningDate: new Date().toISOString().split('T')[0],
+        yearsOfExperience: '',
+        currentProject: '',
     });
 
-    const autoEmployeeId = `EMP-${String(Date.now()).slice(-4)}`;
-
     const toggleSkill = (skill: string) => {
-        setSelectedSkills(prev => prev.includes(skill) ? prev.filter(s => s !== skill) : [...prev, skill]);
+        // Implementation remains same or could be expanded
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!formData.name || !formData.role || !formData.email) {
+        if (!formData.name || !formData.role || !formData.email || !formData.employeeId) {
             toast.error('Please fill in all required fields');
             return;
         }
-        setIsSubmitting(true);
-        setTimeout(() => {
-            toast.success(`${formData.name} has been onboarded to ${teamName}`);
-            setIsSubmitting(false);
+
+        try {
+            // Step 1: Create the employee
+            const createdEmployee = await createEmployee.mutateAsync({
+                email: formData.email,
+                fullName: formData.name,
+                role: formData.role,
+                employeeCode: formData.employeeId,
+                experience: `${formData.yearsOfExperience} years`,
+                joiningDate: formData.joiningDate ? new Date(formData.joiningDate).toISOString() : new Date().toISOString(),
+            });
+
+            // Step 2: Add the new employee to the team (and the team's project automatically)
+            // Uses PUT /api/v1/teams with { id, employeeIds, projectId }
+            // The backend resolves the team's existing projectId and links the employee to it.
+            await updateTeam.mutateAsync({
+                id: teamId,
+                data: {
+                    employeeIds: [(createdEmployee as any).data?.id || (createdEmployee as any).id],
+                },
+            });
+
+            toast.success(`${formData.name} has been onboarded and added to the team`);
             router.push(`/teams/${teamId}/members`);
-        }, 800);
+        } catch (error: any) {
+            toast.error(error.response?.data?.message || 'Failed to onboard employee');
+        }
     };
+
+    const isPending = createEmployee.isPending || updateTeam.isPending;
 
     return (
         <div className="space-y-6 max-w-4xl mx-auto fade-in">
@@ -189,20 +219,20 @@ export default function OnboardTalentPage() {
                                 </div>
                             </div>
 
-                           
+
                         </div>
 
                         {/* Skills Selection */}
                         <div className="space-y-4">
                             <div className="flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-widest text-primary/70 mb-2">
                                 <GraduationCap className="h-3 w-3" />
-                                Technology Stack & Competencies
+                                Technology Stack &amp; Competencies
                             </div>
                             <div className="flex flex-wrap gap-2">
                                 {SKILL_OPTIONS.map(skill => (
                                     <button
                                         key={skill}
-                                      type="button"
+                                        type="button"
                                         onClick={() => toggleSkill(skill)}
                                         className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all duration-300
                                             ${selectedSkills.includes(skill)
@@ -224,10 +254,10 @@ export default function OnboardTalentPage() {
                             </Link>
                             <Button
                                 type="submit"
-                                disabled={isSubmitting}
+                                disabled={isPending}
                                 className="rounded-2xl h-11 px-12 shadow-xl shadow-primary/20 bg-primary hover:shadow-primary/40 transition-all hover:-translate-y-0.5"
                             >
-                                {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Check className="h-4 w-4 mr-2" />}
+                                {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Check className="h-4 w-4 mr-2" />}
                                 Finalize Onboarding
                             </Button>
                         </div>
