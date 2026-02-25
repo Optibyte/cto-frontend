@@ -4,7 +4,6 @@ import { useState, FormEvent, ChangeEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCreateTeam } from '@/hooks/use-teams';
 import { useUsers } from '@/hooks/use-users';
-import { useAccounts } from '@/hooks/use-accounts';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -17,24 +16,20 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { ArrowLeft, Loader2, Hash } from 'lucide-react';
+import { ArrowLeft, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { MOCK_PRODUCTS, MOCK_MARKETS } from '@/lib/constants';
 
 export default function CreateTeamPage() {
     const router = useRouter();
     const { mutate: createTeam, isPending } = useCreateTeam();
     const { data: users = [], isLoading: isLoadingUsers }: { data: any[] | undefined, isLoading: boolean } = useUsers() as any;
-    const { data: accounts = [], isLoading: isLoadingAccounts } = useAccounts() as any;
 
     const [formData, setFormData] = useState({
         name: '',
+        project: '',
         description: '',
         teamLeadId: '',
-        accountId: '',
-        product: '',
-        market: '',
     });
 
     // Auto-generate team ID
@@ -48,14 +43,6 @@ export default function CreateTeamPage() {
             return;
         }
 
-        if (!formData.accountId) {
-            // If only one account exists, maybe auto-select? 
-            // But explicit selection is safer.
-            // Or if accounts loaded and length 1, default it.
-            // For now, require selection.
-            toast.error('Please select an Account');
-            return;
-        }
 
         createTeam(formData, {
             onSuccess: () => {
@@ -94,30 +81,8 @@ export default function CreateTeamPage() {
                 </CardHeader>
                 <CardContent>
                     <form onSubmit={handleSubmit} className="space-y-6">
-                        <div className="space-y-2">
-                            <Label htmlFor="account">Account</Label>
-                            <Select
-                                value={formData.accountId}
-                                onValueChange={(value: string) => setFormData({ ...formData, accountId: value })}
-                            >
-                                <SelectTrigger className="rounded-xl border-border/50 min-h-[44px]">
-                                    <SelectValue placeholder="Select an account" />
-                                </SelectTrigger>
-                                <SelectContent className="rounded-xl border-border/50">
-                                    {isLoadingAccounts ? (
-                                        <div className="p-2 text-center text-muted-foreground">Loading accounts...</div>
-                                    ) : (
-                                        accounts?.map((account: any) => (
-                                            <SelectItem key={account.id} value={account.id} className="rounded-lg">
-                                                {account.name}
-                                            </SelectItem>
-                                        ))
-                                    )}
-                                </SelectContent>
-                            </Select>
-                        </div>
 
-                      
+
 
                         <div className="space-y-2">
                             <Label htmlFor="name">Team Name</Label>
@@ -130,17 +95,20 @@ export default function CreateTeamPage() {
                                 className="rounded-xl border-border/50 min-h-[44px]"
                             />
                         </div>
-
                         <div className="space-y-2">
-                            <Label htmlFor="description">Description</Label>
-                            <Textarea
-                                id="description"
-                                value={formData.description}
-                                onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setFormData({ ...formData, description: e.target.value })}
-                                placeholder="Brief description of the team's responsibilities"
-                                className="rounded-xl border-border/50 min-h-[100px] resize-y"
+                            <Label htmlFor="project">Project</Label>
+                            <Input
+                                id="project"
+                                required
+                                value={formData.project}
+                                onChange={(e: ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, project: e.target.value })}
+                                placeholder="e.g. Platform Engineering"
+                                className="rounded-xl border-border/50 min-h-[44px]"
                             />
                         </div>
+
+
+
 
                         <div className="space-y-2">
                             <Label htmlFor="teamLead">Team Lead</Label>
@@ -164,45 +132,18 @@ export default function CreateTeamPage() {
                                 </SelectContent>
                             </Select>
                         </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label>Product</Label>
-                                <Select
-                                    value={formData.product}
-                                    onValueChange={(value: string) => setFormData({ ...formData, product: value })}
-                                >
-                                    <SelectTrigger className="rounded-xl border-border/50 min-h-[44px]">
-                                        <SelectValue placeholder="Select a product" />
-                                    </SelectTrigger>
-                                    <SelectContent className="rounded-xl border-border/50">
-                                        {MOCK_PRODUCTS.map((p) => (
-                                            <SelectItem key={p.id} value={p.id} className="rounded-lg">
-                                                {p.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Market</Label>
-                                <Select
-                                    value={formData.market}
-                                    onValueChange={(value: string) => setFormData({ ...formData, market: value })}
-                                >
-                                    <SelectTrigger className="rounded-xl border-border/50 min-h-[44px]">
-                                        <SelectValue placeholder="Select a market" />
-                                    </SelectTrigger>
-                                    <SelectContent className="rounded-xl border-border/50">
-                                        {MOCK_MARKETS.map((m) => (
-                                            <SelectItem key={m.id} value={m.id} className="rounded-lg">
-                                                {m.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="description">Description</Label>
+                            <Textarea
+                                id="description"
+                                value={formData.description}
+                                onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setFormData({ ...formData, description: e.target.value })}
+                                placeholder="Brief description of the team's responsibilities"
+                                className="rounded-xl border-border/50 min-h-[100px] resize-y"
+                            />
                         </div>
+
+
 
                         <div className="pt-6 flex justify-end gap-3 border-t border-border/30">
                             <Link href="/teams">

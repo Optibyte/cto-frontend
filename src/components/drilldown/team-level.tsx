@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useAppDispatch } from '@/redux/store';
 import { drillToManager } from '@/redux/slices/drilldownSlice';
 import { mockTeams } from '@/lib/mock-data/drilldown';
+import { MOCK_ACCOUNTS, MOCK_MARKETS } from '@/lib/constants';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { FolderKanban, Activity, AlertTriangle, CheckCircle2, Plus } from 'lucide-react';
 
@@ -20,7 +21,8 @@ export function TeamLevel() {
     const [showNewProject, setShowNewProject] = useState(false);
     const [newProject, setNewProject] = useState({
         name: '',
-        team: '',
+        account: '',
+        market: '',
         manager: '',
         startDate: '',
         endDate: '',
@@ -39,7 +41,7 @@ export function TeamLevel() {
 
     const handleCreateProject = () => {
         console.log('Creating project:', newProject);
-        setNewProject({ name: '', team: '', manager: '', startDate: '', endDate: '', priority: '', description: '' });
+        setNewProject({ name: '', account: '', market: '', manager: '', startDate: '', endDate: '', priority: '', description: '' });
         setShowNewProject(false);
     };
 
@@ -84,72 +86,89 @@ export function TeamLevel() {
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div className="grid gap-2">
-                                <Label htmlFor="project-team">Team Lead Name</Label>
-                                <Input
-                                    id="project-team"
-                                    placeholder="Enter team lead name"
-                                    value={newProject.team}
-                                    onChange={(e) => setNewProject({ ...newProject, team: e.target.value })}
-                                />
+                                <Label htmlFor="project-account">Account</Label>
+                                <Select value={newProject.account} onValueChange={(val) => setNewProject({ ...newProject, account: val })}>
+                                    <SelectTrigger id="project-account">
+                                        <SelectValue placeholder="Select account" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {MOCK_ACCOUNTS.map((acc) => (
+                                            <SelectItem key={acc.id} value={acc.id}>{acc.name}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             </div>
                             <div className="grid gap-2">
-                                <Label htmlFor="project-manager">Manager</Label>
-                                <Input
-                                    id="project-manager"
-                                    placeholder="Manager name"
-                                    value={newProject.manager}
-                                    onChange={(e) => setNewProject({ ...newProject, manager: e.target.value })}
-                                />
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="grid gap-2">
-                                <Label htmlFor="project-start">Start Date</Label>
-                                <Input
-                                    id="project-start"
-                                    type="date"
-                                    value={newProject.startDate}
-                                    onChange={(e) => setNewProject({ ...newProject, startDate: e.target.value })}
-                                />
-                            </div>
-                            <div className="grid gap-2">
-                                <Label htmlFor="project-end">End Date</Label>
-                                <Input
-                                    id="project-end"
-                                    type="date"
-                                    value={newProject.endDate}
-                                    onChange={(e) => setNewProject({ ...newProject, endDate: e.target.value })}
-                                />
+                                <Label htmlFor="project-market">Market</Label>
+                                <Select value={newProject.market} onValueChange={(val) => setNewProject({ ...newProject, market: val })}>
+                                    <SelectTrigger id="project-market">
+                                        <SelectValue placeholder="Select market" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {MOCK_MARKETS.map((m) => (
+                                            <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             </div>
                         </div>
                         <div className="grid gap-2">
-                            <Label htmlFor="project-priority">Priority</Label>
-                            <Select value={newProject.priority} onValueChange={(val) => setNewProject({ ...newProject, priority: val })}>
-                                <SelectTrigger id="project-priority">
-                                    <SelectValue placeholder="Select priority" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="low">Low</SelectItem>
-                                    <SelectItem value="medium">Medium</SelectItem>
-                                    <SelectItem value="high">High</SelectItem>
-                                    <SelectItem value="critical">Critical</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="project-description">Description</Label>
-                            <Textarea
-                                id="project-description"
-                                placeholder="Enter project description..."
-                                rows={3}
-                                value={newProject.description}
-                                onChange={(e) => setNewProject({ ...newProject, description: e.target.value })}
+                            <Label htmlFor="project-manager">Manager</Label>
+                            <Input
+                                id="project-manager"
+                                placeholder="Manager name"
+                                value={newProject.manager}
+                                onChange={(e) => setNewProject({ ...newProject, manager: e.target.value })}
                             />
                         </div>
                     </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="grid gap-2">
+                            <Label htmlFor="project-start">Start Date</Label>
+                            <Input
+                                id="project-start"
+                                type="date"
+                                value={newProject.startDate}
+                                onChange={(e) => setNewProject({ ...newProject, startDate: e.target.value })}
+                            />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="project-end">End Date</Label>
+                            <Input
+                                id="project-end"
+                                type="date"
+                                value={newProject.endDate}
+                                onChange={(e) => setNewProject({ ...newProject, endDate: e.target.value })}
+                            />
+                        </div>
+                    </div>
+                    <div className="grid gap-2">
+                        <Label htmlFor="project-priority">Priority</Label>
+                        <Select value={newProject.priority} onValueChange={(val) => setNewProject({ ...newProject, priority: val })}>
+                            <SelectTrigger id="project-priority">
+                                <SelectValue placeholder="Select priority" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="low">Low</SelectItem>
+                                <SelectItem value="medium">Medium</SelectItem>
+                                <SelectItem value="high">High</SelectItem>
+                                <SelectItem value="critical">Critical</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="grid gap-2">
+                        <Label htmlFor="project-description">Description</Label>
+                        <Textarea
+                            id="project-description"
+                            placeholder="Enter project description..."
+                            rows={3}
+                            value={newProject.description}
+                            onChange={(e) => setNewProject({ ...newProject, description: e.target.value })}
+                        />
+                    </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setShowNewProject(false)}>Cancel</Button>
-                        <Button onClick={handleCreateProject} disabled={!newProject.name || !newProject.team}>
+                        <Button onClick={handleCreateProject} disabled={!newProject.name || !newProject.account || !newProject.market}>
                             Create Project
                         </Button>
                     </DialogFooter>
@@ -296,6 +315,6 @@ export function TeamLevel() {
                     </Card>
                 ))}
             </div>
-        </div>
+        </div >
     );
 }
