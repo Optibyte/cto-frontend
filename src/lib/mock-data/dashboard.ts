@@ -32,11 +32,11 @@ export const mockKPIData: Record<string, KPIData> = {
 };
 
 export const mockTeamPerformance: TeamPerformanceData[] = [
-    { team: 'Team Alpha', score: 92, members: 8, velocity: 245, quality: 96 },
-    { team: 'Team Beta', score: 78, members: 6, velocity: 180, quality: 85 },
-    { team: 'Team Gamma', score: 85, members: 10, velocity: 320, quality: 88 },
-    { team: 'Team Delta', score: 65, members: 5, velocity: 140, quality: 72 },
-    { team: 'Team Epsilon', score: 88, members: 7, velocity: 210, quality: 92 },
+    { name: 'Team Alpha', score: 92, members: 8, velocity: 245, quality: 96 },
+    { name: 'Team Beta', score: 78, members: 6, velocity: 180, quality: 85 },
+    { name: 'Team Gamma', score: 85, members: 10, velocity: 320, quality: 88 },
+    { name: 'Team Delta', score: 65, members: 5, velocity: 140, quality: 72 },
+    { name: 'Team Epsilon', score: 88, members: 7, velocity: 210, quality: 92 },
 ];
 
 export const mockSLAStatus = {

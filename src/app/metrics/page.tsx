@@ -1,12 +1,14 @@
 'use client';
 
-import { Activity, Github, Layout, Pencil, Settings2, Calculator, Link2, ScrollText } from 'lucide-react';
+import { Activity, Github, Layout, Pencil, Settings2, Calculator, Link2, ScrollText, PlusCircle, Edit3 } from 'lucide-react';
 import { MetricTypeCard } from '@/components/metrics/metric-type-card';
 import { ManualMetricsTab } from '@/components/metrics/manual-metrics-tab';
 import { DynamicMetricCreation } from '@/components/metrics/dynamic-metric-creation';
 import { CalculatedMetricsTab } from '@/components/metrics/calculated-metrics-tab';
 import { IntegratedMetricsTab } from '@/components/metrics/integrated-metrics-tab';
 import { AuditLogTab } from '@/components/metrics/audit-log-tab';
+import { AddMetricForm } from '@/components/metrics/add-metric-form';
+import { UpdateMetricsTab } from '@/components/metrics/update-metrics-tab';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function MetricsPage() {
@@ -27,8 +29,8 @@ export default function MetricsPage() {
 
             {/* Tabbed Interface */}
             <Tabs defaultValue="manual" className="space-y-8">
-                <div className="sticky top-0 z-10 py-4 bg-background/80 backdrop-blur-md -mx-4 px-4">
-                    <TabsList className="inline-flex h-12 items-center justify-start rounded-2xl bg-muted/30 p-1.5 gap-2 border border-border/50 shadow-inner">
+                <div className="sticky top-0 z-10 py-4 bg-background/80 backdrop-blur-md -mx-4 px-4 overflow-x-auto no-scrollbar">
+                    <TabsList className="inline-flex h-12 items-center justify-start rounded-2xl bg-muted/30 p-1.5 gap-2 border border-border/50 shadow-inner w-max min-w-full">
                         <TabsTrigger
                             value="manual"
                             className="rounded-xl px-6 py-2.5 text-sm font-semibold transition-all duration-200 
@@ -59,25 +61,16 @@ export default function MetricsPage() {
                             <Calculator className="h-4 w-4" />
                             Calculated
                         </TabsTrigger>
+
                         <TabsTrigger
-                            value="integrations"
+                            value="add-metric"
                             className="rounded-xl px-6 py-2.5 text-sm font-semibold transition-all duration-200 
                                      data-[state=active]:bg-primary data-[state=active]:text-white 
                                      data-[state=active]:shadow-[0_0_20px_rgba(139,92,246,0.3)]
                                      hover:bg-muted/50 gap-2.5"
                         >
-                            <Link2 className="h-4 w-4" />
-                            Integrations
-                        </TabsTrigger>
-                        <TabsTrigger
-                            value="audit"
-                            className="rounded-xl px-6 py-2.5 text-sm font-semibold transition-all duration-200 
-                                     data-[state=active]:bg-primary data-[state=active]:text-white 
-                                     data-[state=active]:shadow-[0_0_20px_rgba(139,92,246,0.3)]
-                                     hover:bg-muted/50 gap-2.5"
-                        >
-                            <ScrollText className="h-4 w-4" />
-                            Audit Log
+                            <PlusCircle className="h-4 w-4" />
+                            Add Metric
                         </TabsTrigger>
                     </TabsList>
                 </div>
@@ -94,12 +87,14 @@ export default function MetricsPage() {
                     <CalculatedMetricsTab />
                 </TabsContent>
 
-                <TabsContent value="integrations" className="mt-0">
-                    <IntegratedMetricsTab />
+
+
+                <TabsContent value="add-metric" className="mt-0">
+                    <AddMetricForm />
                 </TabsContent>
 
-                <TabsContent value="audit" className="mt-0">
-                    <AuditLogTab />
+                <TabsContent value="update-metrics" className="mt-0">
+                    <UpdateMetricsTab />
                 </TabsContent>
             </Tabs>
         </div>

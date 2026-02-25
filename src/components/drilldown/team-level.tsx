@@ -1,8 +1,16 @@
 'use client';
 
+import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAppDispatch } from '@/redux/store';
 import { drillToManager } from '@/redux/slices/drilldownSlice';
+<<<<<<< HEAD
 import { useHierarchy } from '@/hooks/use-hierarchy';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { FolderKanban, Activity, Users, Loader2, Shield } from 'lucide-react';
@@ -12,6 +20,27 @@ const COLORS = ['#8B5CF6', '#3B82F6', '#06B6D4', '#10B981', '#F59E0B', '#EF4444'
 export function TeamLevel() {
     const dispatch = useAppDispatch();
     const { data: hierarchy = [], isLoading } = useHierarchy();
+=======
+import { mockTeams } from '@/lib/mock-data/drilldown';
+import { MOCK_ACCOUNTS, MOCK_MARKETS } from '@/lib/constants';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { FolderKanban, Activity, AlertTriangle, CheckCircle2, Plus } from 'lucide-react';
+
+export function TeamLevel() {
+    const dispatch = useAppDispatch();
+    const teams = mockTeams;
+    const [showNewProject, setShowNewProject] = useState(false);
+    const [newProject, setNewProject] = useState({
+        name: '',
+        account: '',
+        market: '',
+        manager: '',
+        startDate: '',
+        endDate: '',
+        priority: '',
+        description: '',
+    });
+>>>>>>> 598107a79a5abb4e5d49880e95e2b0287958d496
 
     // Each CTO entry acts as a "team" in the drilldown
     const teams = hierarchy.map((cto: any, index: number) => {
@@ -35,6 +64,7 @@ export function TeamLevel() {
         dispatch(drillToManager({ teamId, teamName }));
     };
 
+<<<<<<< HEAD
     if (isLoading) {
         return (
             <div className="flex items-center justify-center h-96">
@@ -45,6 +75,13 @@ export function TeamLevel() {
             </div>
         );
     }
+=======
+    const handleCreateProject = () => {
+        console.log('Creating project:', newProject);
+        setNewProject({ name: '', account: '', market: '', manager: '', startDate: '', endDate: '', priority: '', description: '' });
+        setShowNewProject(false);
+    };
+>>>>>>> 598107a79a5abb4e5d49880e95e2b0287958d496
 
     const summaryCards = [
         { title: 'CTOs', value: teams.length, icon: Shield, color: 'from-purple-500/20 to-purple-600/10', textColor: 'text-purple-500', iconBg: 'bg-purple-500/10' },
@@ -55,10 +92,132 @@ export function TeamLevel() {
 
     return (
         <div className="space-y-6 fade-in">
+<<<<<<< HEAD
             <div>
                 <h1 className="text-3xl font-bold tracking-tight">Organizational Overview</h1>
                 <p className="text-muted-foreground">Click on a CTO to drill down to their Project Managers</p>
+=======
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight">Team Overview</h1>
+                    <p className="text-muted-foreground">Click on a team to drill down to managers</p>
+                </div>
+                <Button
+                    onClick={() => setShowNewProject(true)}
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/25 transition-all duration-300 hover:shadow-xl hover:shadow-primary/30 hover:-translate-y-0.5"
+                >
+                    <Plus className="h-4 w-4 mr-2" />
+                    New Project
+                </Button>
+>>>>>>> 598107a79a5abb4e5d49880e95e2b0287958d496
             </div>
+
+            {/* Create New Project Dialog */}
+            <Dialog open={showNewProject} onOpenChange={setShowNewProject}>
+                <DialogContent className="sm:max-w-[550px]">
+                    <DialogHeader>
+                        <DialogTitle className="text-xl font-semibold">Create New Project</DialogTitle>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="grid gap-2">
+                            <Label htmlFor="project-name">Project Name</Label>
+                            <Input
+                                id="project-name"
+                                placeholder="Enter project name"
+                                value={newProject.name}
+                                onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
+                            />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="grid gap-2">
+                                <Label htmlFor="project-account">Account</Label>
+                                <Select value={newProject.account} onValueChange={(val) => setNewProject({ ...newProject, account: val })}>
+                                    <SelectTrigger id="project-account">
+                                        <SelectValue placeholder="Select account" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {MOCK_ACCOUNTS.map((acc) => (
+                                            <SelectItem key={acc.id} value={acc.id}>{acc.name}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="project-market">Market</Label>
+                                <Select value={newProject.market} onValueChange={(val) => setNewProject({ ...newProject, market: val })}>
+                                    <SelectTrigger id="project-market">
+                                        <SelectValue placeholder="Select market" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {MOCK_MARKETS.map((m) => (
+                                            <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="project-manager">Manager</Label>
+                            <Input
+                                id="project-manager"
+                                placeholder="Manager name"
+                                value={newProject.manager}
+                                onChange={(e) => setNewProject({ ...newProject, manager: e.target.value })}
+                            />
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="grid gap-2">
+                            <Label htmlFor="project-start">Start Date</Label>
+                            <Input
+                                id="project-start"
+                                type="date"
+                                value={newProject.startDate}
+                                onChange={(e) => setNewProject({ ...newProject, startDate: e.target.value })}
+                            />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="project-end">End Date</Label>
+                            <Input
+                                id="project-end"
+                                type="date"
+                                value={newProject.endDate}
+                                onChange={(e) => setNewProject({ ...newProject, endDate: e.target.value })}
+                            />
+                        </div>
+                    </div>
+                    <div className="grid gap-2">
+                        <Label htmlFor="project-priority">Priority</Label>
+                        <Select value={newProject.priority} onValueChange={(val) => setNewProject({ ...newProject, priority: val })}>
+                            <SelectTrigger id="project-priority">
+                                <SelectValue placeholder="Select priority" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="low">Low</SelectItem>
+                                <SelectItem value="medium">Medium</SelectItem>
+                                <SelectItem value="high">High</SelectItem>
+                                <SelectItem value="critical">Critical</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="grid gap-2">
+                        <Label htmlFor="project-description">Description</Label>
+                        <Textarea
+                            id="project-description"
+                            placeholder="Enter project description..."
+                            rows={3}
+                            value={newProject.description}
+                            onChange={(e) => setNewProject({ ...newProject, description: e.target.value })}
+                        />
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowNewProject(false)}>Cancel</Button>
+                        <Button onClick={handleCreateProject} disabled={!newProject.name || !newProject.account || !newProject.market}>
+                            Create Project
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             {/* Summary KPI Cards */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -174,6 +333,7 @@ export function TeamLevel() {
                     </Card>
                 ))}
             </div>
+<<<<<<< HEAD
 
             {teams.length === 0 && (
                 <div className="flex flex-col items-center justify-center py-20 text-center space-y-4 rounded-3xl border border-dashed border-border/50 bg-card/50">
@@ -183,5 +343,8 @@ export function TeamLevel() {
                 </div>
             )}
         </div>
+=======
+        </div >
+>>>>>>> 598107a79a5abb4e5d49880e95e2b0287958d496
     );
 }

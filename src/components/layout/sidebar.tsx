@@ -20,6 +20,7 @@ import {
     FolderKanban,
     LucideIcon,
     Shield,
+    ShieldCheck,
 } from 'lucide-react';
 import { title } from 'process';
 
@@ -43,7 +44,7 @@ const navigationItems: NavItem[] = [
         href: '/drilldown',
     },
     {
-        title: 'Teams',
+        title: 'Teams & Employees',
         icon: Users,
         href: '/teams',
     },
@@ -68,6 +69,7 @@ const navigationItems: NavItem[] = [
         icon: Puzzle,
         href: '/integrations',
     },
+
     {
         title: 'Import',
         icon: Upload,
@@ -84,6 +86,12 @@ const navigationItems: NavItem[] = [
         icon: FileSearch,
         href: '/audit',
     },
+
+    {
+        title: 'Access Control',
+        icon: ShieldCheck,
+        href: '/access-control',
+    },
     {
         title: 'Settings',
         icon: Settings,
@@ -96,6 +104,8 @@ const ROLE_LABELS: Record<string, string> = {
     Manager: 'Manager',
     TeamLead: 'Team Lead',
     Employee: 'Employee',
+    Market: 'Market',
+    Accounts: 'Accounts',
 };
 
 export function Sidebar() {

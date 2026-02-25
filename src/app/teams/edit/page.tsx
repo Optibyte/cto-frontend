@@ -4,7 +4,6 @@ import { useState, useEffect, use, FormEvent, ChangeEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTeam, useUpdateTeam } from '@/hooks/use-teams';
 import { useUsers } from '@/hooks/use-users';
-import { useAccounts } from '@/hooks/use-accounts';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -25,25 +24,24 @@ export default function EditTeamPage({ params }: { params: Promise<{ id: string 
     const router = useRouter();
     const { id: teamId } = use(params);
 
-    const { data: team, isLoading: isLoadingTeam } = useTeam(teamId);
+    const { data: team, isLoading: isLoadingTeam } = useTeam(teamId) as any;
     const { mutate: updateTeam, isPending: isUpdating } = useUpdateTeam();
     const { data: users = [], isLoading: isLoadingUsers }: { data: any[] | undefined, isLoading: boolean } = useUsers() as any;
-    const { data: accounts = [], isLoading: isLoadingAccounts } = useAccounts() as any;
 
     const [formData, setFormData] = useState({
         name: '',
+        project: '',
         description: '',
         teamLeadId: '',
-        accountId: '',
     });
 
     useEffect(() => {
         if (team) {
             setFormData({
                 name: team.name || '',
+                project: team.project || '',
                 description: team.description || '',
                 teamLeadId: team.teamLeadId || '',
-                accountId: team.accountId || '',
             });
         }
     }, [team]);
@@ -56,13 +54,7 @@ export default function EditTeamPage({ params }: { params: Promise<{ id: string 
             return;
         }
 
-        if (!formData.accountId) {
-            toast.error('Please select an Account');
-            return;
-        }
-
-        // Remove accountId from payload as it cannot be updated
-        const { accountId, ...updateData } = formData;
+        const updateData = formData;
 
         updateTeam({ id: teamId, data: updateData }, {
             onSuccess: () => {
@@ -105,26 +97,15 @@ export default function EditTeamPage({ params }: { params: Promise<{ id: string 
                 <CardContent>
                     <form onSubmit={handleSubmit} className="space-y-6">
                         <div className="space-y-2">
-                            <Label htmlFor="account">Account</Label>
-                            <Select
-                                value={formData.accountId}
-                                onValueChange={(value: string) => setFormData({ ...formData, accountId: value })}
-                            >
-                                <SelectTrigger className="rounded-xl border-border/50 min-h-[44px]">
-                                    <SelectValue placeholder="Select an account" />
-                                </SelectTrigger>
-                                <SelectContent className="rounded-xl border-border/50">
-                                    {isLoadingAccounts ? (
-                                        <div className="p-2 text-center text-muted-foreground">Loading accounts...</div>
-                                    ) : (
-                                        accounts?.map((account: any) => (
-                                            <SelectItem key={account.id} value={account.id} className="rounded-lg">
-                                                {account.name}
-                                            </SelectItem>
-                                        ))
-                                    )}
-                                </SelectContent>
-                            </Select>
+                            <Label htmlFor="project">Project</Label>
+                            <Input
+                                id="project"
+                                required
+                                value={formData.project}
+                                onChange={(e: ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, project: e.target.value })}
+                                placeholder="e.g. Platform Engineering"
+                                className="rounded-xl border-border/50 min-h-[44px]"
+                            />
                         </div>
 
                         <div className="space-y-2">

@@ -1,5 +1,5 @@
 // User types
-export type UserRole = 'CTO' | 'Manager' | 'TeamLead' | 'Employee';
+export type UserRole = 'CTO' | 'Manager' | 'TeamLead' | 'Employee' | 'Market' | 'Accounts';
 
 export interface User {
     id: string;
@@ -116,6 +116,18 @@ export interface DashboardSLAStatus {
     missed: number;
 }
 
+export interface LeadTimeTrendData {
+    name: string;
+    leadTime: number;
+    mttr: number;
+}
+
+export interface WorkDistributionData {
+    name: string;
+    value: number;
+    color: string;
+}
+
 export interface Activity {
     id: string;
     type: string;
@@ -124,4 +136,61 @@ export interface Activity {
     timestamp: Date;
     user?: User;
     severity?: 'info' | 'warning' | 'error';
+}
+
+// Learning Metric types
+export interface LearningMetric {
+    id: string;
+    name: string;
+    category: string;
+    value: number;
+    target: number;
+    unit: string;
+    trend: 'up' | 'down' | 'neutral';
+    sparkline: number[];
+}
+
+// Metric Definition types (for creating new metrics)
+export type MetricClass = 'A' | 'B' | 'C';
+export type UpdateFrequency = 'daily' | 'weekly' | 'monthly';
+export type MetricDataType = 'int' | 'float' | 'string' | 'boolean' | 'percentage';
+
+export interface MetricDefinition {
+    id: string;
+    name: string;
+    metricClass: MetricClass;
+    threshold: number;
+    updateFrequency: UpdateFrequency;
+    rangeMin: number;
+    rangeMax: number;
+    dataType: MetricDataType;
+    account: string;
+    market: string;
+    project: string;
+    team: string;
+    createdAt: Date;
+}
+
+// Extended Team Member with full metadata
+export interface TeamMemberFull {
+    id: string;
+    employeeId: string;
+    name: string;
+    employeeName?: string;
+    email: string;
+    role: string;
+    dateOfBirth?: string;
+    dob?: string;
+    yearsOfExperience: number;
+    experience?: number;
+    skills: string[];
+    technology?: string;
+    currentProject?: string;
+    teamName?: string;
+    teamId?: string;
+    productName?: string;
+    productId?: string;
+    onboardedDate?: string;
+    teamJoinDate?: string;
+    status: string;
 }

@@ -1,37 +1,99 @@
-import { KPIData, TeamPerformanceData, Activity } from '../types';
+import { KPIData, TeamPerformanceData, Activity, LeadTimeTrendData, WorkDistributionData } from '../types';
 
-// ========== PROJECT & THEME DEFINITIONS ==========
+// ========== HIERARCHY DEFINITIONS ==========
+
+export interface MarketOption {
+    id: string;
+    name: string;
+    accounts: string[];
+}
+
+export interface AccountOption {
+    id: string;
+    name: string;
+    marketId: string;
+    projects: string[];
+}
 
 export interface ProjectOption {
     id: string;
     name: string;
+    accountId: string;
     teams: string[];
 }
 
 export interface TeamOption {
     id: string;
     name: string;
+    projectId: string;
 }
 
+export interface MemberOption {
+    id: string;
+    name: string;
+    teamId: string;
+    role: string;
+}
+
+export const MARKETS: MarketOption[] = [
+    { id: 'north-america', name: 'North America', accounts: ['acc-1', 'acc-2'] },
+    { id: 'europe', name: 'Europe', accounts: ['acc-3'] },
+    { id: 'asia-pacific', name: 'Asia Pacific', accounts: ['acc-4'] },
+];
+
+export const ACCOUNTS: AccountOption[] = [
+    { id: 'acc-1', name: 'Global Finance', marketId: 'north-america', projects: ['banking'] },
+    { id: 'acc-2', name: 'Retail Giant', marketId: 'north-america', projects: ['ecommerce'] },
+    { id: 'acc-3', name: 'Euro Tech', marketId: 'europe', projects: ['hrms'] },
+    { id: 'acc-4', name: 'Pacific AI', marketId: 'asia-pacific', projects: ['ai-analytics'] },
+];
+
 export const PROJECTS: ProjectOption[] = [
-    { id: 'banking', name: 'Banking App', teams: ['ui-ux', 'backend', 'devops', 'qa'] },
-    { id: 'ecommerce', name: 'E-Commerce Platform', teams: ['ui-ux', 'backend', 'devops', 'qa'] },
-    { id: 'hrms', name: 'HRMS System', teams: ['ui-ux', 'backend', 'qa'] },
-    { id: 'ai-analytics', name: 'AI Analytics', teams: ['backend', 'devops', 'qa'] },
+    { id: 'banking', name: 'Banking App', accountId: 'acc-1', teams: ['ui-ux', 'backend', 'devops', 'qa'] },
+    { id: 'ecommerce', name: 'E-Commerce Platform', accountId: 'acc-2', teams: ['ui-ux', 'backend', 'devops', 'qa'] },
+    { id: 'hrms', name: 'HRMS System', accountId: 'acc-3', teams: ['ui-ux', 'backend', 'qa'] },
+    { id: 'ai-analytics', name: 'AI Analytics', accountId: 'acc-4', teams: ['backend', 'devops', 'qa'] },
 ];
 
 export const TEAMS: TeamOption[] = [
-    { id: 'ui-ux', name: 'UI/UX' },
-    { id: 'backend', name: 'Backend' },
-    { id: 'devops', name: 'DevOps' },
-    { id: 'qa', name: 'QA' },
+    { id: 'ui-ux', name: 'UI/UX', projectId: 'banking' }, // Simplified mapping for mock
+    { id: 'backend', name: 'Backend', projectId: 'banking' },
+    { id: 'devops', name: 'DevOps', projectId: 'banking' },
+    { id: 'qa', name: 'QA', projectId: 'banking' },
 ];
+
+// Members mapping for filtering
+export const MEMBERS: MemberOption[] = [
+    { id: 'm1', name: 'Alice Johnson', teamId: 'ui-ux', role: 'Designer' },
+    { id: 'm2', name: 'Bob Smith', teamId: 'ui-ux', role: 'Researcher' },
+    { id: 'm3', name: 'Charlie Brown', teamId: 'backend', role: 'Sr. Engineer' },
+    { id: 'm4', name: 'Diana Prince', teamId: 'backend', role: 'Engineer' },
+    { id: 'm5', name: 'Edward Kim', teamId: 'devops', role: 'Architect' },
+    { id: 'm6', name: 'Frank Miller', teamId: 'qa', role: 'SDET' },
+];
+
+export function getAccountsForMarket(marketId: string): AccountOption[] {
+    if (marketId === 'all') return ACCOUNTS;
+    return ACCOUNTS.filter(a => a.marketId === marketId);
+}
+
+export function getProjectsForAccount(accountId: string): ProjectOption[] {
+    if (accountId === 'all') return PROJECTS;
+    return PROJECTS.filter(p => p.accountId === accountId);
+}
 
 export function getTeamsForProject(projectId: string): TeamOption[] {
     if (projectId === 'all') return TEAMS;
     const project = PROJECTS.find(p => p.id === projectId);
     if (!project) return [];
+    // Note: In real app, teams would be filtered by project. 
+    // For mock, we'll just check if the project has the team ID.
     return TEAMS.filter(t => project.teams.includes(t.id));
+}
+
+export function getMembersForTeam(teamId: string): MemberOption[] {
+    if (teamId === 'all') return MEMBERS;
+    return MEMBERS.filter(m => m.teamId === teamId);
 }
 
 // ========== PROJECT-SPECIFIC KPI DATA ==========
@@ -338,4 +400,81 @@ const allDeployments: Deployment[] = [
 
 export function getFilteredDeployments(projectId: string): Deployment[] {
     return projectId === 'all' ? allDeployments : allDeployments.filter(d => d.projectId === projectId);
+}
+
+// ========== LEAD TIME TREND DATA ==========
+
+const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'];
+
+const allLeadTimeTrend: LeadTimeTrendData[] = months.map((month, i) => ({
+    name: month,
+    leadTime: [4.2, 4.0, 3.8, 3.5, 3.2, 3.0, 2.8][i],
+    mttr: [1.8, 1.7, 1.5, 1.4, 1.2, 1.1, 0.9][i],
+}));
+
+const projectLeadTimeTrend: Record<string, LeadTimeTrendData[]> = {
+    banking: months.map((month, i) => ({
+        name: month,
+        leadTime: [3.2, 3.0, 2.8, 2.5, 2.4, 2.3, 2.2][i],
+        mttr: [1.2, 1.1, 1.0, 0.9, 0.8, 0.8, 0.7][i],
+    })),
+    ecommerce: months.map((month, i) => ({
+        name: month,
+        leadTime: [5.2, 5.0, 4.8, 4.7, 4.6, 4.5, 4.5][i],
+        mttr: [2.2, 2.1, 2.0, 1.9, 1.8, 1.8, 1.8][i],
+    })),
+    hrms: months.map((month, i) => ({
+        name: month,
+        leadTime: [2.8, 2.6, 2.4, 2.2, 2.1, 2.0, 1.9][i],
+        mttr: [0.8, 0.7, 0.6, 0.6, 0.5, 0.5, 0.5][i],
+    })),
+    'ai-analytics': months.map((month, i) => ({
+        name: month,
+        leadTime: [7.2, 7.5, 7.8, 8.0, 8.1, 8.2, 8.3][i],
+        mttr: [2.8, 3.0, 3.2, 3.4, 3.5, 3.5, 3.6][i],
+    })),
+};
+
+export function getFilteredLeadTimeTrend(projectId: string): LeadTimeTrendData[] {
+    return projectId === 'all' ? allLeadTimeTrend : (projectLeadTimeTrend[projectId] || allLeadTimeTrend);
+}
+
+// ========== WORK DISTRIBUTION DATA ==========
+
+const allWorkDistribution: WorkDistributionData[] = [
+    { name: 'Features', value: 45, color: '#8B5CF6' },
+    { name: 'Bugs', value: 25, color: '#F43F5E' },
+    { name: 'Tech Debt', value: 20, color: '#3B82F6' },
+    { name: 'Other', value: 10, color: '#10B981' },
+];
+
+const projectWorkDistribution: Record<string, WorkDistributionData[]> = {
+    banking: [
+        { name: 'Features', value: 55, color: '#8B5CF6' },
+        { name: 'Bugs', value: 15, color: '#F43F5E' },
+        { name: 'Tech Debt', value: 25, color: '#3B82F6' },
+        { name: 'Other', value: 5, color: '#10B981' },
+    ],
+    ecommerce: [
+        { name: 'Features', value: 35, color: '#8B5CF6' },
+        { name: 'Bugs', value: 40, color: '#F43F5E' },
+        { name: 'Tech Debt', value: 15, color: '#3B82F6' },
+        { name: 'Other', value: 10, color: '#10B981' },
+    ],
+    hrms: [
+        { name: 'Features', value: 65, color: '#8B5CF6' },
+        { name: 'Bugs', value: 10, color: '#F43F5E' },
+        { name: 'Tech Debt', value: 15, color: '#3B82F6' },
+        { name: 'Other', value: 10, color: '#10B981' },
+    ],
+    'ai-analytics': [
+        { name: 'Features', value: 25, color: '#8B5CF6' },
+        { name: 'Bugs', value: 30, color: '#F43F5E' },
+        { name: 'Tech Debt', value: 35, color: '#3B82F6' },
+        { name: 'Other', value: 10, color: '#10B981' },
+    ],
+};
+
+export function getFilteredWorkDistribution(projectId: string): WorkDistributionData[] {
+    return projectId === 'all' ? allWorkDistribution : (projectWorkDistribution[projectId] || allWorkDistribution);
 }

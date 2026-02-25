@@ -12,7 +12,8 @@ export type Feature =
     | 'import'
     | 'notifications'
     | 'audit'
-    | 'settings';
+    | 'settings'
+    | 'access-control';
 
 export const ROLE_PERMISSIONS: Record<UserRole, Feature[]> = {
     CTO: [
@@ -28,6 +29,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Feature[]> = {
         'notifications',
         'audit',
         'settings',
+        'access-control',
     ],
     Manager: [
         'dashboard',
@@ -53,6 +55,26 @@ export const ROLE_PERMISSIONS: Record<UserRole, Feature[]> = {
         'notifications',
         'settings',
     ],
+    Market: [
+        'dashboard',
+        'drilldown',
+        'teams',
+        'metrics',
+        'sla',
+        'reports',
+        'notifications',
+        'settings',
+    ],
+    Accounts: [
+        'dashboard',
+        'drilldown',
+        'teams',
+        'metrics',
+        'sla',
+        'reports',
+        'notifications',
+        'settings',
+    ],
 };
 
 // Map sidebar href to feature key
@@ -69,6 +91,7 @@ export const ROUTE_FEATURE_MAP: Record<string, Feature> = {
     '/notifications': 'notifications',
     '/audit': 'audit',
     '/settings': 'settings',
+    '/access-control': 'access-control',
 };
 
 export function canAccess(role: UserRole, feature: Feature): boolean {

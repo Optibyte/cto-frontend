@@ -7,43 +7,40 @@ import { MetricSelector } from '@/components/dashboard/metric-selector';
 import { ChartCustomizer, ChartCustomization } from '@/components/dashboard/chart-customizer';
 import { DateRangeFilter } from '@/components/filters/date-range-filter';
 import { mockLearningMetrics } from '@/lib/mock-data/learning-metrics';
-import { Users, BarChart3, Activity, TrendingUp, Target, Briefcase } from 'lucide-react';
+import { Landmark, BarChart3, Activity, TrendingUp, DollarSign, Target, Users } from 'lucide-react';
 import {
-    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, AreaChart, Area
+    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, LineChart, Line
 } from 'recharts';
-import { useAppSelector } from '@/redux/store';
-import { PROJECTS } from '@/lib/mock-data/dashboard-filtered';
 
-const managerPerformanceData = [
-    { name: 'Team Alpha', completed: 45, certifications: 12, skillPoints: 850, attendance: 98 },
-    { name: 'Team Beta', completed: 38, certifications: 8, skillPoints: 720, attendance: 95 },
-    { name: 'Team Gamma', completed: 52, certifications: 15, skillPoints: 940, attendance: 99 },
-    { name: 'Team Delta', completed: 25, certifications: 5, skillPoints: 480, attendance: 92 },
-    { name: 'Team Epsilon', completed: 42, certifications: 10, skillPoints: 790, attendance: 96 },
+const accountPerformanceData = [
+    { name: 'Optibyte Solutions', score: 92, projects: 8, budget: 450, utilization: 87 },
+    { name: 'TechCorp Inc.', score: 78, projects: 5, budget: 320, utilization: 74 },
+    { name: 'DataFlow Systems', score: 85, projects: 6, budget: 380, utilization: 81 },
+    { name: 'CloudNine Labs', score: 88, projects: 4, budget: 280, utilization: 90 },
+    { name: 'InnovateTech', score: 71, projects: 3, budget: 200, utilization: 68 },
 ];
 
-const managerTrendData = [
-    { month: 'Jan', active: 120, completed: 85, certifications: 18 },
-    { month: 'Feb', active: 135, completed: 92, certifications: 22 },
-    { month: 'Mar', active: 150, completed: 110, certifications: 28 },
-    { month: 'Apr', active: 165, completed: 118, certifications: 30 },
-    { month: 'May', active: 182, completed: 135, certifications: 35 },
-    { month: 'Jun', active: 195, completed: 142, certifications: 38 },
-    { month: 'Jul', active: 210, completed: 155, certifications: 42 },
+const accountTrendData = [
+    { month: 'Jan', optibyte: 85, techcorp: 70, dataflow: 78 },
+    { month: 'Feb', optibyte: 87, techcorp: 72, dataflow: 80 },
+    { month: 'Mar', optibyte: 88, techcorp: 74, dataflow: 81 },
+    { month: 'Apr', optibyte: 89, techcorp: 75, dataflow: 83 },
+    { month: 'May', optibyte: 90, techcorp: 76, dataflow: 84 },
+    { month: 'Jun', optibyte: 91, techcorp: 77, dataflow: 84 },
+    { month: 'Jul', optibyte: 92, techcorp: 78, dataflow: 85 },
 ];
 
-const CHART_AXIS_OPTIONS = ['name', 'completed', 'certifications', 'skillPoints', 'attendance'];
+const CHART_AXIS_OPTIONS = ['name', 'score', 'projects', 'budget', 'utilization'];
 
-export function ManagerDashboard() {
-    const { selectedProject, selectedTeam } = useAppSelector((state) => state.dashboard);
+export function AccountsDashboard() {
     const [selectedMetricIds, setSelectedMetricIds] = useState<string[]>(
         mockLearningMetrics.map((m) => m.id)
     );
     const [drillLevel, setDrillLevel] = useState(0);
     const [chartConfig, setChartConfig] = useState<ChartCustomization>({
         xAxis: 'name',
-        yAxis: 'skillPoints',
-        colorScheme: 'ocean',
+        yAxis: 'score',
+        colorScheme: 'default',
         showValues: false,
     });
 
@@ -51,32 +48,27 @@ export function ManagerDashboard() {
 
     const getBarColor = () => {
         const schemes: Record<string, string> = {
-            default: '#8b5cf6',
+            default: '#f43f5e',
             ocean: '#0ea5e9',
-            sunset: '#f43f5e',
+            sunset: '#fb923c',
             forest: '#22c55e',
-            neon: '#d946ef',
+            neon: '#a855f7',
         };
-        return schemes[chartConfig.colorScheme] || '#0ea5e9';
+        return schemes[chartConfig.colorScheme] || '#f43f5e';
     };
-
-    const projectName = selectedProject === 'all'
-        ? 'All Projects'
-        : PROJECTS.find(p => p.id === selectedProject)?.name || 'Project';
 
     return (
         <div className="space-y-8 animate-in fade-in duration-700">
             {/* Dashboard Header */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-border/10 pb-6">
                 <div className="space-y-1">
-                    <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-blue-500 to-indigo-600 bg-clip-text text-transparent flex items-center gap-3">
-                        <Briefcase className="h-8 w-8 text-blue-500" />
-                        Manager Dashboard
+                    <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-rose-500 to-pink-600 bg-clip-text text-transparent flex items-center gap-3">
+                        <Landmark className="h-8 w-8 text-rose-500" />
+                        Accounts Dashboard
                     </h1>
                     <p className="text-muted-foreground flex items-center gap-2">
-                        <Activity className="h-4 w-4 text-blue-500/70" />
-                        Team-wise learning progress for {projectName}
-                        {selectedTeam !== 'all' && ` · ${selectedTeam.toUpperCase()}`}
+                        <Activity className="h-4 w-4 text-rose-500/70" />
+                        Account-level learning analytics and performance tracking
                     </p>
                 </div>
                 <div className="flex items-center gap-3">
@@ -93,23 +85,23 @@ export function ManagerDashboard() {
             {/* Learning Metrics Cards */}
             <div className="space-y-4">
                 <div className="flex items-center gap-2 px-1">
-                    <Target className="h-5 w-5 text-blue-500" />
-                    <h2 className="text-xl font-bold tracking-tight">Team Learning Overview</h2>
-                    <span className="text-xs text-muted-foreground ml-2">({visibleMetrics.length} metrics)</span>
+                    <Target className="h-5 w-5 text-rose-500" />
+                    <h2 className="text-xl font-bold tracking-tight">Learning Metrics</h2>
+                    <span className="text-xs text-muted-foreground ml-2">({visibleMetrics.length} of {mockLearningMetrics.length} visible)</span>
                 </div>
                 <LearningMetricsCards metrics={visibleMetrics} />
             </div>
 
-            {/* Team Performance Chart */}
+            {/* Account Performance Chart */}
             <Card className="border-border/40 shadow-xl shadow-black/5 dark:shadow-black/20 overflow-hidden group bg-card/50 backdrop-blur-md relative">
-                <div className="absolute inset-0 border border-blue-500/10 rounded-2xl pointer-events-none group-hover:border-blue-500/30 transition-colors duration-500" />
+                <div className="absolute inset-0 border border-rose-500/10 rounded-2xl pointer-events-none group-hover:border-rose-500/30 transition-colors duration-500" />
                 <CardHeader className="flex flex-row items-center justify-between pb-2 relative z-10">
                     <div className="space-y-1">
                         <CardTitle className="text-lg font-bold flex items-center gap-2">
-                            <BarChart3 className="h-5 w-5 text-blue-500" />
-                            Team Capability Analysis {drillLevel > 0 && `(Level ${drillLevel})`}
+                            <BarChart3 className="h-5 w-5 text-rose-500" />
+                            Account Performance {drillLevel > 0 && `(Level ${drillLevel})`}
                         </CardTitle>
-                        <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Skills & Certifications by Team</p>
+                        <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Score & Utilization by Account</p>
                     </div>
                     <ChartCustomizer
                         axisOptions={CHART_AXIS_OPTIONS}
@@ -121,9 +113,9 @@ export function ManagerDashboard() {
                 </CardHeader>
                 <CardContent className="pt-4 relative z-10">
                     <ResponsiveContainer width="100%" height={320}>
-                        <BarChart data={managerPerformanceData}>
+                        <BarChart data={accountPerformanceData}>
                             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
-                            <XAxis dataKey={chartConfig.xAxis} tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
+                            <XAxis dataKey={chartConfig.xAxis} tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
                             <YAxis tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
                             <Tooltip
                                 contentStyle={{
@@ -145,24 +137,24 @@ export function ManagerDashboard() {
                 </CardContent>
             </Card>
 
-            {/* Trend Chart */}
+            {/* Account Trend Chart */}
             <Card className="border-border/40 shadow-xl shadow-black/5 dark:shadow-black/20 overflow-hidden group bg-card/50 backdrop-blur-md relative">
-                <div className="absolute inset-0 border border-blue-500/10 rounded-2xl pointer-events-none group-hover:border-blue-500/30 transition-colors duration-500" />
+                <div className="absolute inset-0 border border-rose-500/10 rounded-2xl pointer-events-none group-hover:border-rose-500/30 transition-colors duration-500" />
                 <CardHeader className="pb-2 relative z-10">
                     <div className="space-y-1">
                         <CardTitle className="text-lg font-bold flex items-center gap-2">
-                            <TrendingUp className="h-5 w-5 text-blue-500" />
-                            Learning Growth Trend
+                            <TrendingUp className="h-5 w-5 text-rose-500" />
+                            Account Score Trend
                         </CardTitle>
-                        <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Activity & Completion Progression</p>
+                        <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Performance Over Time</p>
                     </div>
                 </CardHeader>
                 <CardContent className="pt-4 relative z-10">
                     <ResponsiveContainer width="100%" height={280}>
-                        <AreaChart data={managerTrendData}>
+                        <LineChart data={accountTrendData}>
                             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
                             <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
-                            <YAxis tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
+                            <YAxis tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" domain={[60, 100]} />
                             <Tooltip
                                 contentStyle={{
                                     backgroundColor: 'hsl(var(--popover))',
@@ -172,10 +164,10 @@ export function ManagerDashboard() {
                                 }}
                             />
                             <Legend />
-                            <Area type="monotone" dataKey="active" stackId="1" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.3} name="Active Users" />
-                            <Area type="monotone" dataKey="completed" stackId="1" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.3} name="Courses Done" />
-                            <Area type="monotone" dataKey="certifications" stackId="1" stroke="#10b981" fill="#10b981" fillOpacity={0.3} name="Certifications" />
-                        </AreaChart>
+                            <Line type="monotone" dataKey="optibyte" stroke="#f43f5e" strokeWidth={2.5} dot={{ r: 4 }} name="Optibyte" />
+                            <Line type="monotone" dataKey="techcorp" stroke="#3b82f6" strokeWidth={2.5} dot={{ r: 4 }} name="TechCorp" />
+                            <Line type="monotone" dataKey="dataflow" stroke="#10b981" strokeWidth={2.5} dot={{ r: 4 }} name="DataFlow" />
+                        </LineChart>
                     </ResponsiveContainer>
                 </CardContent>
             </Card>
@@ -183,15 +175,15 @@ export function ManagerDashboard() {
             {/* Summary Stats */}
             <div className="grid gap-4 md:grid-cols-3">
                 {[
-                    { label: 'Total Members', value: '42', sub: 'Across managed teams', icon: Users },
-                    { label: 'Completion Rate', value: '87.2%', sub: 'Avg course progress', icon: Target },
-                    { label: 'Growth Index', value: '+14%', sub: 'Month over month', icon: TrendingUp },
+                    { label: 'Total Accounts', value: '5', sub: 'Active clients', icon: Landmark },
+                    { label: 'Total Budget', value: '$1.63M', sub: 'Combined allocation', icon: DollarSign },
+                    { label: 'Avg Utilization', value: '80%', sub: 'Resource efficiency', icon: Users },
                 ].map((stat, i) => (
-                    <Card key={i} className="border-border/40 shadow-lg bg-card/50 backdrop-blur-md group hover:shadow-xl hover:border-blue-500/30 transition-all">
+                    <Card key={i} className="border-border/40 shadow-lg bg-card/50 backdrop-blur-md group hover:shadow-xl hover:border-rose-500/30 transition-all">
                         <CardContent className="pt-5 pb-4">
                             <div className="flex items-center gap-3">
-                                <div className="p-2.5 rounded-xl bg-blue-500/10 group-hover:bg-blue-500/20 transition-colors">
-                                    <stat.icon className="h-5 w-5 text-blue-500" />
+                                <div className="p-2.5 rounded-xl bg-rose-500/10 group-hover:bg-rose-500/20 transition-colors">
+                                    <stat.icon className="h-5 w-5 text-rose-500" />
                                 </div>
                                 <div>
                                     <p className="text-2xl font-extrabold">{stat.value}</p>

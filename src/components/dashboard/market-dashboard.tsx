@@ -7,43 +7,40 @@ import { MetricSelector } from '@/components/dashboard/metric-selector';
 import { ChartCustomizer, ChartCustomization } from '@/components/dashboard/chart-customizer';
 import { DateRangeFilter } from '@/components/filters/date-range-filter';
 import { mockLearningMetrics } from '@/lib/mock-data/learning-metrics';
-import { Users, BarChart3, Activity, TrendingUp, Target, Briefcase } from 'lucide-react';
+import { Globe, BarChart3, Activity, TrendingUp, Users, Target } from 'lucide-react';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, AreaChart, Area
 } from 'recharts';
-import { useAppSelector } from '@/redux/store';
-import { PROJECTS } from '@/lib/mock-data/dashboard-filtered';
 
-const managerPerformanceData = [
-    { name: 'Team Alpha', completed: 45, certifications: 12, skillPoints: 850, attendance: 98 },
-    { name: 'Team Beta', completed: 38, certifications: 8, skillPoints: 720, attendance: 95 },
-    { name: 'Team Gamma', completed: 52, certifications: 15, skillPoints: 940, attendance: 99 },
-    { name: 'Team Delta', completed: 25, certifications: 5, skillPoints: 480, attendance: 92 },
-    { name: 'Team Epsilon', completed: 42, certifications: 10, skillPoints: 790, attendance: 96 },
+const marketPerformanceData = [
+    { name: 'North America', revenue: 2400, growth: 24, teams: 12, satisfaction: 92 },
+    { name: 'Europe', revenue: 1800, growth: 18, teams: 8, satisfaction: 88 },
+    { name: 'Asia Pacific', revenue: 2200, growth: 32, teams: 10, satisfaction: 90 },
+    { name: 'Latin America', revenue: 900, growth: 15, teams: 5, satisfaction: 85 },
+    { name: 'Middle East', revenue: 600, growth: 28, teams: 3, satisfaction: 87 },
 ];
 
-const managerTrendData = [
-    { month: 'Jan', active: 120, completed: 85, certifications: 18 },
-    { month: 'Feb', active: 135, completed: 92, certifications: 22 },
-    { month: 'Mar', active: 150, completed: 110, certifications: 28 },
-    { month: 'Apr', active: 165, completed: 118, certifications: 30 },
-    { month: 'May', active: 182, completed: 135, certifications: 35 },
-    { month: 'Jun', active: 195, completed: 142, certifications: 38 },
-    { month: 'Jul', active: 210, completed: 155, certifications: 42 },
+const marketTrendData = [
+    { month: 'Jan', namer: 180, europe: 140, apac: 160 },
+    { month: 'Feb', namer: 195, europe: 148, apac: 172 },
+    { month: 'Mar', namer: 210, europe: 155, apac: 188 },
+    { month: 'Apr', namer: 225, europe: 162, apac: 196 },
+    { month: 'May', namer: 248, europe: 170, apac: 210 },
+    { month: 'Jun', namer: 260, europe: 178, apac: 225 },
+    { month: 'Jul', namer: 275, europe: 185, apac: 240 },
 ];
 
-const CHART_AXIS_OPTIONS = ['name', 'completed', 'certifications', 'skillPoints', 'attendance'];
+const CHART_AXIS_OPTIONS = ['name', 'revenue', 'growth', 'teams', 'satisfaction'];
 
-export function ManagerDashboard() {
-    const { selectedProject, selectedTeam } = useAppSelector((state) => state.dashboard);
+export function MarketDashboard() {
     const [selectedMetricIds, setSelectedMetricIds] = useState<string[]>(
         mockLearningMetrics.map((m) => m.id)
     );
     const [drillLevel, setDrillLevel] = useState(0);
     const [chartConfig, setChartConfig] = useState<ChartCustomization>({
         xAxis: 'name',
-        yAxis: 'skillPoints',
-        colorScheme: 'ocean',
+        yAxis: 'revenue',
+        colorScheme: 'default',
         showValues: false,
     });
 
@@ -57,26 +54,21 @@ export function ManagerDashboard() {
             forest: '#22c55e',
             neon: '#d946ef',
         };
-        return schemes[chartConfig.colorScheme] || '#0ea5e9';
+        return schemes[chartConfig.colorScheme] || '#8b5cf6';
     };
-
-    const projectName = selectedProject === 'all'
-        ? 'All Projects'
-        : PROJECTS.find(p => p.id === selectedProject)?.name || 'Project';
 
     return (
         <div className="space-y-8 animate-in fade-in duration-700">
             {/* Dashboard Header */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-border/10 pb-6">
                 <div className="space-y-1">
-                    <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-blue-500 to-indigo-600 bg-clip-text text-transparent flex items-center gap-3">
-                        <Briefcase className="h-8 w-8 text-blue-500" />
-                        Manager Dashboard
+                    <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-cyan-500 to-blue-600 bg-clip-text text-transparent flex items-center gap-3">
+                        <Globe className="h-8 w-8 text-cyan-500" />
+                        Market Dashboard
                     </h1>
                     <p className="text-muted-foreground flex items-center gap-2">
-                        <Activity className="h-4 w-4 text-blue-500/70" />
-                        Team-wise learning progress for {projectName}
-                        {selectedTeam !== 'all' && ` · ${selectedTeam.toUpperCase()}`}
+                        <Activity className="h-4 w-4 text-cyan-500/70" />
+                        Market-level learning analytics and performance metrics
                     </p>
                 </div>
                 <div className="flex items-center gap-3">
@@ -93,23 +85,23 @@ export function ManagerDashboard() {
             {/* Learning Metrics Cards */}
             <div className="space-y-4">
                 <div className="flex items-center gap-2 px-1">
-                    <Target className="h-5 w-5 text-blue-500" />
-                    <h2 className="text-xl font-bold tracking-tight">Team Learning Overview</h2>
-                    <span className="text-xs text-muted-foreground ml-2">({visibleMetrics.length} metrics)</span>
+                    <Target className="h-5 w-5 text-cyan-500" />
+                    <h2 className="text-xl font-bold tracking-tight">Learning Metrics</h2>
+                    <span className="text-xs text-muted-foreground ml-2">({visibleMetrics.length} of {mockLearningMetrics.length} visible)</span>
                 </div>
                 <LearningMetricsCards metrics={visibleMetrics} />
             </div>
 
-            {/* Team Performance Chart */}
+            {/* Market Performance Chart */}
             <Card className="border-border/40 shadow-xl shadow-black/5 dark:shadow-black/20 overflow-hidden group bg-card/50 backdrop-blur-md relative">
-                <div className="absolute inset-0 border border-blue-500/10 rounded-2xl pointer-events-none group-hover:border-blue-500/30 transition-colors duration-500" />
+                <div className="absolute inset-0 border border-cyan-500/10 rounded-2xl pointer-events-none group-hover:border-cyan-500/30 transition-colors duration-500" />
                 <CardHeader className="flex flex-row items-center justify-between pb-2 relative z-10">
                     <div className="space-y-1">
                         <CardTitle className="text-lg font-bold flex items-center gap-2">
-                            <BarChart3 className="h-5 w-5 text-blue-500" />
-                            Team Capability Analysis {drillLevel > 0 && `(Level ${drillLevel})`}
+                            <BarChart3 className="h-5 w-5 text-cyan-500" />
+                            Market Performance {drillLevel > 0 && `(Level ${drillLevel})`}
                         </CardTitle>
-                        <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Skills & Certifications by Team</p>
+                        <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Revenue & Growth by Region</p>
                     </div>
                     <ChartCustomizer
                         axisOptions={CHART_AXIS_OPTIONS}
@@ -121,7 +113,7 @@ export function ManagerDashboard() {
                 </CardHeader>
                 <CardContent className="pt-4 relative z-10">
                     <ResponsiveContainer width="100%" height={320}>
-                        <BarChart data={managerPerformanceData}>
+                        <BarChart data={marketPerformanceData}>
                             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
                             <XAxis dataKey={chartConfig.xAxis} tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
                             <YAxis tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
@@ -145,21 +137,21 @@ export function ManagerDashboard() {
                 </CardContent>
             </Card>
 
-            {/* Trend Chart */}
+            {/* Market Trend Chart */}
             <Card className="border-border/40 shadow-xl shadow-black/5 dark:shadow-black/20 overflow-hidden group bg-card/50 backdrop-blur-md relative">
-                <div className="absolute inset-0 border border-blue-500/10 rounded-2xl pointer-events-none group-hover:border-blue-500/30 transition-colors duration-500" />
+                <div className="absolute inset-0 border border-cyan-500/10 rounded-2xl pointer-events-none group-hover:border-cyan-500/30 transition-colors duration-500" />
                 <CardHeader className="pb-2 relative z-10">
                     <div className="space-y-1">
                         <CardTitle className="text-lg font-bold flex items-center gap-2">
-                            <TrendingUp className="h-5 w-5 text-blue-500" />
-                            Learning Growth Trend
+                            <TrendingUp className="h-5 w-5 text-cyan-500" />
+                            Market Growth Trend
                         </CardTitle>
-                        <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Activity & Completion Progression</p>
+                        <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Regional Performance Over Time</p>
                     </div>
                 </CardHeader>
                 <CardContent className="pt-4 relative z-10">
                     <ResponsiveContainer width="100%" height={280}>
-                        <AreaChart data={managerTrendData}>
+                        <AreaChart data={marketTrendData}>
                             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
                             <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
                             <YAxis tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
@@ -172,9 +164,9 @@ export function ManagerDashboard() {
                                 }}
                             />
                             <Legend />
-                            <Area type="monotone" dataKey="active" stackId="1" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.3} name="Active Users" />
-                            <Area type="monotone" dataKey="completed" stackId="1" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.3} name="Courses Done" />
-                            <Area type="monotone" dataKey="certifications" stackId="1" stroke="#10b981" fill="#10b981" fillOpacity={0.3} name="Certifications" />
+                            <Area type="monotone" dataKey="namer" stackId="1" stroke="#0ea5e9" fill="#0ea5e9" fillOpacity={0.3} name="North America" />
+                            <Area type="monotone" dataKey="europe" stackId="1" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.3} name="Europe" />
+                            <Area type="monotone" dataKey="apac" stackId="1" stroke="#10b981" fill="#10b981" fillOpacity={0.3} name="Asia Pacific" />
                         </AreaChart>
                     </ResponsiveContainer>
                 </CardContent>
@@ -183,15 +175,15 @@ export function ManagerDashboard() {
             {/* Summary Stats */}
             <div className="grid gap-4 md:grid-cols-3">
                 {[
-                    { label: 'Total Members', value: '42', sub: 'Across managed teams', icon: Users },
-                    { label: 'Completion Rate', value: '87.2%', sub: 'Avg course progress', icon: Target },
-                    { label: 'Growth Index', value: '+14%', sub: 'Month over month', icon: TrendingUp },
+                    { label: 'Total Markets', value: '5', sub: 'Active regions', icon: Globe },
+                    { label: 'Avg Satisfaction', value: '88.4%', sub: 'Across all markets', icon: Target },
+                    { label: 'Total Teams', value: '38', sub: 'Globally distributed', icon: Users },
                 ].map((stat, i) => (
-                    <Card key={i} className="border-border/40 shadow-lg bg-card/50 backdrop-blur-md group hover:shadow-xl hover:border-blue-500/30 transition-all">
+                    <Card key={i} className="border-border/40 shadow-lg bg-card/50 backdrop-blur-md group hover:shadow-xl hover:border-cyan-500/30 transition-all">
                         <CardContent className="pt-5 pb-4">
                             <div className="flex items-center gap-3">
-                                <div className="p-2.5 rounded-xl bg-blue-500/10 group-hover:bg-blue-500/20 transition-colors">
-                                    <stat.icon className="h-5 w-5 text-blue-500" />
+                                <div className="p-2.5 rounded-xl bg-cyan-500/10 group-hover:bg-cyan-500/20 transition-colors">
+                                    <stat.icon className="h-5 w-5 text-cyan-500" />
                                 </div>
                                 <div>
                                     <p className="text-2xl font-extrabold">{stat.value}</p>

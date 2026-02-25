@@ -28,7 +28,7 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { Save, User, Info, Lock, Pencil, Plus, Check, LayoutGrid, Users } from 'lucide-react';
+import { Save, User, Info, Lock, Pencil, Plus, Check, LayoutGrid, Users, PlusCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import {
@@ -84,6 +84,15 @@ export function ManualMetricsTab() {
         'mm-3': '', // Client Interaction
         'mm-4': '', // Initiative
         'mm-5': '', // Documentation Quality
+    });
+
+    const [isNewMetricDialogOpen, setIsNewMetricDialogOpen] = useState(false);
+    const [newMetricDef, setNewMetricDef] = useState({
+        name: '',
+        type: 'rating',
+        min: 1,
+        max: 5,
+        thresholds: { red: 2, amber: 3, green: 4 }
     });
 
     const canEdit = ['CTO', 'Manager', 'TeamLead'].includes(CURRENT_USER_ROLE);
@@ -170,6 +179,22 @@ export function ManualMetricsTab() {
         // Reset entries
         setNewEntries({
             'mm-1': '', 'mm-2': '', 'mm-3': '', 'mm-4': '', 'mm-5': ''
+        });
+    };
+
+    const handleCreateMetricDef = () => {
+        if (!newMetricDef.name) {
+            toast.error('Please enter a metric name');
+            return;
+        }
+        toast.success(`Metric "${newMetricDef.name}" defined successfully`);
+        setIsNewMetricDialogOpen(false);
+        setNewMetricDef({
+            name: '',
+            type: 'rating',
+            min: 1,
+            max: 5,
+            thresholds: { red: 2, amber: 3, green: 4 }
         });
     };
 
@@ -306,6 +331,125 @@ export function ManualMetricsTab() {
                                         >
                                             <Check className="h-5 w-5" />
                                             Submit All Metrics
+                                        </Button>
+                                    </DialogFooter>
+                                </DialogContent>
+                            </Dialog>
+
+                            <Dialog open={isNewMetricDialogOpen} onOpenChange={setIsNewMetricDialogOpen}>
+                                <DialogTrigger asChild>
+                                    <Button variant="outline" className="rounded-xl gap-2 h-10 px-5 border-primary/20 hover:bg-primary/5 hover:text-primary transition-all">
+                                        <PlusCircle className="h-4 w-4" />
+                                        New Metric
+                                    </Button>
+                                </DialogTrigger>
+                                <DialogContent className="sm:max-w-[500px] rounded-3xl border-primary/20 backdrop-blur-xl">
+                                    <DialogHeader>
+                                        <DialogTitle className="text-2xl font-bold">Define Manual Metric</DialogTitle>
+                                        <DialogDescription>
+                                            Create a new metric definition for manual entry.
+                                        </DialogDescription>
+                                    </DialogHeader>
+                                    <div className="grid gap-4 py-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="metric-name">Metric Name</Label>
+                                            <Input
+                                                id="metric-name"
+                                                placeholder="e.g. Code Quality"
+                                                className="rounded-xl h-10"
+                                                value={newMetricDef.name}
+                                                onChange={(e) => setNewMetricDef(prev => ({ ...prev, name: e.target.value }))}
+                                            />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <Label>Type</Label>
+                                                <Select
+                                                    value={newMetricDef.type}
+                                                    onValueChange={(v) => setNewMetricDef(prev => ({ ...prev, type: v as any }))}
+                                                >
+                                                    <SelectTrigger className="rounded-xl h-10">
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="rating">Rating</SelectItem>
+                                                        <SelectItem value="percentage">Percentage</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label>Range (Min – Max)</Label>
+                                                <div className="flex items-center gap-2">
+                                                    <Input
+                                                        type="number"
+                                                        className="rounded-xl h-10"
+                                                        value={newMetricDef.min}
+                                                        onChange={(e) => setNewMetricDef(prev => ({ ...prev, min: Number(e.target.value) }))}
+                                                    />
+                                                    <span className="text-muted-foreground">—</span>
+                                                    <Input
+                                                        type="number"
+                                                        className="rounded-xl h-10"
+                                                        value={newMetricDef.max}
+                                                        onChange={(e) => setNewMetricDef(prev => ({ ...prev, max: Number(e.target.value) }))}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="space-y-3">
+                                            <Label>Thresholds (RAG)</Label>
+                                            <div className="grid grid-cols-3 gap-3">
+                                                <div className="space-y-1">
+                                                    <div className="flex items-center gap-1.5 text-[10px] font-bold text-red-500 uppercase">
+                                                        <div className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                                                        Red
+                                                    </div>
+                                                    <Input
+                                                        type="number"
+                                                        className="rounded-xl h-10 border-red-500/20"
+                                                        value={newMetricDef.thresholds.red}
+                                                        onChange={(e) => setNewMetricDef(prev => ({
+                                                            ...prev,
+                                                            thresholds: { ...prev.thresholds, red: Number(e.target.value) }
+                                                        }))}
+                                                    />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <div className="flex items-center gap-1.5 text-[10px] font-bold text-amber-500 uppercase">
+                                                        <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                                                        Amber
+                                                    </div>
+                                                    <Input
+                                                        type="number"
+                                                        className="rounded-xl h-10 border-amber-500/20"
+                                                        value={newMetricDef.thresholds.amber}
+                                                        onChange={(e) => setNewMetricDef(prev => ({
+                                                            ...prev,
+                                                            thresholds: { ...prev.thresholds, amber: Number(e.target.value) }
+                                                        }))}
+                                                    />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <div className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-500 uppercase">
+                                                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                                        Green
+                                                    </div>
+                                                    <Input
+                                                        type="number"
+                                                        className="rounded-xl h-10 border-emerald-500/20"
+                                                        value={newMetricDef.thresholds.green}
+                                                        onChange={(e) => setNewMetricDef(prev => ({
+                                                            ...prev,
+                                                            thresholds: { ...prev.thresholds, green: Number(e.target.value) }
+                                                        }))}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <DialogFooter>
+                                        <Button className="w-full rounded-2xl h-12 font-bold" onClick={handleCreateMetricDef}>
+                                            Create Metric Definition
                                         </Button>
                                     </DialogFooter>
                                 </DialogContent>
