@@ -117,14 +117,7 @@ export default function CreateTeamPage() {
                             </Select>
                         </div>
 
-                        {/* Auto Team ID */}
-                        <div className="flex items-center gap-3 p-3 rounded-xl bg-primary/5 border border-primary/20">
-                            <Hash className="h-5 w-5 text-primary" />
-                            <div>
-                                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Auto-Assigned Team ID</p>
-                                <p className="text-lg font-extrabold text-primary">{autoTeamId}</p>
-                            </div>
-                        </div>
+                      
 
                         <div className="space-y-2">
                             <Label htmlFor="name">Team Name</Label>

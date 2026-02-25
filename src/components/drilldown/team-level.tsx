@@ -1,15 +1,32 @@
 'use client';
 
+import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAppDispatch } from '@/redux/store';
 import { drillToManager } from '@/redux/slices/drilldownSlice';
 import { mockTeams } from '@/lib/mock-data/drilldown';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { FolderKanban, Activity, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { FolderKanban, Activity, AlertTriangle, CheckCircle2, Plus } from 'lucide-react';
 
 export function TeamLevel() {
     const dispatch = useAppDispatch();
     const teams = mockTeams;
+    const [showNewProject, setShowNewProject] = useState(false);
+    const [newProject, setNewProject] = useState({
+        name: '',
+        team: '',
+        manager: '',
+        startDate: '',
+        endDate: '',
+        priority: '',
+        description: '',
+    });
 
     const totalProjects = teams.reduce((sum, t) => sum + t.totalProjects, 0);
     const activeProjects = teams.reduce((sum, t) => sum + t.activeProjects, 0);
@@ -18,6 +35,12 @@ export function TeamLevel() {
 
     const handleTeamClick = (teamId: string, teamName: string) => {
         dispatch(drillToManager({ teamId, teamName }));
+    };
+
+    const handleCreateProject = () => {
+        console.log('Creating project:', newProject);
+        setNewProject({ name: '', team: '', manager: '', startDate: '', endDate: '', priority: '', description: '' });
+        setShowNewProject(false);
     };
 
     const summaryCards = [
@@ -29,10 +52,109 @@ export function TeamLevel() {
 
     return (
         <div className="space-y-6 fade-in">
-            <div>
-                <h1 className="text-3xl font-bold tracking-tight">Team Overview</h1>
-                <p className="text-muted-foreground">Click on a team to drill down to managers</p>
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight">Team Overview</h1>
+                    <p className="text-muted-foreground">Click on a team to drill down to managers</p>
+                </div>
+                <Button
+                    onClick={() => setShowNewProject(true)}
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/25 transition-all duration-300 hover:shadow-xl hover:shadow-primary/30 hover:-translate-y-0.5"
+                >
+                    <Plus className="h-4 w-4 mr-2" />
+                    New Project
+                </Button>
             </div>
+
+            {/* Create New Project Dialog */}
+            <Dialog open={showNewProject} onOpenChange={setShowNewProject}>
+                <DialogContent className="sm:max-w-[550px]">
+                    <DialogHeader>
+                        <DialogTitle className="text-xl font-semibold">Create New Project</DialogTitle>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="grid gap-2">
+                            <Label htmlFor="project-name">Project Name</Label>
+                            <Input
+                                id="project-name"
+                                placeholder="Enter project name"
+                                value={newProject.name}
+                                onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
+                            />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="grid gap-2">
+                                <Label htmlFor="project-team">Team Lead Name</Label>
+                                <Input
+                                    id="project-team"
+                                    placeholder="Enter team lead name"
+                                    value={newProject.team}
+                                    onChange={(e) => setNewProject({ ...newProject, team: e.target.value })}
+                                />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="project-manager">Manager</Label>
+                                <Input
+                                    id="project-manager"
+                                    placeholder="Manager name"
+                                    value={newProject.manager}
+                                    onChange={(e) => setNewProject({ ...newProject, manager: e.target.value })}
+                                />
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="grid gap-2">
+                                <Label htmlFor="project-start">Start Date</Label>
+                                <Input
+                                    id="project-start"
+                                    type="date"
+                                    value={newProject.startDate}
+                                    onChange={(e) => setNewProject({ ...newProject, startDate: e.target.value })}
+                                />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="project-end">End Date</Label>
+                                <Input
+                                    id="project-end"
+                                    type="date"
+                                    value={newProject.endDate}
+                                    onChange={(e) => setNewProject({ ...newProject, endDate: e.target.value })}
+                                />
+                            </div>
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="project-priority">Priority</Label>
+                            <Select value={newProject.priority} onValueChange={(val) => setNewProject({ ...newProject, priority: val })}>
+                                <SelectTrigger id="project-priority">
+                                    <SelectValue placeholder="Select priority" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="low">Low</SelectItem>
+                                    <SelectItem value="medium">Medium</SelectItem>
+                                    <SelectItem value="high">High</SelectItem>
+                                    <SelectItem value="critical">Critical</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="project-description">Description</Label>
+                            <Textarea
+                                id="project-description"
+                                placeholder="Enter project description..."
+                                rows={3}
+                                value={newProject.description}
+                                onChange={(e) => setNewProject({ ...newProject, description: e.target.value })}
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowNewProject(false)}>Cancel</Button>
+                        <Button onClick={handleCreateProject} disabled={!newProject.name || !newProject.team}>
+                            Create Project
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             {/* Summary KPI Cards */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
