@@ -83,6 +83,36 @@ export const MOCK_PRODUCTS = [
     { id: 'prod-3', name: 'Mobile App' },
 ] as const;
 
+export const MOCK_MANAGERS = [
+    { id: 'mgr-1', name: 'Alice Thompson' },
+    { id: 'mgr-2', name: 'Robert Wilson' },
+    { id: 'mgr-3', name: 'Sarah Parker' },
+] as const;
+
+export const MOCK_TEAM_LEADS = [
+    { id: 'tl-1', name: 'James Cook' },
+    { id: 'tl-2', name: 'Elena Rodriguez' },
+    { id: 'tl-3', name: 'Michael Chen' },
+] as const;
+
+export const TEAM_NAMES = [
+    { value: 'Frontend', label: 'Frontend' },
+    { value: 'Backend', label: 'Backend' },
+    { value: 'Fullstack', label: 'Fullstack' },
+    { value: 'DevOps', label: 'DevOps' },
+    { value: 'QA / Testing', label: 'QA / Testing' },
+    { value: 'Mobile (iOS / Android / Flutter / React Native)', label: 'Mobile (iOS / Android / Flutter / React Native)' },
+    { value: 'UI/UX Design', label: 'UI/UX Design' },
+    { value: 'Data Engineering', label: 'Data Engineering' },
+    { value: 'Data Science', label: 'Data Science' },
+    { value: 'Machine Learning / AI', label: 'Machine Learning / AI' },
+    { value: 'Cloud Engineering', label: 'Cloud Engineering' },
+    { value: 'Platform Engineering', label: 'Platform Engineering' },
+    { value: 'SRE (Site Reliability Engineering)', label: 'SRE (Site Reliability Engineering)' },
+    { value: 'Security Engineering', label: 'Security Engineering' },
+    { value: 'Network Engineering', label: 'Network Engineering' },
+] as const;
+
 export const SLA_STATUSES = [
     { value: 'met', label: 'Met', color: 'text-green-500' },
     { value: 'at_risk', label: 'At Risk', color: 'text-yellow-500' },

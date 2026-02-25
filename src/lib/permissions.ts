@@ -88,6 +88,9 @@ export const ROUTE_FEATURE_MAP: Record<string, Feature> = {
     '/audit': 'audit',
     '/settings': 'settings',
     '/access-control': 'access-control',
+    '/onboard/manager': 'teams',
+    '/onboard/team-lead': 'teams',
+    '/onboard/employee': 'teams',
 };
 
 export function canAccess(role: UserRole, feature: Feature): boolean {
