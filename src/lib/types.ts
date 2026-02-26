@@ -192,6 +192,7 @@ export interface TeamMemberFull {
     productId?: string;
     onboardedDate?: string;
     teamJoinDate?: string;
+    project?: string;
     status: string;
 }
 
@@ -199,7 +200,7 @@ export interface ManagerFull {
     id: string;
     name: string;
     email: string;
-    department: string;
+    project: string;
     onboardedDate: string;
     teamSize: number;
     activeProjects: number;
@@ -211,10 +212,19 @@ export interface TeamLeadFull {
     id: string;
     name: string;
     email: string;
-    department: string;
+    project: string;
     onboardedDate: string;
     teamSize: number;
     performance: number;
     status: 'Active' | 'Inactive';
     avatar?: string;
+}
+export interface ProjectFull {
+    id: string;
+    name: string;
+    startDate: string;
+    enddate: string;
+    teamSize: number;
+    progress: number;
+    status: 'Active' | 'Completed' | 'Delayed' | 'On-Hold' | 'PLANNED';
 }

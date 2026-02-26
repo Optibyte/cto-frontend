@@ -36,7 +36,7 @@ const initialMockEmployees: TeamMemberFull[] = [
         name: 'Alice Johnson',
         email: 'alice.j@cto.ai',
         role: 'Frontend Developer',
-        department: 'Banking',
+        project: 'Banking',
         yearsOfExperience: 5,
         skills: ['React', 'TypeScript', 'Tailwind'],
         currentProject: 'Mobile Banking App',
@@ -50,7 +50,7 @@ const initialMockEmployees: TeamMemberFull[] = [
         name: 'Bob Smith',
         email: 'bob.s@cto.ai',
         role: 'Backend Developer',
-        department: 'Logistics',
+        project: 'Logistics',
         yearsOfExperience: 8,
         skills: ['Node.js', 'PostgreSQL', 'Docker'],
         currentProject: 'Fleet Management v2',
@@ -64,7 +64,7 @@ const initialMockEmployees: TeamMemberFull[] = [
         name: 'Charlie Davis',
         email: 'charlie.d@cto.ai',
         role: 'QA Engineer',
-        department: 'Healthcare',
+        project: 'Healthcare',
         yearsOfExperience: 3,
         skills: ['Cypress', 'Jest', 'Playwright'],
         currentProject: 'Patient Portal',
@@ -84,12 +84,13 @@ export function EmployeeManagement() {
         email: '',
         role: '',
         employeeId: '',
+        project: '',
         status: 'Active'
     });
 
     const handleOpenAddDialog = () => {
         setEditingEmployee(null);
-        setFormData({ name: '', email: '', role: '', employeeId: '', status: 'Active' });
+        setFormData({ name: '', email: '', role: '', employeeId: '', project: '', status: 'Active' });
         setIsDialogOpen(true);
     };
 
@@ -100,6 +101,7 @@ export function EmployeeManagement() {
             email: emp.email,
             role: emp.role,
             employeeId: emp.employeeId,
+            project: emp.project || '',
             status: emp.status
         });
         setIsDialogOpen(true);
@@ -240,7 +242,7 @@ export function EmployeeManagement() {
                                                 <div className="flex flex-col gap-1">
                                                     <span className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1">
                                                         <Building2 className="h-3 w-3" />
-                                                        {(emp as any).department || 'N/A'}
+                                                        {emp.project || 'N/A'}
                                                     </span>
                                                     <span className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1">
                                                         <Code className="h-3 w-3" />
@@ -256,8 +258,8 @@ export function EmployeeManagement() {
                                             </td>
                                             <td className="py-5 px-4 text-center">
                                                 <Badge className={`rounded-xl px-2.5 py-0.5 text-[10px] font-black uppercase tracking-widest border-0 ${emp.status === 'Active'
-                                                        ? 'bg-emerald-500/10 text-emerald-500'
-                                                        : 'bg-rose-500/10 text-rose-500'
+                                                    ? 'bg-emerald-500/10 text-emerald-500'
+                                                    : 'bg-rose-500/10 text-rose-500'
                                                     }`}>
                                                     {emp.status}
                                                 </Badge>
@@ -339,6 +341,16 @@ export function EmployeeManagement() {
                                 value={formData.role}
                                 onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                                 placeholder="e.g. Software Engineer"
+                                className="rounded-xl"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="project">Project</Label>
+                            <Input
+                                id="project"
+                                value={formData.project}
+                                onChange={(e) => setFormData({ ...formData, project: e.target.value })}
+                                placeholder="e.g. Banking"
                                 className="rounded-xl"
                             />
                         </div>

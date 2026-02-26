@@ -35,7 +35,7 @@ const initialMockManagers: ManagerFull[] = [
         id: 'mgr-001',
         name: 'Ravi Kumar',
         email: 'ravi.k@cto.ai',
-        department: 'Banking',
+        project: 'Banking',
         onboardedDate: '2023-01-15',
         teamSize: 24,
         activeProjects: 6,
@@ -46,7 +46,7 @@ const initialMockManagers: ManagerFull[] = [
         id: 'mgr-002',
         name: 'Priya Sharma',
         email: 'priya.s@cto.ai',
-        department: 'Healthcare',
+        project: 'Healthcare',
         onboardedDate: '2023-03-20',
         teamSize: 18,
         activeProjects: 5,
@@ -57,7 +57,7 @@ const initialMockManagers: ManagerFull[] = [
         id: 'mgr-003',
         name: 'Ankit Patel',
         email: 'ankit.p@cto.ai',
-        department: 'E-Commerce',
+        project: 'E-Commerce',
         onboardedDate: '2023-06-10',
         teamSize: 20,
         activeProjects: 4,
@@ -74,13 +74,13 @@ export function ManagerManagement() {
     const [formData, setFormData] = useState({
         name: '',
         email: '',
-        department: '',
+        project: '',
         status: 'Active' as 'Active' | 'Inactive'
     });
 
     const handleOpenAddDialog = () => {
         setEditingManager(null);
-        setFormData({ name: '', email: '', department: '', status: 'Active' });
+        setFormData({ name: '', email: '', project: '', status: 'Active' });
         setIsDialogOpen(true);
     };
 
@@ -89,7 +89,7 @@ export function ManagerManagement() {
         setFormData({
             name: manager.name,
             email: manager.email,
-            department: manager.department,
+            project: manager.project,
             status: manager.status
         });
         setIsDialogOpen(true);
@@ -103,7 +103,7 @@ export function ManagerManagement() {
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
-        if (!formData.name || !formData.email || !formData.department) {
+        if (!formData.name || !formData.email || !formData.project) {
             toast.error('Please fill in all required fields');
             return;
         }
@@ -144,7 +144,7 @@ export function ManagerManagement() {
     const filteredManagers = managers.filter(m =>
         m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         m.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        m.department.toLowerCase().includes(searchQuery.toLowerCase())
+        m.project.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
     return (
@@ -188,7 +188,7 @@ export function ManagerManagement() {
                             <thead>
                                 <tr className="border-b border-border/10 bg-muted/20">
                                     <th className="text-left py-5 px-6 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground">Manager</th>
-                                    <th className="text-left py-5 px-4 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground">Department</th>
+                                    <th className="text-left py-5 px-4 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground">Project</th>
                                     <th className="text-left py-5 px-4 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground">Stats</th>
                                     <th className="text-left py-5 px-4 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground">Joined</th>
                                     <th className="text-left py-5 px-4 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground text-center">Status</th>
@@ -219,7 +219,7 @@ export function ManagerManagement() {
                                             <td className="py-5 px-4">
                                                 <div className="flex items-center gap-2">
                                                     <Building2 className="h-4 w-4 text-muted-foreground" />
-                                                    <span className="text-sm font-medium">{m.department}</span>
+                                                    <span className="text-sm font-medium">{m.project}</span>
                                                 </div>
                                             </td>
                                             <td className="py-5 px-4">
@@ -242,8 +242,8 @@ export function ManagerManagement() {
                                             </td>
                                             <td className="py-5 px-4 text-center">
                                                 <Badge className={`rounded-xl px-2.5 py-0.5 text-[10px] font-black uppercase tracking-widest border-0 ${m.status === 'Active'
-                                                        ? 'bg-emerald-500/10 text-emerald-500'
-                                                        : 'bg-rose-500/10 text-rose-500'
+                                                    ? 'bg-emerald-500/10 text-emerald-500'
+                                                    : 'bg-rose-500/10 text-rose-500'
                                                     }`}>
                                                     {m.status}
                                                 </Badge>
@@ -309,11 +309,11 @@ export function ManagerManagement() {
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="department">Department</Label>
+                            <Label htmlFor="project">Project</Label>
                             <Input
-                                id="department"
-                                value={formData.department}
-                                onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                                id="project"
+                                value={formData.project}
+                                onChange={(e) => setFormData({ ...formData, project: e.target.value })}
                                 placeholder="e.g. Banking"
                                 className="rounded-xl"
                             />

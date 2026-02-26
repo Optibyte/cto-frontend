@@ -1,6 +1,7 @@
 import { mockTeams, mockTeamMembers } from '../mock-data/teams';
 import { mockSLADefinitions, mockSLABreaches } from '../mock-data/sla';
 import { mockKPIData, mockTeamPerformance, mockSLAStatus, mockActivities } from '../mock-data/dashboard';
+import { API_BASE_URL } from '../constants';
 
 // Helper to simulate API delay
 const delay = (ms: number = 500) => new Promise(resolve => setTimeout(resolve, ms));
@@ -137,5 +138,62 @@ export const accountsAPI = {
     getAll: async () => {
         await delay();
         return { data: [{ id: 'a1', name: 'Default Account' }] };
+    }
+};
+
+const PROJECTS_API_URL = 'http://localhost:4000/api/v1/projects';
+
+export const projectsAPI = {
+    getAll: async () => {
+        const response = await fetch(PROJECTS_API_URL);
+        if (!response.ok) throw new Error('Failed to fetch projects');
+        const data = await response.json();
+        return { data: data.data || data };
+    },
+    create: async (projectData: any) => {
+        // Only send name if other fields are "unexpected" by the backend
+        const payload = {
+            name: projectData.name,
+            // Add other fields only if they are not empty/zero to minimize 400 risks
+            ...(projectData.startDate && { startDate: projectData.startDate }),
+            ...(projectData.enddate && { enddate: projectData.enddate }),
+            ...(projectData.status && { status: projectData.status }),
+            ...(projectData.teamSize > 0 && { teamSize: projectData.teamSize }),
+            ...(projectData.progress > 0 && { progress: projectData.progress }),
+        };
+
+        const response = await fetch(PROJECTS_API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload),
+        });
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.message || 'Failed to create project');
+        }
+        const data = await response.json();
+        return { data: data.data || data };
+    },
+    update: async (id: string, projectData: any) => {
+        const response = await fetch(`${PROJECTS_API_URL}/${id}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(projectData),
+        });
+        if (!response.ok) throw new Error('Failed to update project');
+        const data = await response.json();
+        return { data: data.data || data };
+    },
+    delete: async (id: string) => {
+        const response = await fetch(`${PROJECTS_API_URL}/${id}`, {
+            method: 'DELETE',
+        });
+        if (!response.ok) throw new Error('Failed to delete project');
+        const data = await response.json();
+        return { data: data.data || data };
     }
 };

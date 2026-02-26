@@ -82,14 +82,14 @@ export function TeamMembersManager({ teamId, teamName, initialMembers }: TeamMem
                             className="pl-9 w-[240px] rounded-xl border-border/50 h-10 bg-card/50"
                         />
                     </div>
-                    <Link href={`/teams/${teamId}/members/onboard`}>
+                  
                         <Button
                             className="rounded-xl shadow-lg transition-all h-10 px-6 gap-2 bg-primary shadow-primary/20 hover:shadow-primary/40"
                         >
                             <UserPlus className="h-4 w-4" />
-                            Onboard Talent
+                            Add Member
                         </Button>
-                    </Link>
+                   
                 </div>
             </div>
 
