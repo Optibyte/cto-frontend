@@ -21,6 +21,8 @@ import {
     LucideIcon,
     Shield,
     ShieldCheck,
+    UserPlus,
+    UserCheck,
 } from 'lucide-react';
 import { title } from 'process';
 
@@ -54,11 +56,21 @@ const navigationItems: NavItem[] = [
         href: '/metrics',
     },
     {
-        title: "SLA",
-        icon: Target,
-        href: "/sla",
-
+        title: ' Manager',
+        icon: ShieldCheck,
+        href: '/onboard/manager',
     },
+    {
+        title: ' Team Lead',
+        icon: UserCheck,
+        href: '/onboard/team-lead',
+    },
+    {
+        title: 'Onboard Employee',
+        icon: UserPlus,
+        href: '/onboard/employee',
+    },
+
     {
         title: 'Reports',
         icon: FileText,
@@ -75,28 +87,13 @@ const navigationItems: NavItem[] = [
         icon: Upload,
         href: '/import',
     },
-    {
-        title: 'Notifications',
-        icon: Bell,
-        href: '/notifications',
-        badge: 5,
-    },
+
     {
         title: 'Audit Logs',
         icon: FileSearch,
         href: '/audit',
     },
 
-    {
-        title: 'Access Control',
-        icon: ShieldCheck,
-        href: '/access-control',
-    },
-    {
-        title: 'Settings',
-        icon: Settings,
-        href: '/settings',
-    },
 ];
 
 const ROLE_LABELS: Record<string, string> = {

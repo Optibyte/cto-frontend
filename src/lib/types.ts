@@ -194,3 +194,27 @@ export interface TeamMemberFull {
     teamJoinDate?: string;
     status: string;
 }
+
+export interface ManagerFull {
+    id: string;
+    name: string;
+    email: string;
+    department: string;
+    onboardedDate: string;
+    teamSize: number;
+    activeProjects: number;
+    status: 'Active' | 'Inactive';
+    avatar?: string;
+}
+
+export interface TeamLeadFull {
+    id: string;
+    name: string;
+    email: string;
+    department: string;
+    onboardedDate: string;
+    teamSize: number;
+    performance: number;
+    status: 'Active' | 'Inactive';
+    avatar?: string;
+}
