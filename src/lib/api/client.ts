@@ -141,38 +141,59 @@ export const accountsAPI = {
     }
 };
 
+const PROJECTS_API_URL = 'http://localhost:4000/api/v1/projects';
+
 export const projectsAPI = {
     getAll: async () => {
-        const response = await fetch(`${API_BASE_URL}/api/v1/projects`);
+        const response = await fetch(PROJECTS_API_URL);
         if (!response.ok) throw new Error('Failed to fetch projects');
         const data = await response.json();
-        return { data };
+        return { data: data.data || data };
     },
     create: async (projectData: any) => {
-        const response = await fetch(`${API_BASE_URL}/api/v1/projects`, {
+        // Only send name if other fields are "unexpected" by the backend
+        const payload = {
+            name: projectData.name,
+            // Add other fields only if they are not empty/zero to minimize 400 risks
+            ...(projectData.startDate && { startDate: projectData.startDate }),
+            ...(projectData.enddate && { enddate: projectData.enddate }),
+            ...(projectData.status && { status: projectData.status }),
+            ...(projectData.teamSize > 0 && { teamSize: projectData.teamSize }),
+            ...(projectData.progress > 0 && { progress: projectData.progress }),
+        };
+
+        const response = await fetch(PROJECTS_API_URL, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(projectData),
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload),
         });
-        if (!response.ok) throw new Error('Failed to create project');
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.message || 'Failed to create project');
+        }
         const data = await response.json();
-        return { data };
+        return { data: data.data || data };
     },
     update: async (id: string, projectData: any) => {
-        const response = await fetch(`${API_BASE_URL}/api/v1/projects/${id}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
+        const response = await fetch(`${PROJECTS_API_URL}/${id}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
             body: JSON.stringify(projectData),
         });
         if (!response.ok) throw new Error('Failed to update project');
         const data = await response.json();
-        return { data };
+        return { data: data.data || data };
     },
     delete: async (id: string) => {
-        const response = await fetch(`${API_BASE_URL}/api/v1/projects/${id}`, {
+        const response = await fetch(`${PROJECTS_API_URL}/${id}`, {
             method: 'DELETE',
         });
         if (!response.ok) throw new Error('Failed to delete project');
-        return { data: { success: true } };
+        const data = await response.json();
+        return { data: data.data || data };
     }
 };

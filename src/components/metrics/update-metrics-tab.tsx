@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from '@/components/ui/select';
-import { Save, Filter, RefreshCw, Search, ArrowUpDown, History, TrendingUp } from 'lucide-react';
+import { Save, Filter, RefreshCw, Search, ArrowUpDown, History, TrendingUp, Target } from 'lucide-react';
 import { MetricDefinition } from '@/lib/types';
 import { mockMetricDefinitions } from '@/lib/mock-data/learning-metrics';
 import { MOCK_ACCOUNTS, MOCK_MARKETS, MOCK_PRODUCTS } from '@/lib/constants';

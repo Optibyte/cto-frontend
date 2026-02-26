@@ -34,35 +34,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-const initialMockProjects: ProjectFull[] = [
-    {
-        id: 'prj-001',
-        name: 'Apollo Banking App',
-        startDate: '2023-01-15',
-        endDate: '2023-12-30',
-        teamSize: 12,
-        progressPercent: 75,
-        status: 'Active'
-    },
-    {
-        id: 'prj-002',
-        name: 'Athena Health Portal',
-        startDate: '2023-03-20',
-        endDate: '2024-02-15',
-        teamSize: 8,
-        progressPercent: 45,
-        status: 'Active'
-    },
-    {
-        id: 'prj-003',
-        name: 'Hermes E-Shop',
-        startDate: '2023-06-10',
-        endDate: '2023-11-20',
-        teamSize: 15,
-        progressPercent: 90,
-        status: 'Delayed'
-    }
-];
+// Removal of initialMockProjects as we are now using the API
 
 export function ProjectManagement() {
     const [projects, setProjects] = useState<ProjectFull[]>([]);
@@ -74,10 +46,10 @@ export function ProjectManagement() {
     const [formData, setFormData] = useState({
         name: '',
         startDate: '',
-        endDate: '',
+        enddate: '',
         status: 'Active' as ProjectFull['status'],
         teamSize: 0,
-        progressPercent: 0
+        progress: 0
     });
 
     const fetchProjects = useCallback(async () => {
@@ -102,10 +74,10 @@ export function ProjectManagement() {
         setFormData({
             name: '',
             startDate: '',
-            endDate: '',
+            enddate: '',
             status: 'Active',
             teamSize: 0,
-            progressPercent: 0
+            progress: 0
         });
         setIsDialogOpen(true);
     };
@@ -115,10 +87,10 @@ export function ProjectManagement() {
         setFormData({
             name: project.name,
             startDate: project.startDate,
-            endDate: project.endDate,
+            enddate: project.enddate,
             status: project.status,
             teamSize: project.teamSize,
-            progressPercent: project.progressPercent
+            progress: project.progress
         });
         setIsDialogOpen(true);
     };
@@ -261,11 +233,11 @@ export function ProjectManagement() {
                                                     <div className="flex items-center gap-2">
                                                         <div className="flex-1 h-1.5 w-16 rounded-full bg-muted overflow-hidden">
                                                             <div
-                                                                className={`h-full rounded-full ${p.progressPercent >= 80 ? 'bg-emerald-500' : p.progressPercent >= 40 ? 'bg-blue-500' : 'bg-amber-500'}`}
-                                                                style={{ width: `${p.progressPercent}%` }}
+                                                                className={`h-full rounded-full ${p.progress >= 80 ? 'bg-emerald-500' : p.progress >= 40 ? 'bg-blue-500' : 'bg-amber-500'}`}
+                                                                style={{ width: `${p.progress}%` }}
                                                             />
                                                         </div>
-                                                        <span className="text-[10px] font-bold text-muted-foreground">{p.progressPercent}%</span>
+                                                        <span className="text-[10px] font-bold text-muted-foreground">{p.progress}%</span>
                                                     </div>
                                                 </div>
                                             </td>
@@ -277,7 +249,7 @@ export function ProjectManagement() {
                                                     </div>
                                                     <div className="flex items-center gap-2">
                                                         <Activity className="h-3.5 w-3.5" />
-                                                        <span className="text-[11px] font-mono">{p.endDate}</span>
+                                                        <span className="text-[11px] font-mono">{p.enddate}</span>
                                                     </div>
                                                 </div>
                                             </td>
@@ -286,7 +258,9 @@ export function ProjectManagement() {
                                                     ? 'bg-emerald-500/10 text-emerald-500'
                                                     : p.status === 'Delayed'
                                                         ? 'bg-rose-500/10 text-rose-500'
-                                                        : 'bg-amber-500/10 text-amber-500'
+                                                        : p.status === 'PLANNED'
+                                                            ? 'bg-blue-500/10 text-blue-500'
+                                                            : 'bg-amber-500/10 text-amber-500'
                                                     }`}>
                                                     {p.status}
                                                 </Badge>
@@ -352,12 +326,12 @@ export function ProjectManagement() {
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label htmlFor="endDate">End Date</Label>
+                                <Label htmlFor="enddate">End Date</Label>
                                 <Input
-                                    id="endDate"
+                                    id="enddate"
                                     type="date"
-                                    value={formData.endDate}
-                                    onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                                    value={formData.enddate}
+                                    onChange={(e) => setFormData({ ...formData, enddate: e.target.value })}
                                     className="rounded-xl"
                                 />
                             </div>
@@ -380,8 +354,8 @@ export function ProjectManagement() {
                                     type="number"
                                     min="0"
                                     max="100"
-                                    value={formData.progressPercent}
-                                    onChange={(e) => setFormData({ ...formData, progressPercent: parseInt(e.target.value) || 0 })}
+                                    value={formData.progress}
+                                    onChange={(e) => setFormData({ ...formData, progress: parseInt(e.target.value) || 0 })}
                                     className="rounded-xl"
                                 />
                             </div>
@@ -394,6 +368,7 @@ export function ProjectManagement() {
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="Active">Active</SelectItem>
+                                    <SelectItem value="PLANNED">Planned</SelectItem>
                                     <SelectItem value="Completed">Completed</SelectItem>
                                     <SelectItem value="Delayed">Delayed</SelectItem>
                                     <SelectItem value="On-Hold">On Hold</SelectItem>

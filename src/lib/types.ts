@@ -223,8 +223,8 @@ export interface ProjectFull {
     id: string;
     name: string;
     startDate: string;
-    endDate: string;
+    enddate: string;
     teamSize: number;
-    progressPercent: number;
-    status: 'Active' | 'Completed' | 'Delayed' | 'On-Hold';
+    progress: number;
+    status: 'Active' | 'Completed' | 'Delayed' | 'On-Hold' | 'PLANNED';
 }
