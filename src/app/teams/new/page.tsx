@@ -15,7 +15,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { TEAM_NAMES } from '@/lib/constants';
 import { toast } from 'sonner';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import Link from 'next/link';
@@ -87,21 +86,14 @@ export default function CreateTeamPage() {
 
                         <div className="space-y-2">
                             <Label htmlFor="name">Team Name</Label>
-                            <Select
+                            <Input
+                                id="name"
+                                required
                                 value={formData.name}
-                                onValueChange={(value: string) => setFormData({ ...formData, name: value })}
-                            >
-                                <SelectTrigger className="rounded-xl border-border/50 min-h-[44px]">
-                                    <SelectValue placeholder="Select team name" />
-                                </SelectTrigger>
-                                <SelectContent className="rounded-xl border-border/50">
-                                    {TEAM_NAMES.map((team) => (
-                                        <SelectItem key={team.value} value={team.value} className="rounded-lg">
-                                            {team.label}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                                onChange={(e: ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, name: e.target.value })}
+                                placeholder="e.g. Frontend Web Tech"
+                                className="rounded-xl border-border/50 min-h-[44px]"
+                            />
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="project">Project</Label>

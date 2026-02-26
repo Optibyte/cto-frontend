@@ -34,7 +34,7 @@ const initialMockTeamLeads: TeamLeadFull[] = [
         id: 'tl-001',
         name: 'Suresh Babu',
         email: 'suresh.b@cto.ai',
-        department: 'Banking',
+        project: 'Banking',
         onboardedDate: '2023-02-10',
         teamSize: 8,
         performance: 88,
@@ -45,7 +45,7 @@ const initialMockTeamLeads: TeamLeadFull[] = [
         id: 'tl-002',
         name: 'Nithya Devi',
         email: 'nithya.d@cto.ai',
-        department: 'Logistics',
+        project: 'Logistics',
         onboardedDate: '2023-04-15',
         teamSize: 7,
         performance: 82,
@@ -56,7 +56,7 @@ const initialMockTeamLeads: TeamLeadFull[] = [
         id: 'tl-003',
         name: 'Deepak Verma',
         email: 'deepak.v@cto.ai',
-        department: 'Healthcare',
+        project: 'Healthcare',
         onboardedDate: '2023-07-01',
         teamSize: 10,
         performance: 90,
@@ -73,13 +73,13 @@ export function TeamLeadManagement() {
     const [formData, setFormData] = useState({
         name: '',
         email: '',
-        department: '',
+        project: '',
         status: 'Active' as 'Active' | 'Inactive'
     });
 
     const handleOpenAddDialog = () => {
         setEditingTeamLead(null);
-        setFormData({ name: '', email: '', department: '', status: 'Active' });
+        setFormData({ name: '', email: '', project: '', status: 'Active' });
         setIsDialogOpen(true);
     };
 
@@ -88,7 +88,7 @@ export function TeamLeadManagement() {
         setFormData({
             name: tl.name,
             email: tl.email,
-            department: tl.department,
+            project: tl.project,
             status: tl.status
         });
         setIsDialogOpen(true);
@@ -102,7 +102,7 @@ export function TeamLeadManagement() {
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
-        if (!formData.name || !formData.email || !formData.department) {
+        if (!formData.name || !formData.email || !formData.project) {
             toast.error('Please fill in all required fields');
             return;
         }
@@ -143,7 +143,7 @@ export function TeamLeadManagement() {
     const filteredTeamLeads = teamLeads.filter(tl =>
         tl.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         tl.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        tl.department.toLowerCase().includes(searchQuery.toLowerCase())
+        tl.project.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
     return (
@@ -187,7 +187,7 @@ export function TeamLeadManagement() {
                             <thead>
                                 <tr className="border-b border-border/10 bg-muted/20">
                                     <th className="text-left py-5 px-6 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground">Team Lead</th>
-                                    <th className="text-left py-5 px-4 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground">Department</th>
+                                    <th className="text-left py-5 px-4 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground">Project</th>
                                     <th className="text-left py-5 px-4 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground">Performance</th>
                                     <th className="text-left py-5 px-4 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground">Team Size</th>
                                     <th className="text-left py-5 px-4 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground text-center">Status</th>
@@ -218,7 +218,7 @@ export function TeamLeadManagement() {
                                             <td className="py-5 px-4">
                                                 <div className="flex items-center gap-2">
                                                     <Building2 className="h-4 w-4 text-muted-foreground" />
-                                                    <span className="text-sm font-medium">{tl.department}</span>
+                                                    <span className="text-sm font-medium">{tl.project}</span>
                                                 </div>
                                             </td>
                                             <td className="py-5 px-4">
@@ -235,8 +235,8 @@ export function TeamLeadManagement() {
                                             </td>
                                             <td className="py-5 px-4 text-center">
                                                 <Badge className={`rounded-xl px-2.5 py-0.5 text-[10px] font-black uppercase tracking-widest border-0 ${tl.status === 'Active'
-                                                        ? 'bg-emerald-500/10 text-emerald-500'
-                                                        : 'bg-rose-500/10 text-rose-500'
+                                                    ? 'bg-emerald-500/10 text-emerald-500'
+                                                    : 'bg-rose-500/10 text-rose-500'
                                                     }`}>
                                                     {tl.status}
                                                 </Badge>
@@ -302,11 +302,11 @@ export function TeamLeadManagement() {
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="department">Department</Label>
+                            <Label htmlFor="project">Project</Label>
                             <Input
-                                id="department"
-                                value={formData.department}
-                                onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                                id="project"
+                                value={formData.project}
+                                onChange={(e) => setFormData({ ...formData, project: e.target.value })}
                                 placeholder="e.g. Sales"
                                 className="rounded-xl"
                             />

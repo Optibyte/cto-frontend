@@ -1,6 +1,7 @@
 import { mockTeams, mockTeamMembers } from '../mock-data/teams';
 import { mockSLADefinitions, mockSLABreaches } from '../mock-data/sla';
 import { mockKPIData, mockTeamPerformance, mockSLAStatus, mockActivities } from '../mock-data/dashboard';
+import { API_BASE_URL } from '../constants';
 
 // Helper to simulate API delay
 const delay = (ms: number = 500) => new Promise(resolve => setTimeout(resolve, ms));
@@ -137,5 +138,41 @@ export const accountsAPI = {
     getAll: async () => {
         await delay();
         return { data: [{ id: 'a1', name: 'Default Account' }] };
+    }
+};
+
+export const projectsAPI = {
+    getAll: async () => {
+        const response = await fetch(`${API_BASE_URL}/api/v1/projects`);
+        if (!response.ok) throw new Error('Failed to fetch projects');
+        const data = await response.json();
+        return { data };
+    },
+    create: async (projectData: any) => {
+        const response = await fetch(`${API_BASE_URL}/api/v1/projects`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(projectData),
+        });
+        if (!response.ok) throw new Error('Failed to create project');
+        const data = await response.json();
+        return { data };
+    },
+    update: async (id: string, projectData: any) => {
+        const response = await fetch(`${API_BASE_URL}/api/v1/projects/${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(projectData),
+        });
+        if (!response.ok) throw new Error('Failed to update project');
+        const data = await response.json();
+        return { data };
+    },
+    delete: async (id: string) => {
+        const response = await fetch(`${API_BASE_URL}/api/v1/projects/${id}`, {
+            method: 'DELETE',
+        });
+        if (!response.ok) throw new Error('Failed to delete project');
+        return { data: { success: true } };
     }
 };
