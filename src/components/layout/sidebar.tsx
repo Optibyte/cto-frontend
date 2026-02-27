@@ -17,6 +17,7 @@ import {
     Bell,
     FileSearch,
     Layers,
+    FolderKanban,
     LucideIcon,
     Shield,
     ShieldCheck,
@@ -39,6 +40,7 @@ const navigationItems: NavItem[] = [
         icon: LayoutDashboard,
         href: '/',
     },
+
     {
         title: 'Project Management',
         icon: Layers,

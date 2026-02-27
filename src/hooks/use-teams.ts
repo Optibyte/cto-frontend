@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { teamsAPI } from '@/lib/api/client';
+import { teamsAPI } from '@/lib/api/teams';
 
 export function useTeams() {
     return useQuery({
@@ -42,6 +42,7 @@ export function useUpdateTeam() {
         mutationFn: ({ id, data }: { id: string; data: any }) => teamsAPI.update(id, data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['teams'] });
+            queryClient.invalidateQueries({ queryKey: ['projects'] });
         },
     });
 }
@@ -53,6 +54,32 @@ export function useDeleteTeam() {
         mutationFn: (id: string) => teamsAPI.delete(id),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['teams'] });
+        },
+    });
+}
+
+export function useAddTeamMember() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ teamId, userId, roleInTeam }: { teamId: string; userId: string; roleInTeam: string }) =>
+            teamsAPI.addMember(teamId, userId, roleInTeam),
+        onSuccess: (_, { teamId }) => {
+            queryClient.invalidateQueries({ queryKey: ['teams'] });
+            queryClient.invalidateQueries({ queryKey: ['teams', teamId] });
+        },
+    });
+}
+
+export function useRemoveTeamMember() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ teamId, employeeIds }: { teamId: string; employeeIds: string[] }) =>
+            teamsAPI.removeMember(teamId, employeeIds),
+        onSuccess: (_, { teamId }) => {
+            queryClient.invalidateQueries({ queryKey: ['teams'] });
+            queryClient.invalidateQueries({ queryKey: ['teams', teamId] });
         },
     });
 }

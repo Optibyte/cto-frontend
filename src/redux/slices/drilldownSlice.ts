@@ -1,12 +1,15 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { DrilldownLevel } from '@/lib/mock-data/drilldown';
+
+export type DrilldownLevel = 'project' | 'cto' | 'pm' | 'tl' | 'employee' | 'employeeProjects';
 
 interface DrilldownState {
     level: DrilldownLevel;
-    selectedTeam: string | null;
-    selectedTeamName: string | null;
-    selectedManager: string | null;
-    selectedManagerName: string | null;
+    selectedProject: string | null;
+    selectedProjectName: string | null;
+    selectedCTO: string | null;
+    selectedCTOName: string | null;
+    selectedPM: string | null;
+    selectedPMName: string | null;
     selectedTL: string | null;
     selectedTLName: string | null;
     selectedEmployee: string | null;
@@ -15,11 +18,13 @@ interface DrilldownState {
 }
 
 const initialState: DrilldownState = {
-    level: 'team',
-    selectedTeam: null,
-    selectedTeamName: null,
-    selectedManager: null,
-    selectedManagerName: null,
+    level: 'project',
+    selectedProject: null,
+    selectedProjectName: null,
+    selectedCTO: null,
+    selectedCTOName: null,
+    selectedPM: null,
+    selectedPMName: null,
     selectedTL: null,
     selectedTLName: null,
     selectedEmployee: null,
@@ -34,29 +39,34 @@ const drilldownSlice = createSlice({
         setLoading(state, action: PayloadAction<boolean>) {
             state.loading = action.payload;
         },
-        drillToManager(state, action: PayloadAction<{ teamId: string; teamName: string }>) {
-            state.level = 'manager';
-            state.selectedTeam = action.payload.teamId;
-            state.selectedTeamName = action.payload.teamName;
+        drillToCTO(state, action: PayloadAction<{ projectId: string; projectName: string }>) {
+            state.level = 'cto';
+            state.selectedProject = action.payload.projectId;
+            state.selectedProjectName = action.payload.projectName;
         },
-        drillToTL(state, action: PayloadAction<{ managerId: string; managerName: string }>) {
+        drillToPM(state, action: PayloadAction<{ ctoId: string; ctoName: string }>) {
+            state.level = 'pm';
+            state.selectedCTO = action.payload.ctoId;
+            state.selectedCTOName = action.payload.ctoName;
+        },
+        drillToTL(state, action: PayloadAction<{ pmId: string; pmName: string }>) {
             state.level = 'tl';
-            state.selectedManager = action.payload.managerId;
-            state.selectedManagerName = action.payload.managerName;
+            state.selectedPM = action.payload.pmId;
+            state.selectedPMName = action.payload.pmName;
         },
         drillToEmployee(state, action: PayloadAction<{ tlId: string; tlName: string }>) {
             state.level = 'employee';
             state.selectedTL = action.payload.tlId;
             state.selectedTLName = action.payload.tlName;
         },
-        drillToProjectDetail(state, action: PayloadAction<{ employeeId: string; employeeName: string }>) {
-            state.level = 'project';
+        drillToEmployeeProjects(state, action: PayloadAction<{ employeeId: string; employeeName: string }>) {
+            state.level = 'employeeProjects';
             state.selectedEmployee = action.payload.employeeId;
             state.selectedEmployeeName = action.payload.employeeName;
         },
         goBack(state) {
             switch (state.level) {
-                case 'project':
+                case 'employeeProjects':
                     state.level = 'employee';
                     state.selectedEmployee = null;
                     state.selectedEmployeeName = null;
@@ -67,26 +77,42 @@ const drilldownSlice = createSlice({
                     state.selectedTLName = null;
                     break;
                 case 'tl':
-                    state.level = 'manager';
-                    state.selectedManager = null;
-                    state.selectedManagerName = null;
+                    state.level = 'pm';
+                    state.selectedPM = null;
+                    state.selectedPMName = null;
                     break;
-                case 'manager':
-                    state.level = 'team';
-                    state.selectedTeam = null;
-                    state.selectedTeamName = null;
+                case 'pm':
+                    state.level = 'cto';
+                    state.selectedCTO = null;
+                    state.selectedCTOName = null;
+                    break;
+                case 'cto':
+                    state.level = 'project';
+                    state.selectedProject = null;
+                    state.selectedProjectName = null;
                     break;
             }
         },
         goToLevel(state, action: PayloadAction<DrilldownLevel>) {
             const target = action.payload;
-            if (target === 'team') {
+            if (target === 'project') {
                 return { ...initialState };
             }
-            if (target === 'manager') {
-                state.level = 'manager';
-                state.selectedManager = null;
-                state.selectedManagerName = null;
+            if (target === 'cto') {
+                state.level = 'cto';
+                state.selectedCTO = null;
+                state.selectedCTOName = null;
+                state.selectedPM = null;
+                state.selectedPMName = null;
+                state.selectedTL = null;
+                state.selectedTLName = null;
+                state.selectedEmployee = null;
+                state.selectedEmployeeName = null;
+            }
+            if (target === 'pm') {
+                state.level = 'pm';
+                state.selectedPM = null;
+                state.selectedPMName = null;
                 state.selectedTL = null;
                 state.selectedTLName = null;
                 state.selectedEmployee = null;
@@ -113,10 +139,11 @@ const drilldownSlice = createSlice({
 
 export const {
     setLoading,
-    drillToManager,
+    drillToCTO,
+    drillToPM,
     drillToTL,
     drillToEmployee,
-    drillToProjectDetail,
+    drillToEmployeeProjects,
     goBack,
     goToLevel,
     resetDrilldown,

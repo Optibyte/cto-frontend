@@ -40,7 +40,6 @@ export function TeamLeadManagement() {
     const [formData, setFormData] = useState({
         name: '',
         email: '',
-        project: '',
         employeeCode: '',
         experience: '',
         status: 'Active' as 'Active' | 'Inactive'
@@ -50,11 +49,18 @@ export function TeamLeadManagement() {
         fetchTeamLeads();
     }, []);
 
+    const mapTlData = (tl: any): TeamLeadFull => ({
+        ...tl,
+        name: tl.user?.fullName || tl.fullName || tl.name || 'Unknown Lead',
+        email: tl.user?.email || tl.email || '',
+        status: tl.status || 'Active'
+    });
+
     const fetchTeamLeads = async () => {
         setIsLoading(true);
         try {
             const { data } = await teamLeadersAPI.getAll();
-            setTeamLeads(data);
+            setTeamLeads((data || []).map(mapTlData));
         } catch (error: any) {
             toast.error(error.message || 'Failed to fetch team leads');
         } finally {
@@ -62,21 +68,26 @@ export function TeamLeadManagement() {
         }
     };
 
-    const handleOpenAddDialog = () => {
+    const handleOpenCreateDialog = () => {
         setEditingTeamLead(null);
-        setFormData({ name: '', email: '', project: '', employeeCode: '', experience: '', status: 'Active' });
+        setFormData({
+            name: '',
+            email: '',
+            employeeCode: '',
+            experience: '',
+            status: 'Active'
+        });
         setIsDialogOpen(true);
     };
 
     const handleOpenEditDialog = (tl: TeamLeadFull) => {
         setEditingTeamLead(tl);
         setFormData({
-            name: tl.fullName || tl.name,
+            name: tl.name,
             email: tl.email,
-            project: tl.project,
             employeeCode: tl.employeeCode || '',
             experience: tl.experience || '',
-            status: tl.status
+            status: tl.status || 'Active'
         });
         setIsDialogOpen(true);
     };
@@ -89,7 +100,7 @@ export function TeamLeadManagement() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        if (!formData.name || !formData.email || !formData.project) {
+        if (!formData.name || !formData.email) {
             toast.error('Please fill in all required fields');
             return;
         }
@@ -98,14 +109,16 @@ export function TeamLeadManagement() {
             if (editingTeamLead) {
                 // Update
                 const { data } = await teamLeadersAPI.update(editingTeamLead.id, formData);
+                const updated = mapTlData(data);
                 setTeamLeads(teamLeads.map(tl =>
-                    tl.id === editingTeamLead.id ? { ...tl, ...data } : tl
+                    tl.id === editingTeamLead.id ? updated : tl
                 ));
                 toast.success(`Team Lead ${formData.name} updated successfully`);
             } else {
                 // Create
                 const { data } = await teamLeadersAPI.create(formData);
-                setTeamLeads([data, ...teamLeads]);
+                const mapped = mapTlData(data);
+                setTeamLeads([mapped, ...teamLeads]);
                 toast.success(`Team Lead ${formData.name} created successfully`);
             }
             handleCloseDialog();
@@ -128,9 +141,8 @@ export function TeamLeadManagement() {
     };
 
     const filteredTeamLeads = teamLeads.filter(tl =>
-        tl.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        tl.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        tl.project.toLowerCase().includes(searchQuery.toLowerCase())
+        (tl.name?.toLowerCase() || "").includes(searchQuery.toLowerCase()) ||
+        (tl.email?.toLowerCase() || "").includes(searchQuery.toLowerCase())
     );
 
     return (
@@ -157,7 +169,7 @@ export function TeamLeadManagement() {
                         />
                     </div>
                     <Button
-                        onClick={handleOpenAddDialog}
+                        onClick={handleOpenCreateDialog}
                         className="rounded-xl shadow-lg transition-all h-10 px-6 gap-2 bg-primary shadow-primary/20 hover:shadow-primary/40"
                     >
                         <UserPlus className="h-4 w-4" />
@@ -203,33 +215,15 @@ export function TeamLeadManagement() {
                                             <td className="py-5 px-6">
                                                 <div className="flex items-center gap-3">
                                                     <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center font-bold text-primary group-hover/row:scale-110 transition-transform">
-                                                        {tl.avatar || tl.name.charAt(0)}
+                                                        {tl.avatar || tl.name?.charAt(0) || 'U'}
                                                     </div>
                                                     <div className="flex flex-col">
-                                                        <span className="font-bold text-sm tracking-tight">{tl.fullName || tl.name}</span>
+                                                        <span className="font-bold text-sm tracking-tight">{tl.fullName || tl.name || 'Unknown Lead'}</span>
                                                         <div className="flex items-center gap-2">
                                                             <span className="text-[11px] font-medium text-muted-foreground">{tl.email}</span>
                                                             {tl.employeeCode && <span className="text-[10px] bg-muted px-1.5 rounded text-muted-foreground uppercase">{tl.employeeCode}</span>}
                                                         </div>
                                                     </div>
-                                                </div>
-                                            </td>
-                                            <td className="py-5 px-4">
-                                                <div className="flex items-center gap-2">
-                                                    <Building2 className="h-4 w-4 text-muted-foreground" />
-                                                    <span className="text-sm font-medium">{tl.project}</span>
-                                                </div>
-                                            </td>
-                                            <td className="py-5 px-4">
-                                                <div className="flex items-center gap-2">
-                                                    <Award className="h-4 w-4 text-amber-500" />
-                                                    <span className="font-bold text-sm">{tl.performance}%</span>
-                                                </div>
-                                            </td>
-                                            <td className="py-5 px-4">
-                                                <div className="flex items-center gap-2">
-                                                    <Users className="h-4 w-4 text-muted-foreground" />
-                                                    <span className="text-sm font-medium">{tl.teamSize} Members</span>
                                                 </div>
                                             </td>
                                             <td className="py-5 px-4 text-center">
@@ -294,10 +288,10 @@ export function TeamLeadManagement() {
                             <Input
                                 id="email"
                                 type="email"
+                                placeholder="lead@cto.ai"
                                 value={formData.email}
                                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                placeholder="lead@company.com"
-                                className="rounded-xl"
+                                className="h-11 rounded-xl bg-background border-border/50 focus:bg-accent/50 transition-colors"
                             />
                         </div>
                         <div className="grid grid-cols-2 gap-4">

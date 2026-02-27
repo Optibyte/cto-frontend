@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { usersAPI } from '@/lib/api/client';
+import { usersAPI } from '@/lib/api/users';
 
 export function useUsers() {
     return useQuery({

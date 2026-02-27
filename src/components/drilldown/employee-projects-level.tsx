@@ -4,17 +4,14 @@ import { Card, CardContent } from '@/components/ui/card';
 import { useAppSelector } from '@/redux/store';
 import { useProjects } from '@/hooks/use-projects';
 import { EmptyState } from './empty-state';
-import { Calendar, Users, BarChart3, Loader2 } from 'lucide-react';
+import { Calendar, Users, BarChart3, Loader2, FolderKanban } from 'lucide-react';
 
-export function ProjectDetail() {
-    const { selectedEmployee, selectedEmployeeName } =
-        useAppSelector((s) => s.drilldown);
-
+export function EmployeeProjectsLevel() {
+    const { selectedEmployee, selectedEmployeeName } = useAppSelector((s) => s.drilldown);
     const { data: allProjects = [], isLoading } = useProjects();
 
-    // Filter projects where the selected employee is a collaborator
+    // Filter projects where this employee is a collaborator
     const projects = allProjects.filter((project: any) => {
-        if (!selectedEmployee) return true; // show all if no employee selected
         const employeeIds = (project.employees || []).map((e: any) => e.id);
         return employeeIds.includes(selectedEmployee);
     });
@@ -31,16 +28,51 @@ export function ProjectDetail() {
     }
 
     if (projects.length === 0) {
-        return <EmptyState title="No Projects Found" description={`No projects found for ${selectedEmployeeName || 'this selection'}.`} />;
+        return <EmptyState title="No Collaborated Projects" description={`${selectedEmployeeName || 'This employee'} is not assigned to any projects yet.`} />;
     }
 
     return (
         <div className="space-y-6 fade-in">
             <div>
                 <h1 className="text-3xl font-bold tracking-tight">
-                    {selectedEmployeeName ? `${selectedEmployeeName} — Projects` : 'Project Details'}
+                    {selectedEmployeeName} — Collaborated Projects
                 </h1>
                 <p className="text-muted-foreground">{projects.length} project(s) found</p>
+            </div>
+
+            {/* Summary */}
+            <div className="grid gap-4 md:grid-cols-2">
+                <Card className="overflow-hidden relative group rounded-2xl border border-border/40 shadow-lg">
+                    <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-purple-600/10 opacity-30" />
+                    <CardContent className="p-6 relative z-10">
+                        <div className="flex items-start justify-between">
+                            <div>
+                                <p className="text-sm text-muted-foreground uppercase tracking-wider font-medium">Total Projects</p>
+                                <h3 className="text-4xl font-bold">{projects.length}</h3>
+                            </div>
+                            <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-purple-500/10">
+                                <FolderKanban className="h-7 w-7 text-purple-500" />
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+                <Card className="overflow-hidden relative group rounded-2xl border border-border/40 shadow-lg">
+                    <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/20 to-emerald-600/10 opacity-30" />
+                    <CardContent className="p-6 relative z-10">
+                        <div className="flex items-start justify-between">
+                            <div>
+                                <p className="text-sm text-muted-foreground uppercase tracking-wider font-medium">Total Colleagues</p>
+                                <h3 className="text-4xl font-bold">
+                                    {projects.reduce((sum: number, p: any) =>
+                                        sum + (p.ctos?.length || 0) + (p.pms?.length || 0) + (p.teamLeads?.length || 0) + (p.employees?.length || 0), 0)}
+                                </h3>
+                            </div>
+                            <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-emerald-500/10">
+                                <Users className="h-7 w-7 text-emerald-500" />
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
             </div>
 
             {/* Project Table */}

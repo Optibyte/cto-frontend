@@ -2,6 +2,7 @@ import { UserRole } from './types';
 
 export type Feature =
     | 'dashboard'
+    | 'projects'
     | 'drilldown'
     | 'teams'
     | 'metrics'
@@ -17,6 +18,7 @@ export type Feature =
 export const ROLE_PERMISSIONS: Record<UserRole, Feature[]> = {
     CTO: [
         'dashboard',
+        'projects',
         'drilldown',
         'teams',
         'metrics',
@@ -31,6 +33,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Feature[]> = {
     ],
     Manager: [
         'dashboard',
+        'projects',
         'drilldown',
         'teams',
         'metrics',
@@ -77,6 +80,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Feature[]> = {
 // Map sidebar href to feature key
 export const ROUTE_FEATURE_MAP: Record<string, Feature> = {
     '/': 'dashboard',
+    '/projects': 'projects',
     '/drilldown': 'drilldown',
     '/teams': 'teams',
     '/metrics': 'metrics',

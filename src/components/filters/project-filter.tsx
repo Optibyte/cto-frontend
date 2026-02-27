@@ -2,17 +2,21 @@
 
 import { useAppDispatch, useAppSelector } from '@/redux/store';
 import { setSelectedProject, setIsFiltering } from '@/redux/slices/dashboardSlice';
-import { PROJECTS } from '@/lib/mock-data/dashboard-filtered';
+import { useProjects } from '@/hooks/use-projects';
 import { ChevronDown, FolderKanban, Check } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 
 export function ProjectFilter() {
     const dispatch = useAppDispatch();
     const { selectedProject } = useAppSelector((s) => s.dashboard);
+    const { data: projects = [] } = useProjects();
     const [open, setOpen] = useState(false);
     const ref = useRef<HTMLDivElement>(null);
 
-    const allOptions = [{ id: 'all', name: 'All Projects' }, ...PROJECTS.map(p => ({ id: p.id, name: p.name }))];
+    const allOptions = [
+        { id: 'all', name: 'All Projects' },
+        ...projects.map((p: any) => ({ id: p.id, name: p.name }))
+    ];
     const current = allOptions.find((o) => o.id === selectedProject) || allOptions[0];
 
     useEffect(() => {
@@ -28,7 +32,6 @@ export function ProjectFilter() {
     const handleSelect = (id: string) => {
         dispatch(setSelectedProject(id));
         setOpen(false);
-        // Simulate filtering delay
         setTimeout(() => dispatch(setIsFiltering(false)), 400);
     };
 
@@ -54,8 +57,8 @@ export function ProjectFilter() {
                                 key={option.id}
                                 onClick={() => handleSelect(option.id)}
                                 className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm transition-all duration-150 hover:bg-primary/10 ${selectedProject === option.id
-                                        ? 'bg-primary/10 text-primary font-medium'
-                                        : 'text-foreground'
+                                    ? 'bg-primary/10 text-primary font-medium'
+                                    : 'text-foreground'
                                     }`}
                             >
                                 <span className="flex-1 text-left">{option.name}</span>

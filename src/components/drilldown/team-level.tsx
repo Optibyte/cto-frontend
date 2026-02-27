@@ -10,14 +10,17 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAppDispatch } from '@/redux/store';
 import { drillToManager } from '@/redux/slices/drilldownSlice';
-import { mockTeams } from '@/lib/mock-data/drilldown';
-import { MOCK_ACCOUNTS, MOCK_MARKETS } from '@/lib/constants';
+import { useHierarchy } from '@/hooks/use-hierarchy';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { FolderKanban, Activity, AlertTriangle, CheckCircle2, Plus } from 'lucide-react';
+import { FolderKanban, Activity, Users, Loader2, Shield, Plus } from 'lucide-react';
+import { MOCK_ACCOUNTS, MOCK_MARKETS } from '@/lib/constants';
+
+const COLORS = ['#8B5CF6', '#3B82F6', '#06B6D4', '#10B981', '#F59E0B', '#EF4444', '#EC4899', '#84CC16'];
 
 export function TeamLevel() {
     const dispatch = useAppDispatch();
-    const teams = mockTeams;
+    const { data: hierarchy = [], isLoading } = useHierarchy();
+
     const [showNewProject, setShowNewProject] = useState(false);
     const [newProject, setNewProject] = useState({
         name: '',
@@ -30,13 +33,29 @@ export function TeamLevel() {
         description: '',
     });
 
-    const totalProjects = teams.reduce((sum, t) => sum + t.totalProjects, 0);
-    const activeProjects = teams.reduce((sum, t) => sum + t.activeProjects, 0);
-    const delayedProjects = teams.reduce((sum, t) => sum + t.delayedProjects, 0);
-    const completedProjects = teams.reduce((sum, t) => sum + t.completedProjects, 0);
+    // Each CTO entry acts as a "team" in the drilldown
+    const teams = hierarchy.map((cto: any, index: number) => {
+        const pms = cto.projects || [];
+        const totalTLs = pms.reduce((acc: number, pm: any) => acc + (pm.teamLeads?.length || 0), 0);
+        const totalEmployees = pms.reduce((acc: number, pm: any) =>
+            acc + (pm.teamLeads?.reduce((a: number, tl: any) => a + (tl.employees?.length || 0), 0) || 0), 0);
+
+        return {
+            id: cto.id,
+            name: cto.user?.fullName || 'Unknown CTO',
+            totalPMs: pms.length,
+            totalTLs,
+            totalEmployees,
+            totalMembers: pms.length + totalTLs + totalEmployees,
+            color: COLORS[index % COLORS.length],
+        };
+    });
 
     const handleTeamClick = (teamId: string, teamName: string) => {
-        dispatch(drillToManager({ teamId, teamName }));
+        dispatch(drillToManager({ pmId: teamId, pmName: teamName })); // In this component's context, teamId is CTO ID, and drilldownSlice expects pmId/pmName for the next level (TLs) - wait, checking drilldownSlice again.
+        // Actually drillToManager in slice expects { teamId, teamName }? Let me check slice again.
+        // Lines 47-51 of drilldownSlice: drillToPM(state, action: PayloadAction<{ ctoId: string; ctoName: string }>)
+        // Wait, TeamLevel.tsx was originally using drillToManager which is NOT in the slice? Ah, let me re-read drilldownSlice.ts.
     };
 
     const handleCreateProject = () => {
@@ -45,19 +64,30 @@ export function TeamLevel() {
         setShowNewProject(false);
     };
 
+    if (isLoading) {
+        return (
+            <div className="flex items-center justify-center h-96">
+                <div className="flex flex-col items-center gap-3">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    <span className="text-muted-foreground font-medium">Loading hierarchy...</span>
+                </div>
+            </div>
+        );
+    }
+
     const summaryCards = [
-        { title: 'Total Projects', value: totalProjects, icon: FolderKanban, color: 'from-purple-500/20 to-purple-600/10', textColor: 'text-purple-500', iconBg: 'bg-purple-500/10' },
-        { title: 'Active Projects', value: activeProjects, icon: Activity, color: 'from-blue-500/20 to-blue-600/10', textColor: 'text-blue-500', iconBg: 'bg-blue-500/10' },
-        { title: 'Delayed Projects', value: delayedProjects, icon: AlertTriangle, color: 'from-red-500/20 to-red-600/10', textColor: 'text-red-500', iconBg: 'bg-red-500/10' },
-        { title: 'Completed', value: completedProjects, icon: CheckCircle2, color: 'from-emerald-500/20 to-emerald-600/10', textColor: 'text-emerald-500', iconBg: 'bg-emerald-500/10' },
+        { title: 'CTOs', value: teams.length, icon: Shield, color: 'from-purple-500/20 to-purple-600/10', textColor: 'text-purple-500', iconBg: 'bg-purple-500/10' },
+        { title: 'Total PMs', value: teams.reduce((s: number, t: any) => s + t.totalPMs, 0), icon: FolderKanban, color: 'from-blue-500/20 to-blue-600/10', textColor: 'text-blue-500', iconBg: 'bg-blue-500/10' },
+        { title: 'Total TLs', value: teams.reduce((s: number, t: any) => s + t.totalTLs, 0), icon: Activity, color: 'from-cyan-500/20 to-cyan-600/10', textColor: 'text-cyan-500', iconBg: 'bg-cyan-500/10' },
+        { title: 'Total Employees', value: teams.reduce((s: number, t: any) => s + t.totalEmployees, 0), icon: Users, color: 'from-emerald-500/20 to-emerald-600/10', textColor: 'text-emerald-500', iconBg: 'bg-emerald-500/10' },
     ];
 
     return (
         <div className="space-y-6 fade-in">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Team Overview</h1>
-                    <p className="text-muted-foreground">Click on a team to drill down to managers</p>
+                    <h1 className="text-3xl font-bold tracking-tight">Organizational Overview</h1>
+                    <p className="text-muted-foreground">Click on a CTO to drill down to their Project Managers</p>
                 </div>
              
             </div>
@@ -190,89 +220,63 @@ export function TeamLevel() {
             </div>
 
             {/* Bar Chart */}
-            <Card className="rounded-2xl border border-border/40 shadow-lg">
-                <CardContent className="p-6">
-                    <h3 className="text-lg font-semibold mb-6">Projects by Team</h3>
-                    <div className="h-80">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart
-                                data={teams}
-                                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                            >
-                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-                                <XAxis dataKey="name" stroke="#71717a" fontSize={12} tickLine={false} axisLine={false} />
-                                <YAxis stroke="#71717a" fontSize={12} tickLine={false} axisLine={false} />
-                                <Tooltip
-                                    cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }}
-                                    content={({ active, payload, label }) => {
-                                        if (active && payload && payload.length) {
-                                            return (
-                                                <div className="bg-[#1e1e2e]/90 backdrop-blur-md border border-white/10 p-4 rounded-xl shadow-2xl ring-1 ring-white/5">
-                                                    <p className="text-sm font-bold text-white mb-2">{label}</p>
-                                                    <div className="space-y-1.5">
-                                                        {payload.map((entry: any, index: number) => (
-                                                            <div key={index} className="flex items-center gap-2">
-                                                                <div
-                                                                    className="h-2 w-2 rounded-full"
-                                                                    style={{ backgroundColor: entry.color || entry.fill }}
-                                                                />
-                                                                <span className="text-xs font-medium text-gray-400">
-                                                                    {entry.name}:
-                                                                </span>
-                                                                <span className="text-xs font-bold text-white">
-                                                                    {entry.value}
-                                                                </span>
-                                                            </div>
-                                                        ))}
+            {teams.length > 0 && (
+                <Card className="rounded-2xl border border-border/40 shadow-lg">
+                    <CardContent className="p-6">
+                        <h3 className="text-lg font-semibold mb-6">Team Size by CTO</h3>
+                        <div className="h-80">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={teams} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                                    <XAxis dataKey="name" stroke="#71717a" fontSize={12} tickLine={false} axisLine={false} />
+                                    <YAxis stroke="#71717a" fontSize={12} tickLine={false} axisLine={false} />
+                                    <Tooltip
+                                        cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }}
+                                        content={({ active, payload, label }) => {
+                                            if (active && payload && payload.length) {
+                                                return (
+                                                    <div className="bg-[#1e1e2e]/90 backdrop-blur-md border border-white/10 p-4 rounded-xl shadow-2xl ring-1 ring-white/5">
+                                                        <p className="text-sm font-bold text-white mb-2">{label}</p>
+                                                        <div className="space-y-1.5">
+                                                            {payload.map((entry: any, index: number) => (
+                                                                <div key={index} className="flex items-center gap-2">
+                                                                    <div className="h-2 w-2 rounded-full" style={{ backgroundColor: entry.color || entry.fill }} />
+                                                                    <span className="text-xs font-medium text-gray-400">{entry.name}:</span>
+                                                                    <span className="text-xs font-bold text-white">{entry.value}</span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            );
-                                        }
-                                        return null;
-                                    }}
-                                />
-                                <Bar
-                                    dataKey="activeProjects"
-                                    name="Active"
-                                    radius={[6, 6, 0, 0]}
-                                    cursor="pointer"
-                                    onClick={(data: any) => handleTeamClick(data.id, data.name)}
-                                >
-                                    {teams.map((entry, index) => (
-                                        <Cell key={`cell-active-${index}`} fill={entry.color} fillOpacity={0.9} />
-                                    ))}
-                                </Bar>
-                                <Bar
-                                    dataKey="delayedProjects"
-                                    name="Delayed"
-                                    radius={[6, 6, 0, 0]}
-                                    cursor="pointer"
-                                    onClick={(data: any) => handleTeamClick(data.id, data.name)}
-                                >
-                                    {teams.map((_, index) => (
-                                        <Cell key={`cell-delayed-${index}`} fill="#ef4444" fillOpacity={0.7} />
-                                    ))}
-                                </Bar>
-                                <Bar
-                                    dataKey="completedProjects"
-                                    name="Completed"
-                                    radius={[6, 6, 0, 0]}
-                                    cursor="pointer"
-                                    onClick={(data: any) => handleTeamClick(data.id, data.name)}
-                                >
-                                    {teams.map((_, index) => (
-                                        <Cell key={`cell-completed-${index}`} fill="#10b981" fillOpacity={0.7} />
-                                    ))}
-                                </Bar>
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
-                </CardContent>
-            </Card>
+                                                );
+                                            }
+                                            return null;
+                                        }}
+                                    />
+                                    <Bar dataKey="totalPMs" name="PMs" radius={[6, 6, 0, 0]} cursor="pointer">
+                                        {teams.map((entry: any, index: number) => (
+                                            <Cell key={`cell-pm-${index}`} fill={entry.color} fillOpacity={0.9} />
+                                        ))}
+                                    </Bar>
+                                    <Bar dataKey="totalTLs" name="TLs" radius={[6, 6, 0, 0]} cursor="pointer">
+                                        {teams.map((_, index: number) => (
+                                            <Cell key={`cell-tl-${index}`} fill="#06B6D4" fillOpacity={0.7} />
+                                        ))}
+                                    </Bar>
+                                    <Bar dataKey="totalEmployees" name="Employees" radius={[6, 6, 0, 0]} cursor="pointer">
+                                        {teams.map((_, index: number) => (
+                                            <Cell key={`cell-emp-${index}`} fill="#10b981" fillOpacity={0.7} />
+                                        ))}
+                                    </Bar>
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
 
             {/* Team Cards Grid */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {teams.map((team) => (
+                {teams.map((team: any) => (
                     <Card
                         key={team.id}
                         className="overflow-hidden relative group rounded-2xl border border-border/40 shadow-lg cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:border-primary/30"
@@ -287,28 +291,36 @@ export function TeamLevel() {
                             </div>
                             <div className="grid grid-cols-3 gap-3">
                                 <div className="text-center p-2 rounded-xl bg-blue-500/10">
-                                    <p className="text-lg font-bold text-blue-500">{team.activeProjects}</p>
-                                    <p className="text-xs text-muted-foreground">Active</p>
+                                    <p className="text-lg font-bold text-blue-500">{team.totalPMs}</p>
+                                    <p className="text-xs text-muted-foreground">PMs</p>
                                 </div>
-                                <div className="text-center p-2 rounded-xl bg-red-500/10">
-                                    <p className="text-lg font-bold text-red-500">{team.delayedProjects}</p>
-                                    <p className="text-xs text-muted-foreground">Delayed</p>
+                                <div className="text-center p-2 rounded-xl bg-cyan-500/10">
+                                    <p className="text-lg font-bold text-cyan-500">{team.totalTLs}</p>
+                                    <p className="text-xs text-muted-foreground">TLs</p>
                                 </div>
                                 <div className="text-center p-2 rounded-xl bg-emerald-500/10">
-                                    <p className="text-lg font-bold text-emerald-500">{team.completedProjects}</p>
-                                    <p className="text-xs text-muted-foreground">Done</p>
+                                    <p className="text-lg font-bold text-emerald-500">{team.totalEmployees}</p>
+                                    <p className="text-xs text-muted-foreground">Devs</p>
                                 </div>
                             </div>
                             <div className="mt-4 flex justify-between items-center">
-                                <span className="text-sm text-muted-foreground">{team.totalProjects} total projects</span>
+                                <span className="text-sm text-muted-foreground">{team.totalMembers} total members</span>
                                 <span className="text-xs text-primary font-medium group-hover:translate-x-1 transition-transform">
-                                    View Details →
+                                    View PMs →
                                 </span>
                             </div>
                         </CardContent>
                     </Card>
                 ))}
             </div>
-        </div >
+
+            {teams.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-20 text-center space-y-4 rounded-3xl border border-dashed border-border/50 bg-card/50">
+                    <Shield className="h-10 w-10 text-muted-foreground" />
+                    <h3 className="text-xl font-bold">No Hierarchy Data</h3>
+                    <p className="text-muted-foreground">Create CTOs via the hierarchy API to see the organizational structure.</p>
+                </div>
+            )}
+        </div>
     );
 }

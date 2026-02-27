@@ -1,9 +1,8 @@
 'use client';
 
 import { useAppSelector, useAppDispatch } from '@/redux/store';
-import { goToLevel } from '@/redux/slices/drilldownSlice';
-import { ChevronRight, Home } from 'lucide-react';
-import { DrilldownLevel } from '@/lib/mock-data/drilldown';
+import { goToLevel, DrilldownLevel } from '@/redux/slices/drilldownSlice';
+import { ChevronRight, FolderKanban } from 'lucide-react';
 
 interface BreadcrumbItem {
     label: string;
@@ -14,19 +13,23 @@ export function BreadcrumbNav() {
     const dispatch = useAppDispatch();
     const {
         level,
-        selectedTeamName,
-        selectedManagerName,
+        selectedProjectName,
+        selectedCTOName,
+        selectedPMName,
         selectedTLName,
         selectedEmployeeName,
     } = useAppSelector((state) => state.drilldown);
 
     const items: BreadcrumbItem[] = [];
 
-    if (selectedTeamName) {
-        items.push({ label: selectedTeamName, level: 'team' });
+    if (selectedProjectName) {
+        items.push({ label: selectedProjectName, level: 'project' });
     }
-    if (selectedManagerName) {
-        items.push({ label: selectedManagerName, level: 'manager' });
+    if (selectedCTOName) {
+        items.push({ label: selectedCTOName, level: 'cto' });
+    }
+    if (selectedPMName) {
+        items.push({ label: selectedPMName, level: 'pm' });
     }
     if (selectedTLName) {
         items.push({ label: selectedTLName, level: 'tl' });
@@ -38,14 +41,13 @@ export function BreadcrumbNav() {
     return (
         <nav className="flex items-center gap-1 text-sm mb-6">
             <button
-                onClick={() => dispatch(goToLevel('team'))}
+                onClick={() => dispatch(goToLevel('project'))}
                 className="flex items-center gap-1 px-2 py-1.5 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary transition-all duration-200"
             >
-                <Home className="h-4 w-4" />
+                <FolderKanban className="h-4 w-4" />
             </button>
             {items.map((item, index) => {
                 const isLast = index === items.length - 1;
-                const isCurrent = item.level === level;
 
                 return (
                     <div key={index} className="flex items-center gap-1">

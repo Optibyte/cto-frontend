@@ -77,7 +77,6 @@ export function ManagerManagement() {
     const [formData, setFormData] = useState({
         name: '',
         email: '',
-        project: '',
         employeeCode: '',
         experience: '',
         status: 'Active' as 'Active' | 'Inactive'
@@ -87,11 +86,18 @@ export function ManagerManagement() {
         fetchManagers();
     }, []);
 
+    const mapManagerData = (m: any): ManagerFull => ({
+        ...m,
+        name: m.user?.fullName || m.fullName || m.name || 'Unknown Manager',
+        email: m.user?.email || m.email || '',
+        status: m.status || 'Active'
+    });
+
     const fetchManagers = async () => {
         setIsLoading(true);
         try {
             const { data } = await managersAPI.getAll();
-            setManagers(data);
+            setManagers((data || []).map(mapManagerData));
         } catch (error: any) {
             toast.error(error.message || 'Failed to fetch managers');
         } finally {
@@ -101,20 +107,28 @@ export function ManagerManagement() {
 
     const handleOpenAddDialog = () => {
         setEditingManager(null);
-        setFormData({ name: '', email: '', project: '', employeeCode: '', experience: '', status: 'Active' });
+        setFormData({ name: '', email: '', employeeCode: '', experience: '', status: 'Active' });
         setIsDialogOpen(true);
     };
 
     const handleOpenEditDialog = (manager: ManagerFull) => {
-        setEditingManager(manager);
-        setFormData({
-            name: manager.fullName || manager.name,
-            email: manager.email,
-            project: manager.project,
-            employeeCode: manager.employeeCode || '',
-            experience: manager.experience || '',
-            status: manager.status
-        });
+        if (editingManager) {
+            setFormData({
+                name: editingManager.name,
+                email: editingManager.email,
+                employeeCode: editingManager.employeeCode || '',
+                experience: editingManager.experience || '',
+                status: editingManager.status || 'Active'
+            });
+        } else {
+            setFormData({
+                name: '',
+                email: '',
+                employeeCode: '',
+                experience: '',
+                status: 'Active'
+            });
+        }
         setIsDialogOpen(true);
     };
 
@@ -126,7 +140,7 @@ export function ManagerManagement() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        if (!formData.name || !formData.email || !formData.project) {
+        if (!formData.name || !formData.email) {
             toast.error('Please fill in all required fields');
             return;
         }
@@ -135,14 +149,16 @@ export function ManagerManagement() {
             if (editingManager) {
                 // Update
                 const { data } = await managersAPI.update(editingManager.id, formData);
+                const updated = mapManagerData(data);
                 setManagers(managers.map(m =>
-                    m.id === editingManager.id ? { ...m, ...data } : m
+                    m.id === editingManager.id ? updated : m
                 ));
                 toast.success(`Manager ${formData.name} updated successfully`);
             } else {
                 // Create
                 const { data } = await managersAPI.create(formData);
-                setManagers([data, ...managers]);
+                const mapped = mapManagerData(data);
+                setManagers([mapped, ...managers]);
                 toast.success(`Manager ${formData.name} created successfully`);
             }
             handleCloseDialog();
@@ -165,9 +181,9 @@ export function ManagerManagement() {
     };
 
     const filteredManagers = managers.filter(m =>
-        m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        m.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        m.project.toLowerCase().includes(searchQuery.toLowerCase())
+        (m.name?.toLowerCase() || "").includes(searchQuery.toLowerCase()) ||
+        (m.email?.toLowerCase() || "").includes(searchQuery.toLowerCase()) ||
+        (m.project?.toLowerCase() || "").includes(searchQuery.toLowerCase())
     );
 
     return (
@@ -237,10 +253,10 @@ export function ManagerManagement() {
                                             <td className="py-5 px-6">
                                                 <div className="flex items-center gap-3">
                                                     <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center font-bold text-primary group-hover/row:scale-110 transition-transform">
-                                                        {m.avatar || m.name.charAt(0)}
+                                                        {m.avatar || m.name?.charAt(0) || 'U'}
                                                     </div>
                                                     <div className="flex flex-col">
-                                                        <span className="font-bold text-sm tracking-tight">{m.fullName || m.name}</span>
+                                                        <span className="font-bold text-sm tracking-tight">{m.fullName || m.name || 'Unknown Manager'}</span>
                                                         <div className="flex items-center gap-2">
                                                             <span className="text-[11px] font-medium text-muted-foreground">{m.email}</span>
                                                             {m.employeeCode && <span className="text-[10px] bg-muted px-1.5 rounded text-muted-foreground uppercase">{m.employeeCode}</span>}
@@ -311,10 +327,10 @@ export function ManagerManagement() {
                             <Input
                                 id="email"
                                 type="email"
+                                placeholder="manager@cto.ai"
                                 value={formData.email}
                                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                placeholder="name@company.com"
-                                className="rounded-xl"
+                                className="h-11 rounded-xl bg-background border-border/50 focus:bg-accent/50 transition-colors"
                             />
                         </div>
                         <div className="grid grid-cols-2 gap-4">

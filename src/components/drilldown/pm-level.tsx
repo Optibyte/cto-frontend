@@ -5,16 +5,16 @@ import { useAppDispatch, useAppSelector } from '@/redux/store';
 import { drillToTL } from '@/redux/slices/drilldownSlice';
 import { useHierarchy } from '@/hooks/use-hierarchy';
 import { EmptyState } from './empty-state';
-import { ArrowRight, Users, FolderKanban, Loader2 } from 'lucide-react';
+import { ArrowRight, Users, Loader2, Mail } from 'lucide-react';
 
-export function ManagerLevel() {
+export function PMLevel() {
     const dispatch = useAppDispatch();
-    const { selectedTeam, selectedTeamName } = useAppSelector((s) => s.drilldown);
+    const { selectedCTO, selectedCTOName } = useAppSelector((s) => s.drilldown);
     const { data: hierarchy = [], isLoading } = useHierarchy();
 
-    // Find the selected CTO and get their PMs
-    const selectedCTO = hierarchy.find((cto: any) => cto.id === selectedTeam);
-    const managers = (selectedCTO?.projects || []).map((pm: any) => {
+    // Find the selected CTO in hierarchy and get their PMs
+    const selectedCTOData = hierarchy.find((cto: any) => cto.id === selectedCTO);
+    const pms = (selectedCTOData?.projects || []).map((pm: any) => {
         const totalTLs = pm.teamLeads?.length || 0;
         const totalEmployees = pm.teamLeads?.reduce((acc: number, tl: any) => acc + (tl.employees?.length || 0), 0) || 0;
         const initials = (pm.user?.fullName || 'UN').split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase();
@@ -35,33 +35,32 @@ export function ManagerLevel() {
             <div className="flex items-center justify-center h-96">
                 <div className="flex flex-col items-center gap-3">
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                    <span className="text-muted-foreground font-medium">Loading managers...</span>
+                    <span className="text-muted-foreground font-medium">Loading PMs...</span>
                 </div>
             </div>
         );
     }
 
-    if (managers.length === 0) {
-        return <EmptyState title="No Managers Found" description={`No project managers found under ${selectedTeamName || 'this CTO'}.`} />;
+    if (pms.length === 0) {
+        return <EmptyState title="No Project Managers Found" description={`No PMs found under ${selectedCTOName || 'this CTO'}.`} />;
     }
 
     return (
         <div className="space-y-6 fade-in">
             <div>
                 <h1 className="text-3xl font-bold tracking-tight">
-                    {selectedTeamName} — Project Managers
+                    {selectedCTOName} — Project Managers
                 </h1>
-                <p className="text-muted-foreground">Click on a manager to view their team leads</p>
+                <p className="text-muted-foreground">Click on a PM to view their Team Leads</p>
             </div>
 
-            {/* Manager Table */}
             <Card className="rounded-2xl border border-border/40 shadow-lg overflow-hidden">
                 <CardContent className="p-0">
                     <div className="overflow-x-auto">
                         <table className="w-full">
                             <thead>
                                 <tr className="border-b border-border/30 bg-muted/30">
-                                    <th className="text-left py-4 px-6 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Manager</th>
+                                    <th className="text-left py-4 px-6 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Project Manager</th>
                                     <th className="text-center py-4 px-6 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Email</th>
                                     <th className="text-center py-4 px-6 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Team Size</th>
                                     <th className="text-center py-4 px-6 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Team Leads</th>
@@ -70,37 +69,40 @@ export function ManagerLevel() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {managers.map((manager: any) => (
+                                {pms.map((pm: any) => (
                                     <tr
-                                        key={manager.id}
-                                        onClick={() => dispatch(drillToTL({ managerId: manager.id, managerName: manager.name }))}
+                                        key={pm.id}
+                                        onClick={() => dispatch(drillToTL({ pmId: pm.id, pmName: pm.name }))}
                                         className="border-b border-border/20 hover:bg-primary/5 cursor-pointer transition-colors duration-200 group"
                                     >
                                         <td className="py-4 px-6">
                                             <div className="flex items-center gap-3">
-                                                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary/80 to-primary/40 flex items-center justify-center text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/20">
-                                                    {manager.avatar}
+                                                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-600/80 to-blue-400/40 flex items-center justify-center text-sm font-semibold text-white shadow-lg shadow-blue-500/20">
+                                                    {pm.avatar}
                                                 </div>
-                                                <span className="font-medium">{manager.name}</span>
+                                                <span className="font-medium">{pm.name}</span>
                                             </div>
                                         </td>
-                                        <td className="py-4 px-6 text-center text-sm text-muted-foreground">
-                                            {manager.email}
+                                        <td className="py-4 px-6 text-center">
+                                            <div className="flex items-center justify-center gap-1 text-sm text-muted-foreground">
+                                                <Mail className="h-3.5 w-3.5" />
+                                                <span>{pm.email}</span>
+                                            </div>
                                         </td>
                                         <td className="py-4 px-6 text-center">
                                             <div className="flex items-center justify-center gap-1">
                                                 <Users className="h-4 w-4 text-muted-foreground" />
-                                                <span>{manager.teamSize}</span>
+                                                <span>{pm.teamSize}</span>
                                             </div>
                                         </td>
                                         <td className="py-4 px-6 text-center">
-                                            <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-blue-500/10 text-blue-500">
-                                                {manager.totalTLs}
+                                            <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-cyan-500/10 text-cyan-500">
+                                                {pm.totalTLs}
                                             </span>
                                         </td>
                                         <td className="py-4 px-6 text-center">
                                             <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-500">
-                                                {manager.totalEmployees}
+                                                {pm.totalEmployees}
                                             </span>
                                         </td>
                                         <td className="py-4 px-6 text-center">

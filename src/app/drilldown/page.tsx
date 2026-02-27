@@ -3,11 +3,12 @@
 import { useAppSelector, useAppDispatch } from '@/redux/store';
 import { goBack, resetDrilldown } from '@/redux/slices/drilldownSlice';
 import { BreadcrumbNav } from '@/components/drilldown/breadcrumb-nav';
-import { TeamLevel } from '@/components/drilldown/team-level';
-import { ManagerLevel } from '@/components/drilldown/manager-level';
+import { ProjectLevel } from '@/components/drilldown/project-level';
+import { CTOLevel } from '@/components/drilldown/cto-level';
+import { PMLevel } from '@/components/drilldown/pm-level';
 import { TLLevel } from '@/components/drilldown/tl-level';
 import { EmployeeLevel } from '@/components/drilldown/employee-level';
-import { ProjectDetail } from '@/components/drilldown/project-detail';
+import { EmployeeProjectsLevel } from '@/components/drilldown/employee-projects-level';
 import { ArrowLeft, RotateCcw } from 'lucide-react';
 
 export default function DrilldownPage() {
@@ -16,18 +17,20 @@ export default function DrilldownPage() {
 
     const renderLevel = () => {
         switch (level) {
-            case 'team':
-                return <TeamLevel />;
-            case 'manager':
-                return <ManagerLevel />;
+            case 'project':
+                return <ProjectLevel />;
+            case 'cto':
+                return <CTOLevel />;
+            case 'pm':
+                return <PMLevel />;
             case 'tl':
                 return <TLLevel />;
             case 'employee':
                 return <EmployeeLevel />;
-            case 'project':
-                return <ProjectDetail />;
+            case 'employeeProjects':
+                return <EmployeeProjectsLevel />;
             default:
-                return <TeamLevel />;
+                return <ProjectLevel />;
         }
     };
 
@@ -36,7 +39,7 @@ export default function DrilldownPage() {
             {/* Top Navigation */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                    {level !== 'team' && (
+                    {level !== 'project' && (
                         <button
                             onClick={() => dispatch(goBack())}
                             className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all duration-200"
@@ -46,7 +49,7 @@ export default function DrilldownPage() {
                         </button>
                     )}
                 </div>
-                {level !== 'team' && (
+                {level !== 'project' && (
                     <button
                         onClick={() => dispatch(resetDrilldown())}
                         className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all duration-200"
