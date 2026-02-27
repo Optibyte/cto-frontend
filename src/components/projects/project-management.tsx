@@ -220,7 +220,7 @@ export function ProjectManagement() {
                                                     </div>
                                                     <div className="flex flex-col">
                                                         <span className="font-bold text-sm tracking-tight">{p.name}</span>
-                                                        <span className="text-[11px] font-medium text-muted-foreground">ID: {p.id}</span>
+
                                                     </div>
                                                 </div>
                                             </td>

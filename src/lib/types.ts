@@ -199,8 +199,11 @@ export interface TeamMemberFull {
 export interface ManagerFull {
     id: string;
     name: string;
+    fullName?: string;
     email: string;
     project: string;
+    employeeCode?: string;
+    experience?: string;
     onboardedDate: string;
     teamSize: number;
     activeProjects: number;
@@ -211,8 +214,11 @@ export interface ManagerFull {
 export interface TeamLeadFull {
     id: string;
     name: string;
+    fullName?: string;
     email: string;
     project: string;
+    employeeCode?: string;
+    experience?: string;
     onboardedDate: string;
     teamSize: number;
     performance: number;
