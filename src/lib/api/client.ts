@@ -6,6 +6,21 @@ import { API_BASE_URL } from '../constants';
 // Helper to simulate API delay
 const delay = (ms: number = 500) => new Promise(resolve => setTimeout(resolve, ms));
 
+const getHeaders = () => {
+    const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+    };
+
+    if (typeof window !== 'undefined') {
+        const userId = localStorage.getItem('current_user_id');
+        if (userId) {
+            headers['x-user-id'] = userId;
+        }
+    }
+
+    return headers;
+};
+
 export const teamsAPI = {
     getAll: async () => {
         await delay();
@@ -143,8 +158,9 @@ export const accountsAPI = {
 
 const PROJECTS_API_URL = `${API_BASE_URL}/api/v1/projects`;
 const EMPLOYEES_API_URL = `${API_BASE_URL}/api/v1/employees`;
-const TEAM_LEADERS_API_URL = `${API_BASE_URL}/api/v1/team-leaders`;
+const TEAM_LEADERS_API_URL = `${API_BASE_URL}/api/v1/team-leads`;
 const MANAGERS_API_URL = `${API_BASE_URL}/api/v1/project-managers`;
+const AUDIT_API_URL = `${API_BASE_URL}/api/v1/audit`;
 
 const formatEmployeePayload = (data: any) => ({
     email: data.email,
@@ -158,19 +174,15 @@ const formatEmployeePayload = (data: any) => ({
 const formatTeamLeadPayload = (data: any) => ({
     fullName: data.name,
     email: data.email,
-    project: data.project,
     employeeCode: data.employeeCode,
-    experience: data.experience,
-    status: data.status === 'Active' ? 'Active' : 'Inactive'
+    experience: data.experience
 });
 
 const formatManagerPayload = (data: any) => ({
     fullName: data.name,
     email: data.email,
-    project: data.project,
     employeeCode: data.employeeCode,
-    experience: data.experience,
-    status: data.status === 'Active' ? 'Active' : 'Inactive'
+    experience: data.experience
 });
 
 const formatProjectPayload = (data: any) => {
@@ -215,9 +227,7 @@ export const projectsAPI = {
         try {
             const response = await fetch(PROJECTS_API_URL, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: getHeaders(),
                 body: JSON.stringify(payload),
             });
 
@@ -240,9 +250,7 @@ export const projectsAPI = {
         try {
             const response = await fetch(`${PROJECTS_API_URL}/${id}`, {
                 method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: getHeaders(),
                 body: JSON.stringify(payload),
             });
             if (!response.ok) {
@@ -295,7 +303,7 @@ export const employeesAPI = {
         try {
             const response = await fetch(EMPLOYEES_API_URL, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getHeaders(),
                 body: JSON.stringify(payload),
             });
             if (!response.ok) {
@@ -316,7 +324,7 @@ export const employeesAPI = {
             console.log(`Updating employee at URL: ${url}`);
             const response = await fetch(url, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getHeaders(),
                 body: JSON.stringify(payload),
             });
             if (!response.ok) {
@@ -375,7 +383,7 @@ export const teamLeadersAPI = {
         try {
             const response = await fetch(TEAM_LEADERS_API_URL, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getHeaders(),
                 body: JSON.stringify(payload),
             });
             if (!response.ok) {
@@ -394,7 +402,7 @@ export const teamLeadersAPI = {
         try {
             const response = await fetch(`${TEAM_LEADERS_API_URL}/${id}`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getHeaders(),
                 body: JSON.stringify(payload),
             });
             if (!response.ok) {
@@ -442,7 +450,7 @@ export const managersAPI = {
         try {
             const response = await fetch(MANAGERS_API_URL, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getHeaders(),
                 body: JSON.stringify(payload),
             });
             if (!response.ok) {
@@ -461,7 +469,7 @@ export const managersAPI = {
         try {
             const response = await fetch(`${MANAGERS_API_URL}/${id}`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getHeaders(),
                 body: JSON.stringify(payload),
             });
             if (!response.ok) {
@@ -487,6 +495,42 @@ export const managersAPI = {
             return { success: true };
         } catch (error) {
             console.error('Managers API Error (delete):', error);
+            throw error;
+        }
+    }
+};
+
+export const auditAPI = {
+    getAll: async (limit: number = 50, offset: number = 0) => {
+        try {
+            const response = await fetch(`${AUDIT_API_URL}?limit=${limit}&offset=${offset}`);
+            if (!response.ok) throw new Error('Failed to fetch audit logs');
+            const data = await response.json();
+            return { data };
+        } catch (error) {
+            console.error('Audit API Error (getAll):', error);
+            throw error;
+        }
+    },
+    getStats: async () => {
+        try {
+            const response = await fetch(`${AUDIT_API_URL}/stats`);
+            if (!response.ok) throw new Error('Failed to fetch audit stats');
+            const data = await response.json();
+            return { data };
+        } catch (error) {
+            console.error('Audit API Error (getStats):', error);
+            throw error;
+        }
+    },
+    getByEntity: async (type: string, id: string) => {
+        try {
+            const response = await fetch(`${AUDIT_API_URL}/entity/${type}/${id}`);
+            if (!response.ok) throw new Error('Failed to fetch entity audit logs');
+            const data = await response.json();
+            return { data };
+        } catch (error) {
+            console.error('Audit API Error (getByEntity):', error);
             throw error;
         }
     }

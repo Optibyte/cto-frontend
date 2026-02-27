@@ -178,10 +178,10 @@ export function EmployeeManagement() {
     };
 
     const filteredEmployees = employees.filter(emp =>
-        emp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        emp.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        emp.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        emp.employeeId.toLowerCase().includes(searchQuery.toLowerCase())
+        (emp.name?.toLowerCase() || "").includes(searchQuery.toLowerCase()) ||
+        (emp.email?.toLowerCase() || "").includes(searchQuery.toLowerCase()) ||
+        (emp.role?.toLowerCase() || "").includes(searchQuery.toLowerCase()) ||
+        (emp.employeeId?.toLowerCase() || "").includes(searchQuery.toLowerCase())
     );
 
     return (
@@ -254,10 +254,10 @@ export function EmployeeManagement() {
                                             <td className="py-5 px-6">
                                                 <div className="flex items-center gap-3">
                                                     <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center font-bold text-primary group-hover/row:scale-110 transition-transform">
-                                                        {emp.name.charAt(0)}
+                                                        {emp.name?.charAt(0) || 'U'}
                                                     </div>
                                                     <div className="flex flex-col">
-                                                        <span className="font-bold text-sm tracking-tight">{emp.name}</span>
+                                                        <span className="font-bold text-sm tracking-tight">{emp.name || 'Unknown Employee'}</span>
                                                         <span className="text-[11px] font-medium text-muted-foreground">{emp.email}</span>
                                                     </div>
                                                 </div>

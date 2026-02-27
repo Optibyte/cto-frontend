@@ -12,14 +12,15 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { toast } from 'sonner';
 import { useRole } from '@/contexts/role-context';
 import { UserRole } from '@/lib/types';
+import { ctosAPI } from '@/lib/api/ctos';
 
 export function LoginForm() {
     const router = useRouter();
-    const { setRole, setIsAuthenticated } = useRole();
+    const { setRole, setIsAuthenticated, setUser } = useRole();
     const [isLoading, setIsLoading] = useState(false);
     const [formData, setFormData] = useState({
         email: '',
-        password: '',
+        password: '', // This will be used as CTO ID when role is CTO
         role: 'CTO' as UserRole,
     });
 
@@ -31,14 +32,35 @@ export function LoginForm() {
         }
 
         setIsLoading(true);
-        // Simulate API call
-        setTimeout(() => {
+
+        try {
+            if (formData.role === 'CTO') {
+                const cto = await ctosAPI.getByEmail(formData.email);
+
+                if (cto && cto.user) {
+                    setRole('CTO');
+                    setUser(cto);
+                    setIsAuthenticated(true);
+                    toast.success('Logged in successfully!');
+                    router.push('/');
+                } else {
+                    toast.error('CTO account not found for this email');
+                    setIsLoading(false);
+                }
+            } else {
+                // For other roles, keep simulation for now or implement their login
+                setTimeout(() => {
+                    setIsLoading(false);
+                    setRole(formData.role);
+                    setIsAuthenticated(true);
+                    toast.success(`Logged in as ${formData.role}`);
+                    router.push('/');
+                }, 1000);
+            }
+        } catch (error: any) {
+            toast.error(error.response?.data?.message || 'Login failed');
             setIsLoading(false);
-            setRole(formData.role);
-            setIsAuthenticated(true);
-            toast.success('Logged in successfully!');
-            router.push('/');
-        }, 1500);
+        }
     };
 
     const handleInputChange = (field: string, value: string) => {
@@ -77,20 +99,24 @@ export function LoginForm() {
                     </div>
                     <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                            <Label htmlFor="password" title="Password" className="text-sm font-medium text-slate-200">Password</Label>
-                            <Link
-                                href="/forgot-password"
-                                className="text-xs font-semibold text-primary/80 hover:text-primary transition-colors"
-                            >
-                                Forgot password?
-                            </Link>
+                            <Label htmlFor="password" title="Password" className="text-sm font-medium text-slate-200">
+                                Password
+                            </Label>
+                            {formData.role !== 'CTO' && (
+                                <Link
+                                    href="/forgot-password"
+                                    className="text-xs font-semibold text-primary/80 hover:text-primary transition-colors"
+                                >
+                                    Forgot password?
+                                </Link>
+                            )}
                         </div>
                         <div className="relative group">
                             <Lock className="absolute left-3.5 top-3.5 h-4 w-4 text-slate-500 group-focus-within:text-primary transition-colors" />
                             <Input
                                 id="password"
                                 type="password"
-                                placeholder="••••••••"
+                                placeholder={formData.role === 'CTO' ? 'Enter any value to continue' : '••••••••'}
                                 className="pl-11 h-12 bg-white/5 border-white/10 rounded-xl focus:bg-white/10 focus-visible:ring-primary/40 text-white placeholder:text-slate-600"
                                 value={formData.password}
                                 onChange={(e) => handleInputChange('password', e.target.value)}

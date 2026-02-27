@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { Bell, Search, User, ChevronDown, Shield, Briefcase, Users, Check, Globe, Landmark, Lock, ShieldCheck } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -28,9 +29,19 @@ const ROLES = [
 ];
 
 export function Header() {
-    const { role, setRole, setIsAuthenticated } = useRole();
+    const { role, setRole, setIsAuthenticated, user } = useRole();
     const router = useRouter();
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
     const currentRole = ROLES.find((r) => r.value === role) || ROLES[0];
+
+    // Get display email and ID
+    const displayEmail = user?.user?.email || 'user@ctoplatform.com';
+    const displayId = user?.trackingId || user?.employeeCode || '';
 
     return (
         <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-border/30 bg-card/80 backdrop-blur-md supports-[backdrop-filter]:bg-card/60 px-6 transition-all shadow-sm shadow-black/5 dark:shadow-black/10">
@@ -47,14 +58,12 @@ export function Header() {
 
             <div className="flex items-center gap-2">
                 {/* Dashboard Filters */}
-                {role !== 'Employee' && (
+                {mounted && role !== 'Employee' && (
                     <>
                         <GlobalFilter />
                         <div className="h-6 w-px bg-border/40 mx-1" />
                     </>
                 )}
-
-
 
                 <ThemeToggle />
                 <Button variant="ghost" size="icon" className="relative hover:bg-primary/10 transition-colors rounded-xl">
@@ -64,16 +73,26 @@ export function Header() {
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon" className="hover:bg-primary/10 transition-colors rounded-xl overflow-hidden border border-border/40 p-0 h-9 w-9">
-                            <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-primary/5">
+                            <span className="h-full w-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-primary/5">
                                 <User className="h-5 w-5 text-primary" />
-                            </div>
+                            </span>
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-56 rounded-2xl p-2 shadow-2xl border-border/50 bg-popover/95 backdrop-blur-sm">
                         <DropdownMenuLabel className="px-3 py-2">
                             <div className="flex flex-col gap-1">
                                 <span className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-bold leading-none">Logged in as</span>
-                                <span className="text-sm font-bold truncate leading-none mt-1">user@ctoplatform.com</span>
+                                <span className="text-sm font-bold truncate leading-none mt-1">{displayEmail}</span>
+                                {displayId && (
+                                    <span className="text-[10px] text-primary font-mono mt-1 font-bold bg-primary/10 px-1.5 py-0.5 rounded-sm w-fit" title="Tracking/Employee ID">
+                                        TRK: {displayId}
+                                    </span>
+                                )}
+                                {user?.user?.id && (
+                                    <span className="text-[9px] text-muted-foreground font-mono mt-1 bg-muted/50 px-1.5 py-0.5 rounded-sm w-fit" title="System UUID">
+                                        ID: {user.user.id}
+                                    </span>
+                                )}
                                 <div className="flex items-center gap-1.5 mt-1.5">
                                     <span className={`h-1.5 w-1.5 rounded-full ${currentRole.color}`} />
                                     <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{currentRole.label} ROLE</span>
