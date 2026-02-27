@@ -89,13 +89,7 @@ export function TeamLevel() {
                     <h1 className="text-3xl font-bold tracking-tight">Organizational Overview</h1>
                     <p className="text-muted-foreground">Click on a CTO to drill down to their Project Managers</p>
                 </div>
-                <Button
-                    onClick={() => setShowNewProject(true)}
-                    className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/25 transition-all duration-300 hover:shadow-xl hover:shadow-primary/30 hover:-translate-y-0.5"
-                >
-                    <Plus className="h-4 w-4 mr-2" />
-                    New Project
-                </Button>
+             
             </div>
 
             {/* Create New Project Dialog */}

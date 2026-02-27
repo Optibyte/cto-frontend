@@ -23,6 +23,7 @@ import {
     ShieldCheck,
     UserPlus,
     UserCheck,
+    LayoutGrid,
 } from 'lucide-react';
 import { title } from 'process';
 
@@ -54,6 +55,11 @@ const navigationItems: NavItem[] = [
         title: 'Metrics',
         icon: BarChart3,
         href: '/metrics',
+    },
+    {
+        title: 'Projects',
+        icon: LayoutGrid,
+        href: '/onboard/project',
     },
     {
         title: ' Manager',
