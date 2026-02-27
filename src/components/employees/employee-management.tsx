@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { TeamMemberFull } from '@/lib/types';
 import { toast } from 'sonner';
+import { employeesAPI } from '@/lib/api/client';
 import {
     Dialog,
     DialogContent,
@@ -29,53 +30,10 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from '@/components/ui/label';
 
-const initialMockEmployees: TeamMemberFull[] = [
-    {
-        id: 'emp-001',
-        employeeId: 'EMP-101',
-        name: 'Alice Johnson',
-        email: 'alice.j@cto.ai',
-        role: 'Frontend Developer',
-        project: 'Banking',
-        yearsOfExperience: 5,
-        skills: ['React', 'TypeScript', 'Tailwind'],
-        currentProject: 'Mobile Banking App',
-        teamName: 'Banking Web Tech',
-        onboardedDate: '2023-01-10',
-        status: 'Active'
-    } as any, // Using any because of minor field differences in the interface if needed
-    {
-        id: 'emp-002',
-        employeeId: 'EMP-102',
-        name: 'Bob Smith',
-        email: 'bob.s@cto.ai',
-        role: 'Backend Developer',
-        project: 'Logistics',
-        yearsOfExperience: 8,
-        skills: ['Node.js', 'PostgreSQL', 'Docker'],
-        currentProject: 'Fleet Management v2',
-        teamName: 'Logistics Core',
-        onboardedDate: '2023-02-15',
-        status: 'Active'
-    } as any,
-    {
-        id: 'emp-003',
-        employeeId: 'EMP-103',
-        name: 'Charlie Davis',
-        email: 'charlie.d@cto.ai',
-        role: 'QA Engineer',
-        project: 'Healthcare',
-        yearsOfExperience: 3,
-        skills: ['Cypress', 'Jest', 'Playwright'],
-        currentProject: 'Patient Portal',
-        teamName: 'Health QA',
-        onboardedDate: '2023-05-20',
-        status: 'Active'
-    } as any
-];
 
 export function EmployeeManagement() {
-    const [employees, setEmployees] = useState<TeamMemberFull[]>(initialMockEmployees);
+    const [employees, setEmployees] = useState<TeamMemberFull[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [editingEmployee, setEditingEmployee] = useState<TeamMemberFull | null>(null);
@@ -84,13 +42,81 @@ export function EmployeeManagement() {
         email: '',
         role: '',
         employeeId: '',
-        project: '',
+        experience: '',
+        joiningDate: '',
         status: 'Active'
     });
 
+    const fetchEmployees = async () => {
+        setIsLoading(true);
+        try {
+            const { data } = await employeesAPI.getAll();
+            // Map backend fields to frontend expected fields
+            const mappedEmployees = data.map((emp: any) => {
+                // Aggressive name search
+                const findName = (obj: any): string => {
+                    if (!obj) return '';
+                    const priority = ['fullName', 'full_name', 'name', 'employeeName', 'employee_name', 'displayName', 'display_name'];
+                    for (const p of priority) {
+                        if (obj[p]) return obj[p];
+                    }
+                    const nameKey = Object.keys(obj).find(key => key.toLowerCase().includes('name') && typeof obj[key] === 'string');
+                    if (nameKey) return obj[nameKey];
+                    if (obj.user && typeof obj.user === 'object') return findName(obj.user);
+                    return '';
+                };
+
+                const findRole = (obj: any): string => {
+                    if (!obj) return '';
+                    const priority = ['role', 'jobTitle', 'designation', 'position', 'roleInTeam'];
+                    for (const p of priority) {
+                        if (obj[p]) return obj[p];
+                    }
+                    if (obj.user && typeof obj.user === 'object') return findRole(obj.user);
+                    return '';
+                };
+
+                const findId = (obj: any): string => {
+                    if (!obj) return '';
+                    const priority = ['employeeCode', 'employee_code', 'employeeId', 'empId', 'code', 'id'];
+                    for (const p of priority) {
+                        if (obj[p]) return obj[p];
+                    }
+                    return '';
+                };
+
+                const name = findName(emp) || 'Unknown Name';
+                const role = findRole(emp) || 'Staff';
+                const employeeId = findId(emp) || 'N/A';
+
+                return {
+                    id: emp.id || emp._id || Math.random().toString(),
+                    name,
+                    email: emp.email || (emp.user && emp.user.email) || '',
+                    role,
+                    employeeId,
+                    experience: emp.experience || '',
+                    joiningDate: emp.joiningDate || emp.joining_date || '',
+                    status: emp.status || 'Active',
+                    onboardedDate: (emp.joiningDate || emp.joining_date) ? (emp.joiningDate || emp.joining_date).split('T')[0] : ''
+                };
+            });
+            console.log('Mapped employees:', mappedEmployees);
+            setEmployees(mappedEmployees);
+        } catch (error) {
+            toast.error('Failed to fetch employees');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchEmployees();
+    }, []);
+
     const handleOpenAddDialog = () => {
         setEditingEmployee(null);
-        setFormData({ name: '', email: '', role: '', employeeId: '', project: '', status: 'Active' });
+        setFormData({ name: '', email: '', role: '', employeeId: '', experience: '', joiningDate: '', status: 'Active' });
         setIsDialogOpen(true);
     };
 
@@ -101,7 +127,8 @@ export function EmployeeManagement() {
             email: emp.email,
             role: emp.role,
             employeeId: emp.employeeId,
-            project: emp.project || '',
+            experience: (emp as any).experience || '',
+            joiningDate: (emp as any).joiningDate || '',
             status: emp.status
         });
         setIsDialogOpen(true);
@@ -112,7 +139,7 @@ export function EmployeeManagement() {
         setEditingEmployee(null);
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
         if (!formData.name || !formData.email || !formData.role || !formData.employeeId) {
@@ -120,36 +147,33 @@ export function EmployeeManagement() {
             return;
         }
 
-        if (editingEmployee) {
-            // Update
-            setEmployees(employees.map(emp =>
-                emp.id === editingEmployee.id
-                    ? { ...emp, ...formData }
-                    : emp
-            ));
-            toast.success(`Employee ${formData.name} updated successfully`);
-        } else {
-            // Create
-            const newEmployee: TeamMemberFull = {
-                id: `emp-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
-                ...formData,
-                onboardedDate: new Date().toISOString().split('T')[0],
-                yearsOfExperience: 0,
-                skills: [],
-                status: formData.status
-            } as any;
-            setEmployees([newEmployee, ...employees]);
-            toast.success(`Employee ${formData.name} created successfully`);
+        try {
+            if (editingEmployee) {
+                await employeesAPI.update(editingEmployee.id, formData);
+                toast.success(`Employee ${formData.name} updated successfully`);
+            } else {
+                await employeesAPI.create(formData);
+                toast.success(`Employee ${formData.name} created successfully`);
+            }
+            fetchEmployees();
+            handleCloseDialog();
+        } catch (error: any) {
+            toast.error(error.message || 'Failed to save employee');
         }
-
-        handleCloseDialog();
     };
 
-    const handleDeleteEmployee = (id: string) => {
+    const handleDeleteEmployee = async (id: string) => {
         const emp = employees.find(e => e.id === id);
+        console.log(`Attempting to delete employee with ID: ${id}`, emp);
         if (confirm(`Are you sure you want to delete ${emp?.name}?`)) {
-            setEmployees(employees.filter(e => e.id !== id));
-            toast.success(`Employee ${emp?.name} removed`);
+            try {
+                await employeesAPI.delete(id);
+                toast.success(`Employee ${emp?.name} removed`);
+                fetchEmployees();
+            } catch (error: any) {
+                console.error('Delete error:', error);
+                toast.error(error.message || 'Failed to delete employee');
+            }
         }
     };
 
@@ -202,14 +226,23 @@ export function EmployeeManagement() {
                                 <tr className="border-b border-border/10 bg-muted/20">
                                     <th className="text-left py-5 px-6 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground">Employee</th>
                                     <th className="text-left py-5 px-4 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground">Role & ID</th>
-                                    <th className="text-left py-5 px-4 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground">Allocation</th>
+                                    <th className="text-left py-5 px-4 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground">Experience</th>
                                     <th className="text-left py-5 px-4 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground">Joined</th>
                                     <th className="text-left py-5 px-4 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground text-center">Status</th>
                                     <th className="text-center py-5 px-6 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {filteredEmployees.length === 0 ? (
+                                {isLoading ? (
+                                    <tr>
+                                        <td colSpan={6} className="py-20 text-center">
+                                            <div className="text-muted-foreground font-medium flex items-center justify-center gap-2">
+                                                <div className="h-4 w-4 border-2 border-primary border-t-transparent animate-spin rounded-full"></div>
+                                                Loading employees...
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ) : filteredEmployees.length === 0 ? (
                                     <tr>
                                         <td colSpan={6} className="py-20 text-center">
                                             <p className="text-muted-foreground font-medium">No employees found</p>
@@ -239,15 +272,9 @@ export function EmployeeManagement() {
                                                 </div>
                                             </td>
                                             <td className="py-5 px-4">
-                                                <div className="flex flex-col gap-1">
-                                                    <span className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1">
-                                                        <Building2 className="h-3 w-3" />
-                                                        {emp.project || 'N/A'}
-                                                    </span>
-                                                    <span className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1">
-                                                        <Code className="h-3 w-3" />
-                                                        {emp.currentProject || 'Bench'}
-                                                    </span>
+                                                <div className="flex items-center gap-2 text-muted-foreground">
+                                                    <Award className="h-4 w-4 text-primary/70" />
+                                                    <span className="text-sm font-medium">{(emp as any).experience || 'N/A'}</span>
                                                 </div>
                                             </td>
                                             <td className="py-5 px-4">
@@ -345,36 +372,26 @@ export function EmployeeManagement() {
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="project">Project</Label>
+                            <Label htmlFor="experience">Experience</Label>
                             <Input
-                                id="project"
-                                value={formData.project}
-                                onChange={(e) => setFormData({ ...formData, project: e.target.value })}
-                                placeholder="e.g. Banking"
+                                id="experience"
+                                value={formData.experience}
+                                onChange={(e) => setFormData({ ...formData, experience: e.target.value })}
+                                placeholder="e.g. 1 years"
                                 className="rounded-xl"
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label>Status</Label>
-                            <div className="flex gap-2">
-                                <Button
-                                    type="button"
-                                    variant={formData.status === 'Active' ? 'default' : 'outline'}
-                                    className="flex-1 rounded-xl"
-                                    onClick={() => setFormData({ ...formData, status: 'Active' })}
-                                >
-                                    Active
-                                </Button>
-                                <Button
-                                    type="button"
-                                    variant={formData.status === 'Inactive' ? 'destructive' : 'outline'}
-                                    className="flex-1 rounded-xl"
-                                    onClick={() => setFormData({ ...formData, status: 'Inactive' })}
-                                >
-                                    Inactive
-                                </Button>
-                            </div>
+                            <Label htmlFor="joiningDate">Joining Date</Label>
+                            <Input
+                                id="joiningDate"
+                                type="date"
+                                value={formData.joiningDate ? formData.joiningDate.split('T')[0] : ''}
+                                onChange={(e) => setFormData({ ...formData, joiningDate: e.target.value })}
+                                className="rounded-xl"
+                            />
                         </div>
+
                         <DialogFooter className="pt-4">
                             <Button variant="outline" type="button" onClick={handleCloseDialog} className="rounded-xl">Cancel</Button>
                             <Button type="submit" className="rounded-xl bg-primary hover:bg-primary/90">

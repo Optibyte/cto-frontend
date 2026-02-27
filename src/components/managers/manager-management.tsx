@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,10 +16,12 @@ import {
     Briefcase,
     MoreVertical,
     Check,
-    X
+    X,
+    Loader2
 } from 'lucide-react';
 import { ManagerFull } from '@/lib/types';
 import { toast } from 'sonner';
+import { managersAPI } from '@/lib/api/client';
 import {
     Dialog,
     DialogContent,
@@ -67,7 +69,8 @@ const initialMockManagers: ManagerFull[] = [
 ];
 
 export function ManagerManagement() {
-    const [managers, setManagers] = useState<ManagerFull[]>(initialMockManagers);
+    const [managers, setManagers] = useState<ManagerFull[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [editingManager, setEditingManager] = useState<ManagerFull | null>(null);
@@ -75,21 +78,41 @@ export function ManagerManagement() {
         name: '',
         email: '',
         project: '',
+        employeeCode: '',
+        experience: '',
         status: 'Active' as 'Active' | 'Inactive'
     });
 
+    useEffect(() => {
+        fetchManagers();
+    }, []);
+
+    const fetchManagers = async () => {
+        setIsLoading(true);
+        try {
+            const { data } = await managersAPI.getAll();
+            setManagers(data);
+        } catch (error: any) {
+            toast.error(error.message || 'Failed to fetch managers');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     const handleOpenAddDialog = () => {
         setEditingManager(null);
-        setFormData({ name: '', email: '', project: '', status: 'Active' });
+        setFormData({ name: '', email: '', project: '', employeeCode: '', experience: '', status: 'Active' });
         setIsDialogOpen(true);
     };
 
     const handleOpenEditDialog = (manager: ManagerFull) => {
         setEditingManager(manager);
         setFormData({
-            name: manager.name,
+            name: manager.fullName || manager.name,
             email: manager.email,
             project: manager.project,
+            employeeCode: manager.employeeCode || '',
+            experience: manager.experience || '',
             status: manager.status
         });
         setIsDialogOpen(true);
@@ -100,7 +123,7 @@ export function ManagerManagement() {
         setEditingManager(null);
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
         if (!formData.name || !formData.email || !formData.project) {
@@ -108,36 +131,36 @@ export function ManagerManagement() {
             return;
         }
 
-        if (editingManager) {
-            // Update
-            setManagers(managers.map(m =>
-                m.id === editingManager.id
-                    ? { ...m, ...formData }
-                    : m
-            ));
-            toast.success(`Manager ${formData.name} updated successfully`);
-        } else {
-            // Create
-            const newManager: ManagerFull = {
-                id: `mgr-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
-                ...formData,
-                onboardedDate: new Date().toISOString().split('T')[0],
-                teamSize: 0,
-                activeProjects: 0,
-                avatar: formData.name.split(' ').map(n => n[0]).join('').toUpperCase()
-            };
-            setManagers([newManager, ...managers]);
-            toast.success(`Manager ${formData.name} created successfully`);
+        try {
+            if (editingManager) {
+                // Update
+                const { data } = await managersAPI.update(editingManager.id, formData);
+                setManagers(managers.map(m =>
+                    m.id === editingManager.id ? { ...m, ...data } : m
+                ));
+                toast.success(`Manager ${formData.name} updated successfully`);
+            } else {
+                // Create
+                const { data } = await managersAPI.create(formData);
+                setManagers([data, ...managers]);
+                toast.success(`Manager ${formData.name} created successfully`);
+            }
+            handleCloseDialog();
+        } catch (error: any) {
+            toast.error(error.message || 'Failed to save manager');
         }
-
-        handleCloseDialog();
     };
 
-    const handleDeleteManager = (id: string) => {
+    const handleDeleteManager = async (id: string) => {
         const manager = managers.find(m => m.id === id);
-        if (confirm(`Are you sure you want to delete ${manager?.name}?`)) {
-            setManagers(managers.filter(m => m.id !== id));
-            toast.success(`Manager ${manager?.name} removed`);
+        if (confirm(`Are you sure you want to delete ${manager?.fullName || manager?.name}?`)) {
+            try {
+                await managersAPI.delete(id);
+                setManagers(managers.filter(m => m.id !== id));
+                toast.success(`Manager ${manager?.fullName || manager?.name} removed`);
+            } catch (error: any) {
+                toast.error(error.message || 'Failed to delete manager');
+            }
         }
     };
 
@@ -188,17 +211,23 @@ export function ManagerManagement() {
                             <thead>
                                 <tr className="border-b border-border/10 bg-muted/20">
                                     <th className="text-left py-5 px-6 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground">Manager</th>
-                                    <th className="text-left py-5 px-4 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground">Project</th>
-                                    <th className="text-left py-5 px-4 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground">Stats</th>
-                                    <th className="text-left py-5 px-4 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground">Joined</th>
                                     <th className="text-left py-5 px-4 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground text-center">Status</th>
                                     <th className="text-center py-5 px-6 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {filteredManagers.length === 0 ? (
+                                {isLoading ? (
                                     <tr>
-                                        <td colSpan={6} className="py-20 text-center">
+                                        <td colSpan={3} className="py-20 text-center">
+                                            <div className="flex flex-col items-center gap-2">
+                                                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                                                <p className="text-muted-foreground font-medium">Loading managers...</p>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ) : filteredManagers.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={3} className="py-20 text-center">
                                             <p className="text-muted-foreground font-medium">No managers found</p>
                                         </td>
                                     </tr>
@@ -211,35 +240,15 @@ export function ManagerManagement() {
                                                         {m.avatar || m.name.charAt(0)}
                                                     </div>
                                                     <div className="flex flex-col">
-                                                        <span className="font-bold text-sm tracking-tight">{m.name}</span>
-                                                        <span className="text-[11px] font-medium text-muted-foreground">{m.email}</span>
+                                                        <span className="font-bold text-sm tracking-tight">{m.fullName || m.name}</span>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-[11px] font-medium text-muted-foreground">{m.email}</span>
+                                                            {m.employeeCode && <span className="text-[10px] bg-muted px-1.5 rounded text-muted-foreground uppercase">{m.employeeCode}</span>}
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="py-5 px-4">
-                                                <div className="flex items-center gap-2">
-                                                    <Building2 className="h-4 w-4 text-muted-foreground" />
-                                                    <span className="text-sm font-medium">{m.project}</span>
-                                                </div>
-                                            </td>
-                                            <td className="py-5 px-4">
-                                                <div className="flex flex-col gap-1">
-                                                    <span className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1">
-                                                        <Users className="h-3 w-3" />
-                                                        {m.teamSize} Member Team
-                                                    </span>
-                                                    <span className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1">
-                                                        <Briefcase className="h-3 w-3" />
-                                                        {m.activeProjects} Active Projects
-                                                    </span>
-                                                </div>
-                                            </td>
-                                            <td className="py-5 px-4">
-                                                <div className="flex items-center gap-2 text-muted-foreground">
-                                                    <Calendar className="h-3.5 w-3.5" />
-                                                    <span className="text-xs font-mono">{m.onboardedDate}</span>
-                                                </div>
-                                            </td>
+
                                             <td className="py-5 px-4 text-center">
                                                 <Badge className={`rounded-xl px-2.5 py-0.5 text-[10px] font-black uppercase tracking-widest border-0 ${m.status === 'Active'
                                                     ? 'bg-emerald-500/10 text-emerald-500'
@@ -308,37 +317,29 @@ export function ManagerManagement() {
                                 className="rounded-xl"
                             />
                         </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="project">Project</Label>
-                            <Input
-                                id="project"
-                                value={formData.project}
-                                onChange={(e) => setFormData({ ...formData, project: e.target.value })}
-                                placeholder="e.g. Banking"
-                                className="rounded-xl"
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Status</Label>
-                            <div className="flex gap-2">
-                                <Button
-                                    type="button"
-                                    variant={formData.status === 'Active' ? 'default' : 'outline'}
-                                    className="flex-1 rounded-xl"
-                                    onClick={() => setFormData({ ...formData, status: 'Active' })}
-                                >
-                                    Active
-                                </Button>
-                                <Button
-                                    type="button"
-                                    variant={formData.status === 'Inactive' ? 'destructive' : 'outline'}
-                                    className="flex-1 rounded-xl"
-                                    onClick={() => setFormData({ ...formData, status: 'Inactive' })}
-                                >
-                                    Inactive
-                                </Button>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="employeeCode">Employee Code</Label>
+                                <Input
+                                    id="employeeCode"
+                                    value={formData.employeeCode}
+                                    onChange={(e) => setFormData({ ...formData, employeeCode: e.target.value })}
+                                    placeholder="e.g. TL001"
+                                    className="rounded-xl"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="experience">Experience</Label>
+                                <Input
+                                    id="experience"
+                                    value={formData.experience}
+                                    onChange={(e) => setFormData({ ...formData, experience: e.target.value })}
+                                    placeholder="e.g. 5 years"
+                                    className="rounded-xl"
+                                />
                             </div>
                         </div>
+
                         <DialogFooter className="pt-4">
                             <Button variant="outline" type="button" onClick={handleCloseDialog} className="rounded-xl">Cancel</Button>
                             <Button type="submit" className="rounded-xl bg-primary hover:bg-primary/90">
