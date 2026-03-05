@@ -64,11 +64,11 @@ export function GlobalFilter() {
         // Cascading resets are handled in the slice
     };
 
-    // Role-based visibility logic
-    const showMarket = role === 'CTO';
-    const showAccount = role === 'CTO' || role === 'Market';
-    const showProject = role === 'CTO' || role === 'Market' || role === 'Accounts';
-    const showTeam = role === 'CTO' || role === 'Market' || role === 'Accounts' || role === 'Manager' || role === 'TeamLead'; // Managers/TL see teams
+    // Role-based visibility logic (hierarchical)
+    const showMarket = role === 'ORG';
+    const showAccount = role === 'ORG' || role === 'MARKET';
+    const showProject = role === 'ORG' || role === 'MARKET' || role === 'ACCOUNT';
+    const showTeam = role === 'ORG' || role === 'MARKET' || role === 'ACCOUNT' || role === 'PROJECT';
     const showMember = true; // Everyone can filter members in their scope
 
     return (

@@ -24,6 +24,7 @@ import {
     UserPlus,
     UserCheck,
     LayoutGrid,
+    Settings2,
 } from 'lucide-react';
 import { title } from 'process';
 
@@ -47,34 +48,9 @@ const navigationItems: NavItem[] = [
         href: '/drilldown',
     },
     {
-        title: 'Teams & Employees',
-        icon: Users,
-        href: '/teams',
-    },
-    {
         title: 'Metrics',
         icon: BarChart3,
         href: '/metrics',
-    },
-    {
-        title: 'Projects',
-        icon: LayoutGrid,
-        href: '/onboard/project',
-    },
-    {
-        title: ' Manager',
-        icon: ShieldCheck,
-        href: '/onboard/manager',
-    },
-    {
-        title: ' Team Lead',
-        icon: UserCheck,
-        href: '/onboard/team-lead',
-    },
-    {
-        title: 'Onboard Employee',
-        icon: UserPlus,
-        href: '/onboard/employee',
     },
 
     {
@@ -99,16 +75,22 @@ const navigationItems: NavItem[] = [
         icon: FileSearch,
         href: '/audit',
     },
+    {
+        title: 'Admin Console',
+        icon: Settings2,
+        href: '/admin',
+    },
 
 ];
 
 const ROLE_LABELS: Record<string, string> = {
-    CTO: 'CTO',
-    Manager: 'Manager',
-    TeamLead: 'Team Lead',
-    Employee: 'Employee',
-    Market: 'Market',
-    Accounts: 'Accounts',
+    ORG: 'Organization',
+    MARKET: 'Market',
+    ACCOUNT: 'Account',
+    PROJECT_MANAGER: 'Project Manager',
+    PROJECT: 'Project Access',
+    TEAM_LEAD: 'Team Lead',
+    TEAM: 'Developer',
 };
 
 export function Sidebar() {

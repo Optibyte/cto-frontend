@@ -19,17 +19,15 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 const ROLES = [
-    { value: 'CTO' as UserRole, label: 'CTO', color: 'bg-purple-500', icon: Shield, description: 'Organization-wide view' },
-    { value: 'Market' as UserRole, label: 'Market', color: 'bg-cyan-500', icon: Globe, description: 'Market analytics & learning' },
-    { value: 'Accounts' as UserRole, label: 'Accounts', color: 'bg-rose-500', icon: Landmark, description: 'Account performance & learning' },
-    { value: 'Manager' as UserRole, label: 'Manager', color: 'bg-blue-500', icon: Briefcase, description: 'Project & team management' },
-    { value: 'TeamLead' as UserRole, label: 'Team Lead', color: 'bg-emerald-500', icon: Users, description: 'Team performance' },
-    { value: 'Employee' as UserRole, label: 'Employee', color: 'bg-amber-500', icon: User, description: 'Individual contributions' },
-
+    { value: 'ORG' as UserRole, label: 'Organization', color: 'bg-purple-500', icon: Shield, description: 'Organization-wide view' },
+    { value: 'MARKET' as UserRole, label: 'Market', color: 'bg-cyan-500', icon: Globe, description: 'Market analytics & oversight' },
+    { value: 'ACCOUNT' as UserRole, label: 'Account', color: 'bg-rose-500', icon: Landmark, description: 'Account performance' },
+    { value: 'PROJECT' as UserRole, label: 'Project', color: 'bg-blue-500', icon: Briefcase, description: 'Project management' },
+    { value: 'TEAM' as UserRole, label: 'Team', color: 'bg-emerald-500', icon: Users, description: 'Team performance' },
 ];
 
 export function Header() {
-    const { role, setRole, setIsAuthenticated, user } = useRole();
+    const { role, setRole, setIsAuthenticated, user, logout } = useRole();
     const router = useRouter();
     const [mounted, setMounted] = useState(false);
 
@@ -40,8 +38,8 @@ export function Header() {
     const currentRole = ROLES.find((r) => r.value === role) || ROLES[0];
 
     // Get display email and ID
-    const displayEmail = user?.user?.email || 'user@ctoplatform.com';
-    const displayId = user?.trackingId || user?.employeeCode || '';
+    const displayEmail = user?.email || user?.user?.email || 'user@ctoplatform.com';
+    const displayId = user?.id || '';
 
     return (
         <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-border/30 bg-card/80 backdrop-blur-md supports-[backdrop-filter]:bg-card/60 px-6 transition-all shadow-sm shadow-black/5 dark:shadow-black/10">
@@ -58,7 +56,7 @@ export function Header() {
 
             <div className="flex items-center gap-2">
                 {/* Dashboard Filters */}
-                {mounted && role !== 'Employee' && (
+                {mounted && role !== 'TEAM' && (
                     <>
                         <GlobalFilter />
                         <div className="h-6 w-px bg-border/40 mx-1" />
@@ -88,9 +86,9 @@ export function Header() {
                                         TRK: {displayId}
                                     </span>
                                 )}
-                                {user?.user?.id && (
+                                {(user?.id || user?.user?.id) && (
                                     <span className="text-[9px] text-muted-foreground font-mono mt-1 bg-muted/50 px-1.5 py-0.5 rounded-sm w-fit" title="System UUID">
-                                        ID: {user.user.id}
+                                        ID: {(user?.id || user?.user?.id)?.slice(0, 8)}...
                                     </span>
                                 )}
                                 <div className="flex items-center gap-1.5 mt-1.5">
@@ -111,7 +109,7 @@ export function Header() {
                         <DropdownMenuSeparator className="my-1 opacity-50" />
                         <DropdownMenuItem
                             onClick={() => {
-                                setIsAuthenticated(false);
+                                logout();
                                 router.push('/login');
                             }}
                             className="flex items-center gap-2 p-2.5 rounded-xl cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10 transition-colors"

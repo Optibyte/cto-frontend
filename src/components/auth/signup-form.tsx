@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Mail, Lock, ArrowRight, UserCircle, ShieldCheck } from 'lucide-react';
+import { Mail, ArrowRight, UserCircle, ShieldCheck, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,35 +12,48 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { toast } from 'sonner';
 import { UserRole } from '@/lib/types';
 import { useRole } from '@/contexts/role-context';
+import { authAPI } from '@/lib/api/auth';
 
 export function SignUpForm() {
     const router = useRouter();
-    const { setRole, setIsAuthenticated } = useRole();
+    const { setRole, setIsAuthenticated, setUser, setToken } = useRole();
     const [isLoading, setIsLoading] = useState(false);
     const [formData, setFormData] = useState({
         email: '',
-        password: '',
-        role: '' as UserRole | '',
+        fullName: '',
+        role: 'TEAM' as UserRole,
     });
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!formData.email || !formData.password || !formData.role) {
-            toast.error('Please fill in all fields');
+        if (!formData.email || !formData.fullName) {
+            toast.error('Please fill in all required fields');
             return;
         }
 
         setIsLoading(true);
-        // Simulate API call
-        setTimeout(() => {
-            setIsLoading(false);
-            if (formData.role) {
-                setRole(formData.role as UserRole);
-                setIsAuthenticated(true);
-            }
+
+        try {
+            const response = await authAPI.signup({
+                email: formData.email,
+                fullName: formData.fullName,
+                role: formData.role,
+            });
+
+            // Store token and user data
+            setToken(response.access_token);
+            setRole(response.user.role as UserRole);
+            setUser(response.user);
+            setIsAuthenticated(true);
+
             toast.success('Account created successfully!');
             router.push('/');
-        }, 1500);
+        } catch (error: any) {
+            const message = error.response?.data?.message || 'Sign up failed. Please try again.';
+            toast.error(message);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     const handleInputChange = (field: string, value: string) => {
@@ -57,11 +70,26 @@ export function SignUpForm() {
                 </div>
                 <CardTitle className="text-3xl font-bold tracking-tight text-white">Create an account</CardTitle>
                 <CardDescription className="text-slate-400 text-base">
-                    Start optimizing your team's performance
+                    Start optimizing your team&apos;s performance
                 </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-6">
                 <form onSubmit={handleSubmit} className="space-y-5">
+                    <div className="space-y-2">
+                        <Label htmlFor="fullName" className="text-sm font-medium text-slate-200">Full Name</Label>
+                        <div className="relative group">
+                            <User className="absolute left-3.5 top-3.5 h-4 w-4 text-slate-500 group-focus-within:text-primary transition-colors" />
+                            <Input
+                                id="fullName"
+                                type="text"
+                                placeholder="John Doe"
+                                className="pl-11 h-12 bg-white/5 border-white/10 rounded-xl focus:bg-white/10 focus-visible:ring-primary/40 text-white placeholder:text-slate-600"
+                                value={formData.fullName}
+                                onChange={(e) => handleInputChange('fullName', e.target.value)}
+                                required
+                            />
+                        </div>
+                    </div>
                     <div className="space-y-2">
                         <Label htmlFor="email" className="text-sm font-medium text-slate-200">Email address</Label>
                         <div className="relative group">
@@ -78,22 +106,7 @@ export function SignUpForm() {
                         </div>
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="password" title="Password" className="text-sm font-medium text-slate-200">Password</Label>
-                        <div className="relative group">
-                            <Lock className="absolute left-3.5 top-3.5 h-4 w-4 text-slate-500 group-focus-within:text-primary transition-colors" />
-                            <Input
-                                id="password"
-                                type="password"
-                                placeholder="••••••••"
-                                className="pl-11 h-12 bg-white/5 border-white/10 rounded-xl focus:bg-white/10 focus-visible:ring-primary/40 text-white placeholder:text-slate-600"
-                                value={formData.password}
-                                onChange={(e) => handleInputChange('password', e.target.value)}
-                                required
-                            />
-                        </div>
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="role" className="text-sm font-medium text-slate-200">Assign Role</Label>
+                        <Label htmlFor="role" className="text-sm font-medium text-slate-200">Role</Label>
                         <Select
                             onValueChange={(value) => handleInputChange('role', value)}
                             value={formData.role}
@@ -105,12 +118,11 @@ export function SignUpForm() {
                                 </div>
                             </SelectTrigger>
                             <SelectContent className="bg-slate-900 border-white/10 text-white">
-                                <SelectItem value="CTO">CTO</SelectItem>
-                                <SelectItem value="Manager">Manager</SelectItem>
-                                <SelectItem value="TeamLead">Team Lead</SelectItem>
-                                <SelectItem value="Employee">Employee</SelectItem>
-                                <SelectItem value="Market">Market</SelectItem>
-                                <SelectItem value="Accounts">Accounts</SelectItem>
+                                <SelectItem value="ORG">Organization Admin</SelectItem>
+                                <SelectItem value="MARKET">Market Manager</SelectItem>
+                                <SelectItem value="ACCOUNT">Account Manager</SelectItem>
+                                <SelectItem value="PROJECT">Project Lead</SelectItem>
+                                <SelectItem value="TEAM">Team Member</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
@@ -123,11 +135,11 @@ export function SignUpForm() {
                         {isLoading ? (
                             <div className="flex items-center gap-2">
                                 <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                                <span>Joining...</span>
+                                <span>Creating account...</span>
                             </div>
                         ) : (
                             <div className="flex items-center gap-2">
-                                <span>Complete Setup</span>
+                                <span>Create Account</span>
                                 <ArrowRight className="h-4 w-4" />
                             </div>
                         )}
