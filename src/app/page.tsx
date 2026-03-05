@@ -30,18 +30,23 @@ export default function DashboardPage() {
 
   // Render the appropriate dashboard based on the selected role
   switch (role) {
-    case 'CTO':
+    case 'ORG':
       return <CTODashboard />;
-    case 'Manager':
-      return <ManagerDashboard />;
-    case 'TeamLead':
-      return <TLDashboard />;
-    case 'Employee':
-      return <EmployeeDashboard />;
-    case 'Market':
+    case 'MARKET':
       return <MarketDashboard />;
-    case 'Accounts':
+    case 'ACCOUNT':
+    case 'ACCOUNTS' as any:
       return <AccountsDashboard />;
+    case 'PROJECT_MANAGER':
+    case 'PROJECT' as any:
+    case 'Manager' as any:
+      return <ManagerDashboard />;
+    case 'TEAM_LEAD':
+    case 'TeamLead' as any:
+      return <TLDashboard />;
+    case 'TEAM':
+    case 'Employee' as any:
+      return <EmployeeDashboard />;
     default:
       return <CTODashboard />;
   }

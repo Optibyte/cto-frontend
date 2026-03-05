@@ -7,11 +7,15 @@ import { MetricSelector } from '@/components/dashboard/metric-selector';
 import { ChartCustomizer, ChartCustomization } from '@/components/dashboard/chart-customizer';
 import { DateRangeFilter } from '@/components/filters/date-range-filter';
 import { mockLearningMetrics } from '@/lib/mock-data/learning-metrics';
-import { Activity, BarChart3, TrendingUp, Target, Users2, ShieldCheck } from 'lucide-react';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, LineChart, Line
 } from 'recharts';
 import { useAppSelector } from '@/redux/store';
+import { useDashboardKPIs, useTeamPerformance, useRecentActivity } from '@/hooks/use-dashboard-data';
+import { useRole } from '@/contexts/role-context';
+import { KPICard } from '@/components/dashboard/kpi-card';
+import { TrendingUp, Target, Users2, ShieldCheck, Activity, Download, Loader2, Zap, Clock, BarChart3 } from 'lucide-react';
+import { toast } from 'sonner';
 
 const tlTeamPerformanceData = [
     { name: 'Alice Johnson', completed: 15, certifications: 4, skillPoints: 350, speed: 92 },
@@ -32,6 +36,11 @@ const tlTeamTrendData = [
 const CHART_AXIS_OPTIONS = ['name', 'completed', 'certifications', 'skillPoints', 'speed'];
 
 export function TLDashboard() {
+    const { user } = useRole();
+    const { data: kpiData, isLoading: kpiLoading } = useDashboardKPIs();
+    const { data: teamPerformance = [], isLoading: teamLoading } = useTeamPerformance();
+    const { data: activity = [], isLoading: activityLoading } = useRecentActivity();
+
     const { selectedTeam } = useAppSelector((state) => state.dashboard);
     const [selectedMetricIds, setSelectedMetricIds] = useState<string[]>(
         mockLearningMetrics.map((m) => m.id)
@@ -44,7 +53,24 @@ export function TLDashboard() {
         showValues: true,
     });
 
+    const isLoading = kpiLoading || teamLoading || activityLoading;
+
     const visibleMetrics = mockLearningMetrics.filter((m) => selectedMetricIds.includes(m.id));
+
+    const handleDownload = () => {
+        toast.success('Downloading team report...');
+        // In a real app, this would call an API or generate a CSV
+        const csvContent = "data:text/csv;charset=utf-8,"
+            + "Name,Completed,Certifications,SkillPoints,Speed\n"
+            + tlTeamPerformanceData.map(e => `${e.name},${e.completed},${e.certifications},${e.skillPoints},${e.speed}`).join("\n");
+
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `${user?.fullName || 'Team'}_Report.csv`);
+        document.body.appendChild(link);
+        link.click();
+    };
 
     const getBarColor = () => {
         const schemes: Record<string, string> = {
@@ -57,7 +83,18 @@ export function TLDashboard() {
         return schemes[chartConfig.colorScheme] || '#22c55e';
     };
 
-    const teamDisplayName = selectedTeam === 'all' ? 'Team' : selectedTeam.toUpperCase();
+    const teamDisplayName = user?.teamName || (selectedTeam === 'all' ? 'Your Team' : selectedTeam.toUpperCase());
+
+    if (isLoading) {
+        return (
+            <div className="flex items-center justify-center h-96">
+                <div className="flex flex-col items-center gap-3">
+                    <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
+                    <span className="text-muted-foreground font-medium">Loading team data...</span>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-8 animate-in fade-in duration-700">
@@ -74,14 +111,56 @@ export function TLDashboard() {
                     </p>
                 </div>
                 <div className="flex items-center gap-3">
-                    <MetricSelector
-                        metrics={mockLearningMetrics}
-                        selectedIds={selectedMetricIds}
-                        onSelectionChange={setSelectedMetricIds}
-                    />
+                    <button
+                        onClick={handleDownload}
+                        className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg transition-all shadow-lg shadow-emerald-500/20 text-sm font-medium"
+                    >
+                        <Download className="h-4 w-4" />
+                        Download Report
+                    </button>
                     <div className="hidden md:block h-8 w-px bg-border/20 mx-1" />
                     <DateRangeFilter />
                 </div>
+            </div>
+
+            {/* Top Stats Section */}
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <KPICard
+                    title="Velocity"
+                    value={kpiData?.velocity?.current ?? 0}
+                    unit="pts"
+                    change={kpiData?.velocity?.change ?? 0}
+                    trend={kpiData?.velocity?.trend ?? 'neutral'}
+                    icon={TrendingUp}
+                    sparklineData={kpiData?.velocity?.sparkline ?? []}
+                />
+                <KPICard
+                    title="Quality"
+                    value={kpiData?.quality?.current ?? 0}
+                    unit="%"
+                    change={kpiData?.quality?.change ?? 0}
+                    trend={kpiData?.quality?.trend ?? 'neutral'}
+                    icon={Target}
+                    sparklineData={kpiData?.quality?.sparkline ?? []}
+                />
+                <KPICard
+                    title="Throughput"
+                    value={kpiData?.throughput?.current ?? 0}
+                    unit="tasks"
+                    change={kpiData?.throughput?.change ?? 0}
+                    trend={kpiData?.throughput?.trend ?? 'neutral'}
+                    icon={Zap}
+                    sparklineData={kpiData?.throughput?.sparkline ?? []}
+                />
+                <KPICard
+                    title="Cycle Time"
+                    value={kpiData?.cycleTime?.current ?? 0}
+                    unit="hrs"
+                    change={kpiData?.cycleTime?.change ?? 0}
+                    trend={kpiData?.cycleTime?.trend ?? 'neutral'}
+                    icon={Clock}
+                    sparklineData={kpiData?.cycleTime?.sparkline ?? []}
+                />
             </div>
 
             {/* Learning Metrics Cards */}

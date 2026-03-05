@@ -23,7 +23,7 @@ export function EmployeeLevel() {
             id: emp.id,
             name: emp.user?.fullName || 'Unknown Employee',
             email: emp.user?.email || '',
-            role: emp.user?.role || 'Employee',
+            role: emp.user?.role || 'TEAM',
             avatar: initials,
             trackingId: emp.trackingId || '',
         };

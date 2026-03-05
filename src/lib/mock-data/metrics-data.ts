@@ -116,7 +116,7 @@ export const MEMBERS_WITH_METRICS: MemberWithMetrics[] = [
     {
         id: 'u1',
         name: 'Rahul Sharma',
-        role: 'Employee',
+        role: 'TEAM',
         avatar: 'RS',
         team: 'Backend',
         metrics: [
@@ -134,7 +134,7 @@ export const MEMBERS_WITH_METRICS: MemberWithMetrics[] = [
     {
         id: 'u2',
         name: 'Priya Patel',
-        role: 'Employee',
+        role: 'TEAM',
         avatar: 'PP',
         team: 'UI/UX',
         metrics: [
@@ -152,7 +152,7 @@ export const MEMBERS_WITH_METRICS: MemberWithMetrics[] = [
     {
         id: 'u3',
         name: 'Amit Kumar',
-        role: 'Employee',
+        role: 'TEAM',
         avatar: 'AK',
         team: 'Backend',
         metrics: [
@@ -170,7 +170,7 @@ export const MEMBERS_WITH_METRICS: MemberWithMetrics[] = [
     {
         id: 'u4',
         name: 'Sneha Reddy',
-        role: 'Employee',
+        role: 'TEAM',
         avatar: 'SR',
         team: 'QA',
         metrics: [
@@ -188,7 +188,7 @@ export const MEMBERS_WITH_METRICS: MemberWithMetrics[] = [
     {
         id: 'u5',
         name: 'Vikram Singh',
-        role: 'Employee',
+        role: 'TEAM',
         avatar: 'VS',
         team: 'DevOps',
         metrics: [
@@ -227,7 +227,7 @@ export const CUSTOM_METRIC_DEFINITIONS: CustomMetricDef[] = [
         min: 1,
         max: 5,
         category: 'Performance',
-        editableBy: ['TL', 'Manager'],
+        editableBy: ['PROJECT', 'ORG'],
         visibleTo: ['All'],
         thresholds: { red: 2, amber: 3.5, green: 3.5 },
         createdAt: '2026-01-15T10:00:00Z',
@@ -239,7 +239,7 @@ export const CUSTOM_METRIC_DEFINITIONS: CustomMetricDef[] = [
         min: 0,
         max: 100,
         category: 'Engineering',
-        editableBy: ['TL', 'Manager', 'CTO'],
+        editableBy: ['PROJECT', 'ORG'],
         visibleTo: ['All'],
         thresholds: { red: 40, amber: 60, green: 80 },
         createdAt: '2026-01-20T14:30:00Z',
@@ -251,8 +251,8 @@ export const CUSTOM_METRIC_DEFINITIONS: CustomMetricDef[] = [
         min: 0,
         max: 60,
         category: 'Operations',
-        editableBy: ['Manager', 'CTO'],
-        visibleTo: ['TL', 'Manager', 'CTO'],
+        editableBy: ['ORG'],
+        visibleTo: ['PROJECT', 'ORG'],
         thresholds: { red: 30, amber: 15, green: 10 },
         createdAt: '2026-02-01T09:00:00Z',
     },

@@ -6,6 +6,17 @@ const api = axios.create({
     headers: { 'Content-Type': 'application/json' },
 });
 
+// Add request interceptor to inject Bearer token
+api.interceptors.request.use((config) => {
+    if (typeof window !== 'undefined') {
+        const token = localStorage.getItem('access_token');
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+        }
+    }
+    return config;
+});
+
 export const usersAPI = {
     getAll: () => api.get('/'),
     getById: (id: string) => api.get(`/${id}`),

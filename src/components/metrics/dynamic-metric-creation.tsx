@@ -330,7 +330,7 @@ export function DynamicMetricCreation() {
                         <div className="space-y-2">
                             <Label>Editable By</Label>
                             <div className="flex flex-wrap gap-2">
-                                {USER_ROLES.filter((r) => r.value !== 'Employee').map((role) => (
+                                {USER_ROLES.filter((r) => r.value !== 'TEAM').map((role) => (
                                     <Button
                                         key={role.value}
                                         type="button"

@@ -206,27 +206,27 @@ const projectSLAStatus: Record<string, { met: number; atRisk: number; missed: nu
 
 const projectActivities: Record<string, Activity[]> = {
     banking: [
-        { id: 'b1', type: 'metric_update', title: 'Core Banking velocity up to 78 pts', description: 'Sprint velocity increased for Core Banking team', timestamp: new Date(Date.now() - 1 * 60 * 60 * 1000), user: { id: 'u1', name: 'Ravi Kumar', email: 'ravi@cto.io', role: 'Manager' } },
+        { id: 'b1', type: 'metric_update', title: 'Core Banking velocity up to 78 pts', description: 'Sprint velocity increased for Core Banking team', timestamp: new Date(Date.now() - 1 * 60 * 60 * 1000), user: { id: 'u1', name: 'Ravi Kumar', email: 'ravi@cto.io', role: 'PROJECT' } },
         { id: 'b2', type: 'sla_breach', title: 'Compliance SLA at risk', description: 'Response time nearing SLA threshold', timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000), severity: 'warning' },
     ],
     ecommerce: [
-        { id: 'e1', type: 'metric_update', title: 'Storefront team score at 90', description: 'Quality improvements across sprint', timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000), user: { id: 'u2', name: 'Vikram Singh', email: 'vikram@cto.io', role: 'Manager' } },
-        { id: 'e2', type: 'integration_sync', title: 'Shopify sync completed', description: 'Synced 200 product entries', timestamp: new Date(Date.now() - 6 * 60 * 60 * 1000), user: { id: 'system', name: 'System', email: 'system@cto.io', role: 'CTO' } },
+        { id: 'e1', type: 'metric_update', title: 'Storefront team score at 90', description: 'Quality improvements across sprint', timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000), user: { id: 'u2', name: 'Vikram Singh', email: 'vikram@cto.io', role: 'PROJECT' } },
+        { id: 'e2', type: 'integration_sync', title: 'Shopify sync completed', description: 'Synced 200 product entries', timestamp: new Date(Date.now() - 6 * 60 * 60 * 1000), user: { id: 'system', name: 'System', email: 'system@cto.io', role: 'ORG' } },
     ],
     hrms: [
-        { id: 'h1', type: 'metric_update', title: 'Payroll quality at 97%', description: 'Outstanding quality metrics this sprint', timestamp: new Date(Date.now() - 3 * 60 * 60 * 1000), user: { id: 'u3', name: 'Sneha Reddy', email: 'sneha@cto.io', role: 'TeamLead' } },
+        { id: 'h1', type: 'metric_update', title: 'Payroll quality at 97%', description: 'Outstanding quality metrics this sprint', timestamp: new Date(Date.now() - 3 * 60 * 60 * 1000), user: { id: 'u3', name: 'Sneha Reddy', email: 'sneha@cto.io', role: 'PROJECT' } },
     ],
     'ai-analytics': [
-        { id: 'a1', type: 'metric_update', title: 'ML Pipeline velocity surge', description: 'Velocity increased by 22% this sprint', timestamp: new Date(Date.now() - 1 * 60 * 60 * 1000), user: { id: 'u4', name: 'Arjun Nair', email: 'arjun@cto.io', role: 'Manager' } },
+        { id: 'a1', type: 'metric_update', title: 'ML Pipeline velocity surge', description: 'Velocity increased by 22% this sprint', timestamp: new Date(Date.now() - 1 * 60 * 60 * 1000), user: { id: 'u4', name: 'Arjun Nair', email: 'arjun@cto.io', role: 'PROJECT' } },
         { id: 'a2', type: 'sla_breach', title: 'Data Pipeline latency warning', description: 'Processing time above threshold', timestamp: new Date(Date.now() - 5 * 60 * 60 * 1000), severity: 'warning' },
     ],
 };
 
 const allActivities: Activity[] = [
-    { id: '1', type: 'metric_update', title: 'Velocity updated for Team Alpha', description: 'Sprint velocity increased to 245 points', timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000), user: { id: 'u1', name: 'John Doe', email: 'john@cto.io', role: 'Manager', avatar: '/avatars/john.jpg' } },
+    { id: '1', type: 'metric_update', title: 'Velocity updated for Team Alpha', description: 'Sprint velocity increased to 245 points', timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000), user: { id: 'u1', name: 'John Doe', email: 'john@cto.io', role: 'PROJECT', avatar: '/avatars/john.jpg' } },
     { id: '2', type: 'sla_breach', title: 'SLA breach: Response Time exceeded', description: 'Average response time is 3.2 hours (target: 2 hours)', timestamp: new Date(Date.now() - 5 * 60 * 60 * 1000), severity: 'warning' },
-    { id: '3', type: 'integration_sync', title: 'Jira sync completed', description: 'Successfully synced 150 issues from Jira', timestamp: new Date(Date.now() - 8 * 60 * 60 * 1000), user: { id: 'system', name: 'System', email: 'system@cto.io', role: 'CTO' } },
-    { id: '4', type: 'metric_update', title: 'Quality score updated for Team Gamma', description: 'Code quality improved to 88%', timestamp: new Date(Date.now() - 12 * 60 * 60 * 1000), user: { id: 'u2', name: 'Jane Smith', email: 'jane@cto.io', role: 'TeamLead', avatar: '/avatars/jane.jpg' } },
+    { id: '3', type: 'integration_sync', title: 'Jira sync completed', description: 'Successfully synced 150 issues from Jira', timestamp: new Date(Date.now() - 8 * 60 * 60 * 1000), user: { id: 'system', name: 'System', email: 'system@cto.io', role: 'ORG' } },
+    { id: '4', type: 'metric_update', title: 'Quality score updated for Team Gamma', description: 'Code quality improved to 88%', timestamp: new Date(Date.now() - 12 * 60 * 60 * 1000), user: { id: 'u2', name: 'Jane Smith', email: 'jane@cto.io', role: 'PROJECT', avatar: '/avatars/jane.jpg' } },
 ];
 
 // ========== MAIN GETTER FUNCTIONS ==========

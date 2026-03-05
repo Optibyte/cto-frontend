@@ -40,7 +40,7 @@ import {
 import { PROJECTS, TEAMS, getTeamsForProject } from '@/lib/mock-data/dashboard-filtered';
 
 // Current user role simulation
-const CURRENT_USER_ROLE = 'TeamLead';
+const CURRENT_USER_ROLE = 'PROJECT';
 
 function getRAGColor(value: number, thresholds: { red: number; amber: number; green: number }) {
     if (value >= thresholds.green) return 'green';
@@ -95,7 +95,7 @@ export function ManualMetricsTab() {
         thresholds: { red: 2, amber: 3, green: 4 }
     });
 
-    const canEdit = ['CTO', 'Manager', 'TeamLead'].includes(CURRENT_USER_ROLE);
+    const canEdit = ['ORG', 'MARKET', 'ACCOUNT', 'PROJECT'].includes(CURRENT_USER_ROLE);
 
     // Filtering logic
     const availableTeams = getTeamsForProject(selectedProjectId);

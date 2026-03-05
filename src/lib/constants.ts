@@ -37,12 +37,11 @@ export const METRIC_CATEGORIES = [
 ] as const;
 
 export const USER_ROLES = [
-    { value: 'CTO', label: 'CTO' },
-    { value: 'Manager', label: 'Manager' },
-    { value: 'TeamLead', label: 'Team Lead' },
-    { value: 'Employee', label: 'Employee' },
-    { value: 'Market', label: 'Market' },
-    { value: 'Accounts', label: 'Accounts' },
+    { value: 'ORG', label: 'Organization' },
+    { value: 'MARKET', label: 'Market' },
+    { value: 'ACCOUNT', label: 'Account' },
+    { value: 'PROJECT', label: 'Project' },
+    { value: 'TEAM', label: 'Team' },
 ] as const;
 
 export const METRIC_CLASSES = [

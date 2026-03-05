@@ -52,7 +52,7 @@ export const mockActivities: Activity[] = [
         title: 'Velocity updated for Team Alpha',
         description: 'Sprint velocity increased to 245 points',
         timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000),
-        user: { id: 'u1', name: 'John Doe', email: 'john@example.com', role: 'Manager', avatar: '/avatars/john.jpg' },
+        user: { id: 'u1', name: 'John Doe', email: 'john@example.com', role: 'PROJECT', avatar: '/avatars/john.jpg' },
     },
     {
         id: '2',
@@ -68,7 +68,7 @@ export const mockActivities: Activity[] = [
         title: 'Jira sync completed',
         description: 'Successfully synced 150 issues from Jira',
         timestamp: new Date(Date.now() - 8 * 60 * 60 * 1000),
-        user: { id: 'system', name: 'System', email: 'system@example.com', role: 'CTO' },
+        user: { id: 'system', name: 'System', email: 'system@example.com', role: 'ORG' },
     },
     {
         id: '4',
@@ -76,6 +76,6 @@ export const mockActivities: Activity[] = [
         title: 'Quality score updated for Team Gamma',
         description: 'Code quality improved to 88%',
         timestamp: new Date(Date.now() - 12 * 60 * 60 * 1000),
-        user: { id: 'u2', name: 'Jane Smith', email: 'jane@example.com', role: 'TeamLead', avatar: '/avatars/jane.jpg' },
+        user: { id: 'u2', name: 'Jane Smith', email: 'jane@example.com', role: 'PROJECT', avatar: '/avatars/jane.jpg' },
     },
 ];

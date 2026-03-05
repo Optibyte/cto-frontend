@@ -13,8 +13,12 @@ const getHeaders = () => {
 
     if (typeof window !== 'undefined') {
         const userId = localStorage.getItem('current_user_id');
+        const token = localStorage.getItem('access_token');
         if (userId) {
             headers['x-user-id'] = userId;
+        }
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
         }
     }
 

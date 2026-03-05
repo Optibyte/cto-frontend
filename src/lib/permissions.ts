@@ -13,10 +13,11 @@ export type Feature =
     | 'notifications'
     | 'audit'
     | 'settings'
-    | 'access-control';
+    | 'access-control'
+    | 'admin';
 
 export const ROLE_PERMISSIONS: Record<UserRole, Feature[]> = {
-    CTO: [
+    ORG: [
         'dashboard',
         'projects',
         'drilldown',
@@ -30,8 +31,29 @@ export const ROLE_PERMISSIONS: Record<UserRole, Feature[]> = {
         'audit',
         'settings',
         'access-control',
+        'admin',
     ],
-    Manager: [
+    MARKET: [
+        'dashboard',
+        'drilldown',
+        'teams',
+        'metrics',
+        'sla',
+        'reports',
+        'notifications',
+        'settings',
+    ],
+    ACCOUNT: [
+        'dashboard',
+        'drilldown',
+        'teams',
+        'metrics',
+        'sla',
+        'reports',
+        'notifications',
+        'settings',
+    ],
+    PROJECT: [
         'dashboard',
         'projects',
         'drilldown',
@@ -42,21 +64,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, Feature[]> = {
         'notifications',
         'settings',
     ],
-    TeamLead: [
+    PROJECT_MANAGER: [
         'dashboard',
-        'teams',
-        'metrics',
-        'sla',
-        'notifications',
-        'settings',
-    ],
-    Employee: [
-        'dashboard',
-        'notifications',
-        'settings',
-    ],
-    Market: [
-        'dashboard',
+        'projects',
         'drilldown',
         'teams',
         'metrics',
@@ -64,14 +74,20 @@ export const ROLE_PERMISSIONS: Record<UserRole, Feature[]> = {
         'reports',
         'notifications',
         'settings',
+        'admin',
     ],
-    Accounts: [
+    TEAM_LEAD: [
         'dashboard',
-        'drilldown',
         'teams',
         'metrics',
-        'sla',
-        'reports',
+        'notifications',
+        'settings',
+        'admin',
+    ],
+    TEAM: [
+        'dashboard',
+        'teams',
+        'metrics',
         'notifications',
         'settings',
     ],
@@ -95,6 +111,7 @@ export const ROUTE_FEATURE_MAP: Record<string, Feature> = {
     '/onboard/manager': 'teams',
     '/onboard/team-lead': 'teams',
     '/onboard/employee': 'teams',
+    '/admin': 'admin',
 };
 
 export function canAccess(role: UserRole, feature: Feature): boolean {
