@@ -6,6 +6,17 @@ const api = axios.create({
     headers: { 'Content-Type': 'application/json' },
 });
 
+// Add request interceptor to inject token
+api.interceptors.request.use((config) => {
+    if (typeof window !== 'undefined') {
+        const token = localStorage.getItem('access_token');
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+        }
+    }
+    return config;
+});
+
 export interface HierarchyUser {
     id: string;
     fullName: string;
@@ -45,17 +56,51 @@ export interface HierarchyCTO {
     userId: string;
     trackingId: string;
     user: HierarchyUser;
-    projects: HierarchyPM[];  // "projects" is the Prisma relation name for PMs under CTO
+    projects: HierarchyPM[];
+}
+
+// Organizational Hierarchy (Market -> Account -> Team -> Project)
+export interface HierarchyMarket {
+    id: string;
+    name: string;
+    regionCode: string;
+    accounts: HierarchyAccount[];
+}
+
+export interface HierarchyAccount {
+    id: string;
+    name: string;
+    marketId: string;
+    market: any;
+    teams: HierarchyTeam[];
+}
+
+export interface HierarchyTeam {
+    id: string;
+    name: string;
+    accountId: string;
+    projectId: string;
+    project: HierarchyProject | null;
+}
+
+export interface HierarchyProject {
+    id: string;
+    name: string;
+}
+
+export interface FullHierarchy {
+    organizations: any[];
+    markets: HierarchyMarket[];
 }
 
 export const hierarchyAPI = {
-    getFullHierarchy: async (): Promise<HierarchyCTO[]> => {
-        const { data } = await api.get('/hierarchy');
+    getFullHierarchy: async (): Promise<FullHierarchy> => {
+        const { data } = await api.get('/hierarchy/full');
         return data;
     },
 
     getHierarchyByUser: async (userId: string): Promise<any> => {
-        const { data } = await api.get(`/hierarchy/${userId}`);
+        const { data } = await api.get(`/hierarchy`);
         return data;
     },
 };
