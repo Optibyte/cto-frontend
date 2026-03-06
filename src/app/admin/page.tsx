@@ -534,6 +534,16 @@ function EntityDialog({ open, onOpenChange, tab, editItem, onSave, markets, acco
                             <div className="space-y-2"><Label>Team Size</Label><Input type="number" className="rounded-xl" value={form.teamSize || 0} onChange={e => set('teamSize', Number(e.target.value))} /></div>
                         </div>
                         <div className="space-y-2"><Label>Progress %</Label><Input type="number" min="0" max="100" className="rounded-xl" value={form.progress || 0} onChange={e => set('progress', Number(e.target.value))} /></div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label className="flex items-center gap-1.5">Jira Project Key <span className="text-[10px] text-blue-400 font-normal">(e.g. BANK)</span></Label>
+                                <Input className="rounded-xl font-mono uppercase" value={form.jiraProjectKey || ''} onChange={e => set('jiraProjectKey', e.target.value.toUpperCase())} placeholder="e.g. BANK" />
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="flex items-center gap-1.5">Jira Board ID <span className="text-[10px] text-muted-foreground font-normal">(optional)</span></Label>
+                                <Input className="rounded-xl" value={form.jiraBoardId || ''} onChange={e => set('jiraBoardId', e.target.value)} placeholder="e.g. 12345" />
+                            </div>
+                        </div>
                     </>)}
 
                     {tab === 'teams' && (<>
@@ -669,6 +679,10 @@ function EntityDialog({ open, onOpenChange, tab, editItem, onSave, markets, acco
                             </Select>
                         </div>
                         <div className="space-y-2"><Label>Job Role / Designation</Label><Input className="rounded-xl" value={form.jobRole || ''} onChange={e => set('jobRole', e.target.value)} placeholder="e.g. Senior Software Engineer" /></div>
+                        <div className="space-y-2">
+                            <Label className="flex items-center gap-1.5">Jira Account ID <span className="text-[10px] text-blue-400 font-normal">(links to Jira user)</span></Label>
+                            <Input className="rounded-xl font-mono" value={form.jiraAccountId || ''} onChange={e => set('jiraAccountId', e.target.value)} placeholder="e.g. 6123abc..." />
+                        </div>
                     </>)}
                 </div>
 
@@ -688,10 +702,10 @@ function getDefaultForm(tab: TabKey): Record<string, any> {
     switch (tab) {
         case 'markets': return { name: '', regionCode: '' };
         case 'accounts': return { name: '', marketId: '', accountManagerId: '' };
-        case 'projects': return { name: '', startDate: '', enddate: '', status: 'PLANNED', teamSize: 0, progress: 0 };
+        case 'projects': return { name: '', startDate: '', enddate: '', status: 'PLANNED', teamSize: 0, progress: 0, jiraProjectKey: '', jiraBoardId: '' };
         case 'teams': return { name: '', description: '', teamLeadId: '', accountId: '', projectId: '' };
         case 'members': return { teamId: '', userIds: [], roleInTeam: 'Member' };
-        case 'users': return { fullName: '', email: '', role: 'TEAM', jobRole: '', auth0Id: '' };
+        case 'users': return { fullName: '', email: '', role: 'TEAM', jobRole: '', auth0Id: '', jiraAccountId: '' };
     }
 }
 
@@ -703,6 +717,8 @@ function buildPayload(tab: TabKey, form: Record<string, any>, isEdit: boolean): 
             const p: any = { name: form.name, status: form.status, teamSize: Number(form.teamSize), progress: Number(form.progress) };
             if (form.startDate) p.startDate = form.startDate;
             if (form.enddate) p.enddate = form.enddate;
+            if (form.jiraProjectKey) p.jiraProjectKey = form.jiraProjectKey.trim().toUpperCase();
+            if (form.jiraBoardId) p.jiraBoardId = form.jiraBoardId.trim();
             return p;
         }
         case 'teams': {
@@ -715,6 +731,7 @@ function buildPayload(tab: TabKey, form: Record<string, any>, isEdit: boolean): 
         case 'members': return { teamId: form.teamId, userIds: form.userIds || [], roleInTeam: form.roleInTeam || 'Member' };
         case 'users': {
             const u: any = { fullName: form.fullName, role: form.role, jobRole: form.jobRole };
+            if (form.jiraAccountId) u.jiraAccountId = form.jiraAccountId.trim();
             if (!isEdit) {
                 u.email = form.email;
                 u.auth0Id = `auth0|${form.email}`;
