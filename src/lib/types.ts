@@ -158,12 +158,12 @@ export type MetricDataType = 'int' | 'float' | 'string' | 'boolean' | 'percentag
 export interface MetricDefinition {
     id: string;
     name: string;
+    metricType: string;
     metricClass: MetricClass;
     threshold: number;
     updateFrequency: UpdateFrequency;
     rangeMin: number;
     rangeMax: number;
-    dataType: MetricDataType;
     account: string;
     market: string;
     project: string;
