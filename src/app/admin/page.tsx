@@ -55,7 +55,8 @@ export default function AdminPage() {
         if (role === 'ORG') return true;
         if (role === 'MARKET') return ['markets', 'accounts', 'teams', 'members', 'users'].includes(tab.key);
         if (role === 'ACCOUNT') return ['accounts', 'teams', 'members', 'users'].includes(tab.key);
-        if (role === 'PROJECT_MANAGER' || role === 'PROJECT') return ['projects', 'teams', 'members', 'users'].includes(tab.key);
+        if (role === 'PROJECT_MANAGER') return ['teams'].includes(tab.key);
+        if (role === 'PROJECT') return ['projects', 'teams', 'members', 'users'].includes(tab.key);
         if (role === 'TEAM_LEAD') return ['teams', 'members'].includes(tab.key);
         return ['teams', 'members'].includes(tab.key); // Default for lower roles if they can access admin at all
     });
@@ -268,10 +269,10 @@ export default function AdminPage() {
                                 <tbody>
                                     {data.map(item => (
                                         <tr key={item.id} className="border-b border-border/20 last:border-0 hover:bg-accent/30 group transition-colors">
-                                            {renderRow(activeTab, item)}
+                                            {renderRow(activeTab, item, users)}
                                             <td className="py-3 text-right pr-2">
                                                 <div className="flex gap-1.5 justify-end opacity-0 group-hover:opacity-100 transition-all">
-                                                    {!(role === 'TEAM_LEAD' && activeTab !== 'members') && (
+                                                    {!((role === 'TEAM_LEAD' && activeTab !== 'members') || (role === 'PROJECT_MANAGER' && activeTab !== 'teams')) && (
                                                         <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg bg-primary/10 text-primary hover:bg-primary/20" onClick={() => handleEdit(item)}>
                                                             <Pencil className="h-3.5 w-3.5" />
                                                         </Button>
@@ -285,7 +286,7 @@ export default function AdminPage() {
                                                             <UserPlus className="h-3.5 w-3.5" />
                                                         </Button>
                                                     )}
-                                                    {!(role === 'TEAM_LEAD' && (activeTab === 'teams' || activeTab === 'users')) && (
+                                                    {!((role === 'TEAM_LEAD' && (activeTab === 'teams' || activeTab === 'users')) || (role === 'PROJECT_MANAGER' && activeTab !== 'teams')) && (
                                                         <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20" onClick={() => setDeleteConfirm(item.id)}>
                                                             <Trash2 className="h-3.5 w-3.5" />
                                                         </Button>
@@ -344,14 +345,14 @@ function getColumns(tab: TabKey): string[] {
     switch (tab) {
         case 'markets': return ['Name', 'Region Code', 'Accounts', 'Created'];
         case 'accounts': return ['Name', 'Market', 'Teams', 'Created'];
-        case 'projects': return ['Name', 'Status', 'Progress', 'Team Size', 'Created'];
+        case 'projects': return ['Name', 'Manager', 'Status', 'Progress', 'Team Size', 'Created'];
         case 'teams': return ['Name', 'Description', 'Project', 'Members', 'Active'];
         case 'members': return ['User', 'Email', 'Team', 'Role in Team', 'Joined'];
         case 'users': return ['Name', 'Email', 'Access Role', 'Job Role', 'Active'];
     }
 }
 
-function renderRow(tab: TabKey, item: any) {
+function renderRow(tab: TabKey, item: any, users: any[]) {
     const formatDate = (d: string) => d ? new Date(d).toLocaleDateString() : '—';
     switch (tab) {
         case 'markets':
@@ -369,8 +370,10 @@ function renderRow(tab: TabKey, item: any) {
                 <td className="py-3 text-xs text-muted-foreground">{formatDate(item.createdAt)}</td>
             </>);
         case 'projects':
+            const manager = users.find(u => u.id === item.projectManagerId);
             return (<>
                 <td className="py-3 text-sm font-semibold">{item.name}</td>
+                <td className="py-3 text-sm text-muted-foreground">{manager?.fullName || '—'}</td>
                 <td className="py-3">
                     <Badge className={cn('rounded-full text-[10px] px-2', {
                         'bg-emerald-500/10 text-emerald-500 border-emerald-500/20': item.status === 'ACTIVE',
@@ -534,6 +537,18 @@ function EntityDialog({ open, onOpenChange, tab, editItem, onSave, markets, acco
                             <div className="space-y-2"><Label>Team Size</Label><Input type="number" className="rounded-xl" value={form.teamSize || 0} onChange={e => set('teamSize', Number(e.target.value))} /></div>
                         </div>
                         <div className="space-y-2"><Label>Progress %</Label><Input type="number" min="0" max="100" className="rounded-xl" value={form.progress || 0} onChange={e => set('progress', Number(e.target.value))} /></div>
+                        <div className="space-y-2">
+                            <Label>Project Manager</Label>
+                            <Select value={form.projectManagerId || 'none'} onValueChange={v => set('projectManagerId', v === 'none' ? undefined : v)}>
+                                <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select project manager" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="none">None</SelectItem>
+                                    {users.filter(u => u.role === 'PROJECT_MANAGER').map(u => (
+                                        <SelectItem key={u.id} value={u.id}>{u.fullName} ({u.email})</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
                     </>)}
 
                     {tab === 'teams' && (<>
@@ -662,7 +677,6 @@ function EntityDialog({ open, onOpenChange, tab, editItem, onSave, markets, acco
                                     <SelectItem value="MARKET">Market</SelectItem>
                                     <SelectItem value="ACCOUNT">Account</SelectItem>
                                     <SelectItem value="PROJECT_MANAGER">Project Manager</SelectItem>
-                                    <SelectItem value="PROJECT">Project Access</SelectItem>
                                     <SelectItem value="TEAM_LEAD">Team Lead</SelectItem>
                                     <SelectItem value="TEAM">Team Member</SelectItem>
                                 </SelectContent>
@@ -688,7 +702,7 @@ function getDefaultForm(tab: TabKey): Record<string, any> {
     switch (tab) {
         case 'markets': return { name: '', regionCode: '' };
         case 'accounts': return { name: '', marketId: '', accountManagerId: '' };
-        case 'projects': return { name: '', startDate: '', enddate: '', status: 'PLANNED', teamSize: 0, progress: 0 };
+        case 'projects': return { name: '', startDate: '', enddate: '', status: 'PLANNED', teamSize: 0, progress: 0, projectManagerId: '' };
         case 'teams': return { name: '', description: '', teamLeadId: '', accountId: '', projectId: '' };
         case 'members': return { teamId: '', userIds: [], roleInTeam: 'Member' };
         case 'users': return { fullName: '', email: '', role: 'TEAM', jobRole: '', auth0Id: '' };
@@ -700,7 +714,7 @@ function buildPayload(tab: TabKey, form: Record<string, any>, isEdit: boolean): 
         case 'markets': return { name: form.name, regionCode: form.regionCode };
         case 'accounts': return { name: form.name, marketId: form.marketId, accountManagerId: form.accountManagerId };
         case 'projects': {
-            const p: any = { name: form.name, status: form.status, teamSize: Number(form.teamSize), progress: Number(form.progress) };
+            const p: any = { name: form.name, status: form.status, teamSize: Number(form.teamSize), progress: Number(form.progress), projectManagerId: form.projectManagerId };
             if (form.startDate) p.startDate = form.startDate;
             if (form.enddate) p.enddate = form.enddate;
             return p;
