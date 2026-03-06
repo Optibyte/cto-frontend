@@ -273,11 +273,21 @@ function JiraConnectModal({ open, onOpenChange, onSuccess }: {
         Promise.all([
             adminProjectsAPI.getAll().catch(() => []),
             adminUsersAPI.getAll().catch(() => []),
-        ]).then(([p, u]) => {
+            jiraMetricsAPI.getIntegration().catch(() => null),
+        ]).then(([p, u, integr]) => {
             const pArr = Array.isArray(p) ? p : [];
             const uArr = Array.isArray(u) ? u : [];
             setProjects(pArr);
             setUsers(uArr);
+
+            // Pre-fill credentials if they exist
+            if (integr) {
+                setJiraSiteUrl(integr.jiraSiteUrl || '');
+                setJiraEmail(integr.jiraEmail || '');
+                // We don't fill the token for security, but we can set a dummy or just leave it blank
+                // setJiraApiToken('********'); 
+            }
+
             // Pre-fill mappings with existing jiraProjectKey if any
             setProjectMaps(pArr.map((proj: any) => ({
                 ctoProjectId: proj.id,

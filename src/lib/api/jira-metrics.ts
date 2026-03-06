@@ -57,4 +57,7 @@ export const jiraMetricsAPI = {
         projectMappings: { ctoProjectId: string; jiraProjectKey: string; jiraBoardId?: string }[];
         userMappings: { ctoUserId: string; jiraAccountId: string }[];
     }) => apiFetch(`${BASE}/connect`, { method: 'POST', body: JSON.stringify(body) }),
+
+    /** Get existing credentials mapping */
+    getIntegration: () => apiFetch(`${BASE}/integration`),
 };
