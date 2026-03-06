@@ -104,33 +104,146 @@ export const slaAPI = {
 
 export const metricsAPI = {
     getAll: async (filters?: any) => {
-        await delay();
-        // Return some dummy metrics or filter existing ones
-        return { data: [] };
+        try {
+            const queryParams = new URLSearchParams(filters).toString();
+            const response = await fetch(`${METRICS_API_URL}${queryParams ? `?${queryParams}` : ''}`, {
+                headers: getHeaders()
+            });
+            if (!response.ok) throw new Error('Failed to fetch metrics');
+            const data = await response.json();
+            return { data: Array.isArray(data) ? data : (data.data || []) };
+        } catch (error) {
+            console.error('Metrics API Error (getAll):', error);
+            throw error;
+        }
     },
     getByTeam: async (teamId: string) => {
-        await delay();
-        return { data: [] };
+        try {
+            const response = await fetch(`${METRICS_API_URL}/team/${teamId}`, {
+                headers: getHeaders()
+            });
+            if (!response.ok) throw new Error('Failed to fetch team metrics');
+            const data = await response.json();
+            return { data: Array.isArray(data) ? data : (data.data || []) };
+        } catch (error) {
+            console.error('Metrics API Error (getByTeam):', error);
+            throw error;
+        }
     },
     getAggregates: async (teamId: string, metricType: string, startDate?: string, endDate?: string) => {
-        await delay();
-        return { data: [] };
+        try {
+            const response = await fetch(`${METRICS_API_URL}/aggregates/${teamId}/${metricType}?startDate=${startDate}&endDate=${endDate}`, {
+                headers: getHeaders()
+            });
+            if (!response.ok) throw new Error('Failed to fetch aggregates');
+            const data = await response.json();
+            return { data };
+        } catch (error) {
+            console.error('Metrics API Error (getAggregates):', error);
+            throw error;
+        }
     },
     create: async (data: any) => {
-        await delay();
-        return { data };
+        try {
+            const response = await fetch(METRICS_API_URL, {
+                method: 'POST',
+                headers: getHeaders(),
+                body: JSON.stringify(data)
+            });
+            if (!response.ok) throw new Error('Failed to create metric');
+            const result = await response.json();
+            return { data: result };
+        } catch (error) {
+            console.error('Metrics API Error (create):', error);
+            throw error;
+        }
     },
     bulkCreate: async (data: any[]) => {
-        await delay();
-        return { data };
+        try {
+            const response = await fetch(`${METRICS_API_URL}/bulk`, {
+                method: 'POST',
+                headers: getHeaders(),
+                body: JSON.stringify(data)
+            });
+            if (!response.ok) throw new Error('Failed to bulk create metrics');
+            const result = await response.json();
+            return { data: result };
+        } catch (error) {
+            console.error('Metrics API Error (bulkCreate):', error);
+            throw error;
+        }
     },
     update: async (id: string, data: any) => {
-        await delay();
-        return { data };
+        try {
+            const response = await fetch(`${METRICS_API_URL}/${id}`, {
+                method: 'PUT',
+                headers: getHeaders(),
+                body: JSON.stringify(data)
+            });
+            if (!response.ok) throw new Error('Failed to update metric');
+            const result = await response.json();
+            return { data: result };
+        } catch (error) {
+            console.error('Metrics API Error (update):', error);
+            throw error;
+        }
     },
     delete: async (id: string) => {
-        await delay();
-        return { data: { success: true } };
+        try {
+            const response = await fetch(`${METRICS_API_URL}/${id}`, {
+                method: 'DELETE',
+                headers: getHeaders()
+            });
+            if (!response.ok) throw new Error('Failed to delete metric');
+            return { data: { success: true } };
+        } catch (error) {
+            console.error('Metrics API Error (delete):', error);
+            throw error;
+        }
+    }
+};
+
+export const metricDefinitionsAPI = {
+    getAll: async () => {
+        try {
+            const response = await fetch(METRIC_DEFINITIONS_API_URL, {
+                headers: getHeaders()
+            });
+            if (!response.ok) throw new Error('Failed to fetch metric definitions');
+            const data = await response.json();
+            return { data: Array.isArray(data) ? data : (data.data || []) };
+        } catch (error) {
+            console.error('Metric Definitions API Error (getAll):', error);
+            throw error;
+        }
+    },
+    create: async (data: any) => {
+        try {
+            const response = await fetch(METRIC_DEFINITIONS_API_URL, {
+                method: 'POST',
+                headers: getHeaders(),
+                body: JSON.stringify(data)
+            });
+            if (!response.ok) throw new Error('Failed to create metric definition');
+            const result = await response.json();
+            return { data: result };
+        } catch (error) {
+            console.error('Metric Definitions API Error (create):', error);
+            throw error;
+        }
+    },
+    delete: async (id: string) => {
+        try {
+            const response = await fetch(`${METRIC_DEFINITIONS_API_URL}/${id}`, {
+                method: 'DELETE',
+                headers: getHeaders()
+            });
+            if (!response.ok) throw new Error('Failed to delete metric definition');
+            return { data: { success: true } };
+        } catch (error) {
+            console.error('Metric Definitions API Error (delete):', error);
+            throw error;
+        }
     }
 };
 
@@ -165,6 +278,8 @@ const EMPLOYEES_API_URL = `${API_BASE_URL}/api/v1/employees`;
 const TEAM_LEADERS_API_URL = `${API_BASE_URL}/api/v1/team-leads`;
 const MANAGERS_API_URL = `${API_BASE_URL}/api/v1/project-managers`;
 const AUDIT_API_URL = `${API_BASE_URL}/api/v1/audit`;
+const METRIC_DEFINITIONS_API_URL = `${API_BASE_URL}/api/v1/metric-definitions`;
+const METRICS_API_URL = `${API_BASE_URL}/api/v1/metrics`;
 
 const formatEmployeePayload = (data: any) => ({
     email: data.email,

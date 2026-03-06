@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,11 +14,15 @@ import { MetricDefinition } from '@/lib/types';
 import { getNextMetricId } from '@/lib/mock-data/learning-metrics';
 import { METRIC_CLASSES, UPDATE_FREQUENCIES } from '@/lib/constants';
 import { useOrgHierarchy } from '@/hooks/use-hierarchy';
+import { useMetricDefinitions, useCreateMetricDefinition, useDeleteMetricDefinition } from '@/hooks/use-metric-definitions';
 import { toast } from 'sonner';
 
 export function AddMetricForm() {
     const { data: hierarchy, isLoading: hierarchyLoading } = useOrgHierarchy();
-    const [metrics, setMetrics] = useState<MetricDefinition[]>([]);
+    const { data: metrics = [], isLoading: metricsLoading } = useMetricDefinitions();
+    const createMetricMutation = useCreateMetricDefinition();
+    const deleteMetricMutation = useDeleteMetricDefinition();
+
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [formData, setFormData] = useState({
         name: '',
@@ -71,7 +75,7 @@ export function AddMetricForm() {
 
     const nextId = getNextMetricId(metrics);
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!formData.name || !formData.accountId || !formData.metricClass) {
             toast.error('Please fill in all required fields');
@@ -79,34 +83,41 @@ export function AddMetricForm() {
         }
 
         setIsSubmitting(true);
-        setTimeout(() => {
+        try {
             const selectedAccount = accounts.find(a => a.id === formData.accountId);
             const selectedProject = selectedAccount?.teams.find(t => t.projectId === formData.projectId)?.project;
             const selectedTeam = selectedAccount?.teams.find(t => t.id === formData.teamId);
 
-            const newMetric: MetricDefinition = {
-                id: nextId,
+            const payload = {
                 name: formData.name,
-                metricType: '', // Based on user request to remove metrics dropdown
-                metricClass: formData.metricClass as 'A' | 'B' | 'C',
+                metricType: '',
+                metricClass: formData.metricClass,
                 threshold: parseFloat(formData.threshold) || 0,
-                updateFrequency: (formData.updateFrequency || 'daily') as 'daily' | 'weekly' | 'monthly',
+                updateFrequency: formData.updateFrequency,
                 rangeMin: parseFloat(formData.rangeMin) || 0,
                 rangeMax: parseFloat(formData.rangeMax) || 100,
-                account: selectedAccount?.name || '',
-                market: formData.marketName,
-                project: selectedProject?.name || '',
-                team: selectedTeam?.name || '',
-                createdAt: new Date(),
+                accountId: formData.accountId,
+                accountName: selectedAccount?.name || '',
+                marketName: formData.marketName,
+                projectId: formData.projectId,
+                projectName: selectedProject?.name || '',
+                teamId: formData.teamId,
+                teamName: selectedTeam?.name || '',
             };
-            setMetrics([newMetric, ...metrics]);
+
+            await createMetricMutation.mutateAsync(payload);
+
             setFormData({
                 name: '', accountId: '', marketName: '', projectId: '', teamId: '',
                 metricClass: '', threshold: '', updateFrequency: 'weekly', rangeMin: '0', rangeMax: '100',
             });
+            toast.success(`Metric "${payload.name}" created successfully`);
+        } catch (error) {
+            console.error('Failed to create metric', error);
+            toast.error('Failed to create metric. Please try again.');
+        } finally {
             setIsSubmitting(false);
-            toast.success(`Metric "${newMetric.name}" created successfully`);
-        }, 1000);
+        }
     };
 
     const classColors: Record<string, string> = {
@@ -285,15 +296,21 @@ export function AddMetricForm() {
             <div className="space-y-4">
                 <div className="flex items-center justify-between px-2">
                     <h3 className="text-lg font-bold">Recently Defined Metrics</h3>
-                    <Badge variant="secondary" className="rounded-full px-3">{metrics.length} Definitions</Badge>
+                    <Badge variant="secondary" className="rounded-full px-3">
+                        {metricsLoading ? '...' : metrics.length} Definitions
+                    </Badge>
                 </div>
                 <div className="grid gap-4">
-                    {metrics.length === 0 ? (
+                    {metricsLoading ? (
+                        <div className="flex items-center justify-center p-12">
+                            <Loader2 className="h-8 w-8 animate-spin text-primary/50" />
+                        </div>
+                    ) : metrics.length === 0 ? (
                         <div className="text-center p-8 border border-dashed border-border/50 rounded-2xl bg-muted/5">
                             <p className="text-sm text-muted-foreground">No metrics created yet. Use the form above to get started.</p>
                         </div>
                     ) : (
-                        metrics.slice(0, 5).map((m) => (
+                        metrics.map((m: MetricDefinition) => (
                             <Card key={m.id} className="border-border/40 bg-card/30 backdrop-blur-sm hover:border-primary/30 transition-all group">
                                 <CardContent className="p-4 flex items-center justify-between">
                                     <div className="flex items-center gap-4">
@@ -308,7 +325,7 @@ export function AddMetricForm() {
                                                 </Badge>
                                             </div>
                                             <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold mt-0.5">
-                                                {m.account} {m.market ? `· ${m.market}` : ''} {m.project ? `· ${m.project}` : ''} {m.team ? `· ${m.team}` : ''}
+                                                {(m as any).accountName || m.account} {((m as any).marketName || m.market) ? `· ${(m as any).marketName || m.market}` : ''} {((m as any).projectName || m.project) ? `· ${(m as any).projectName || m.project}` : ''} {((m as any).teamName || m.team) ? `· ${(m as any).teamName || m.team}` : ''}
                                             </p>
                                         </div>
                                     </div>
@@ -321,8 +338,13 @@ export function AddMetricForm() {
                                             <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold">Cycle</p>
                                             <p className="text-sm font-medium capitalize">{m.updateFrequency}</p>
                                         </div>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <Check className="h-4 w-4 text-emerald-500" />
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/10 hover:text-destructive"
+                                            onClick={() => deleteMetricMutation.mutate(m.id)}
+                                        >
+                                            <Plus className="h-4 w-4 rotate-45" />
                                         </Button>
                                     </div>
                                 </CardContent>
