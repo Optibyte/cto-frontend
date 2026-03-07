@@ -38,6 +38,19 @@ interface MetricsData {
         defects: { bugCount: number; totalCount: number; defectRate: string };
         trend: { day: string; issue_status: string; event_count: number; total_points: number }[];
         delivery: { completedItems: number; committedItems: number; commitmentMet: string };
+        productivity: {
+            productivity: string;
+            doneToSaidRatio: string;
+            velocityPerPerson: string;
+            resourceUtilization: string;
+        };
+        advancedQuality: {
+            defectLeakage: string;
+            defectDensityEffort: string;
+            requirementsStability: string;
+            defectReopenRate: string;
+            qaDefectRejectionRate: string;
+        };
     };
     scope: any;
     generatedAt: string;
@@ -135,9 +148,12 @@ export function JiraAnalyticsTab() {
                 setDrillDownData(res.metrics);
             } else if (view === 'account') {
                 const res = await jiraMetricsAPI.getByAccount();
-                setDrillDownData([{ name: 'Your Account', ...res.metrics }]); // Wrap single object for table
+                setDrillDownData(res.metrics);
             } else if (view === 'team') {
                 const res = await jiraMetricsAPI.getByTeam();
+                setDrillDownData(res.metrics);
+            } else if (view === 'project') {
+                const res = await jiraMetricsAPI.getByProject();
                 setDrillDownData(res.metrics);
             }
         } catch (e) {
@@ -165,6 +181,118 @@ export function JiraAnalyticsTab() {
     const aggDefectRate = d?.defects?.defectRate || '0.00';
     const aggCommitment = (d?.delivery?.commitmentMet || 0) + '%';
     const completedItems = d?.delivery?.completedItems || 0;
+
+    // Build the 12 Metrics Matrix
+    const detailedMetrics: DetailedMetric[] = [
+        {
+            type: 'Productivity',
+            name: 'Productivity',
+            uom: 'Ratio',
+            formula: 'Story points accepted / Capacity',
+            value: d?.productivity?.productivity || '0.00',
+            target: '0.85',
+            trend: 'up'
+        },
+        {
+            type: 'Project Management',
+            name: 'Done to Said Ratio',
+            uom: '%',
+            formula: 'Story points delivered / Story points planned',
+            value: (d?.productivity?.doneToSaidRatio || '0.00') + '%',
+            target: '90%',
+            trend: 'up'
+        },
+        {
+            type: 'Productivity',
+            name: 'Sprint Velocity',
+            uom: 'SP',
+            formula: 'Total story points delivered',
+            value: aggVelocityString,
+            target: '-',
+            trend: 'up'
+        },
+        {
+            type: 'Productivity',
+            name: 'Sprint Velocity per Person',
+            uom: 'SP / Person',
+            formula: 'Story points delivered / team members',
+            value: d?.productivity?.velocityPerPerson || '0.00',
+            target: '-',
+            trend: 'up'
+        },
+        {
+            type: 'Quality',
+            name: 'Defect Density (Story Points)',
+            uom: 'Defects / SP',
+            formula: '(QA defects + review comments) / total SP',
+            value: aggDefectRate + '%',
+            target: '<5%',
+            trend: 'down'
+        },
+        {
+            type: 'Quality',
+            name: 'Defect Leakage to Client',
+            uom: '%',
+            formula: 'Client defects / (QA + client defects)',
+            value: (d?.advancedQuality?.defectLeakage || '0.00') + '%',
+            target: '<2%',
+            trend: 'down'
+        },
+        {
+            type: 'Project Management',
+            name: 'Resource Utilization',
+            uom: '%',
+            formula: 'Actual effort / capacity',
+            value: (d?.productivity?.resourceUtilization || '0.00') + '%',
+            target: '80-90%',
+            trend: 'neutral'
+        },
+        {
+            type: 'Project Management',
+            name: 'Delivery Commitment',
+            uom: '%',
+            formula: 'Delivered stories / planned stories',
+            value: aggCommitment,
+            target: '100%',
+            trend: 'up'
+        },
+        {
+            type: 'Quality',
+            name: 'Defect Density (Efforts)',
+            uom: 'Defects / Effort',
+            formula: '(QA + client defects − rejected) / effort',
+            value: d?.advancedQuality?.defectDensityEffort || '0.0000',
+            target: '-',
+            trend: 'down'
+        },
+        {
+            type: 'Quality',
+            name: 'Requirements Stability Index',
+            uom: '%',
+            formula: '(Stories added + removed + changed) / original',
+            value: (d?.advancedQuality?.requirementsStability || '0.00') + '%',
+            target: '<10%',
+            trend: 'down'
+        },
+        {
+            type: 'Quality',
+            name: 'Defect Reopen Rate',
+            uom: '%',
+            formula: 'Reopened defects / QA defects',
+            value: (d?.advancedQuality?.defectReopenRate || '0.00') + '%',
+            target: '<5%',
+            trend: 'down'
+        },
+        {
+            type: 'Quality',
+            name: 'QA Defect Rejection Rate',
+            uom: '%',
+            formula: 'Rejected defects / QA defects',
+            value: (d?.advancedQuality?.qaDefectRejectionRate || '0.00') + '%',
+            target: '<5%',
+            trend: 'down'
+        }
+    ];
 
     // Build hierarchical scope label
     const scopeObj = metrics?.scope || {};
@@ -212,7 +340,7 @@ export function JiraAnalyticsTab() {
                 <div className="flex items-center gap-2">
                     {role === 'ORG' && (
                         <div className="flex bg-muted/30 rounded-xl overflow-hidden p-0.5 border border-border/40">
-                            {['none', 'market', 'team'].map(v => (
+                            {['none', 'market', 'account', 'project', 'team'].map(v => (
                                 <button
                                     key={v}
                                     onClick={() => handleDrill(v)}
@@ -281,6 +409,14 @@ export function JiraAnalyticsTab() {
                                         <div className="flex justify-between items-center text-xs mt-1">
                                             <span className="text-muted-foreground">Velocity:</span>
                                             <span className="font-semibold">{item.velocity?.reduce?.((acc: number, s: any) => acc + s.velocity, 0) || 0} SP</span>
+                                        </div>
+                                        <div className="flex justify-between items-center text-xs">
+                                            <span className="text-muted-foreground">Commit Ratio:</span>
+                                            <span className="font-semibold text-green-500">{item.delivery?.commitmentMet || '0.00'}%</span>
+                                        </div>
+                                        <div className="flex justify-between items-center text-xs">
+                                            <span className="text-muted-foreground">Delivered:</span>
+                                            <span className="font-semibold">{item.delivery?.completedItems || 0} items</span>
                                         </div>
                                         <div className="flex justify-between items-center text-xs text-rose-500">
                                             <span>Bug Rate:</span>
@@ -469,7 +605,24 @@ export function JiraAnalyticsTab() {
                     </CardContent>
                 </Card>
 
-                {/* Omitted the detailed 12 metrics table because V3 backend only computes core KPIs natively */}
+                {/* ── 12 Specific Metrics Matrix ───────────────────── */}
+                <div className="pt-4 border-t border-border/40">
+                    <div className="flex items-center gap-2 mb-4">
+                        <FlaskConical className="h-5 w-5 text-purple-400" />
+                        <h3 className="text-lg font-bold">Standard SLA Metrics Matrix</h3>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        {detailedMetrics.map((m, idx) => (
+                            <MetricDetailCard key={idx} metric={m} />
+                        ))}
+                    </div>
+                </div>
+
+                <div className="pt-6 border-t border-border/40">
+                    <p className="text-[10px] text-muted-foreground text-center italic">
+                        All Jira metrics are extracted from live webhook events and calculated based on your current role scope.
+                    </p>
+                </div>
 
                 {/* ── End  ───────────────────────────────────────── */}
             </>)}

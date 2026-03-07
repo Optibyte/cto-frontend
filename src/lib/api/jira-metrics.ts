@@ -65,4 +65,5 @@ export const jiraMetricsAPI = {
     getByMarket: () => apiFetch(`${BASE}/by-market`),
     getByAccount: () => apiFetch(`${BASE}/by-account`),
     getByTeam: () => apiFetch(`${BASE}/by-team`),
+    getByProject: () => apiFetch(`${BASE}/by-project`),
 };
