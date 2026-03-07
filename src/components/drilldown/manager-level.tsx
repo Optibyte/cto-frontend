@@ -9,12 +9,12 @@ import { ArrowRight, Users, FolderKanban, Loader2 } from 'lucide-react';
 
 export function ManagerLevel() {
     const dispatch = useAppDispatch();
-    const { selectedTeam, selectedTeamName } = useAppSelector((s) => s.drilldown);
+    const { selectedCTO, selectedCTOName } = useAppSelector((s) => s.drilldown);
     const { data: hierarchy = [], isLoading } = useHierarchy();
 
     // Find the selected CTO and get their PMs
-    const selectedCTO = hierarchy.find((cto: any) => cto.id === selectedTeam);
-    const managers = (selectedCTO?.projects || []).map((pm: any) => {
+    const selectedCTOItem = hierarchy.find((cto: any) => cto.id === selectedCTO);
+    const managers = (selectedCTOItem?.projects || []).map((pm: any) => {
         const totalTLs = pm.teamLeads?.length || 0;
         const totalEmployees = pm.teamLeads?.reduce((acc: number, tl: any) => acc + (tl.employees?.length || 0), 0) || 0;
         const initials = (pm.user?.fullName || 'UN').split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase();
@@ -42,14 +42,14 @@ export function ManagerLevel() {
     }
 
     if (managers.length === 0) {
-        return <EmptyState title="No Managers Found" description={`No project managers found under ${selectedTeamName || 'this CTO'}.`} />;
+        return <EmptyState title="No Managers Found" description={`No project managers found under ${selectedCTOName || 'this CTO'}.`} />;
     }
 
     return (
         <div className="space-y-6 fade-in">
             <div>
                 <h1 className="text-3xl font-bold tracking-tight">
-                    {selectedTeamName} — Project Managers
+                    {selectedCTOName} — Project Managers
                 </h1>
                 <p className="text-muted-foreground">Click on a manager to view their team leads</p>
             </div>
@@ -73,7 +73,7 @@ export function ManagerLevel() {
                                 {managers.map((manager: any) => (
                                     <tr
                                         key={manager.id}
-                                        onClick={() => dispatch(drillToTL({ managerId: manager.id, managerName: manager.name }))}
+                                        onClick={() => dispatch(drillToTL({ pmId: manager.id, pmName: manager.name }))}
                                         className="border-b border-border/20 hover:bg-primary/5 cursor-pointer transition-colors duration-200 group"
                                     >
                                         <td className="py-4 px-6">

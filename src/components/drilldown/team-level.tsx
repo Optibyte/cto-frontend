@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAppDispatch } from '@/redux/store';
-import { drillToManager } from '@/redux/slices/drilldownSlice';
+import { drillToPM } from '@/redux/slices/drilldownSlice';
 import { useHierarchy } from '@/hooks/use-hierarchy';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { FolderKanban, Activity, Users, Loader2, Shield, Plus } from 'lucide-react';
@@ -52,10 +52,7 @@ export function TeamLevel() {
     });
 
     const handleTeamClick = (teamId: string, teamName: string) => {
-        dispatch(drillToManager({ pmId: teamId, pmName: teamName })); // In this component's context, teamId is CTO ID, and drilldownSlice expects pmId/pmName for the next level (TLs) - wait, checking drilldownSlice again.
-        // Actually drillToManager in slice expects { teamId, teamName }? Let me check slice again.
-        // Lines 47-51 of drilldownSlice: drillToPM(state, action: PayloadAction<{ ctoId: string; ctoName: string }>)
-        // Wait, TeamLevel.tsx was originally using drillToManager which is NOT in the slice? Ah, let me re-read drilldownSlice.ts.
+        dispatch(drillToPM({ ctoId: teamId, ctoName: teamName }));
     };
 
     const handleCreateProject = () => {
@@ -89,7 +86,7 @@ export function TeamLevel() {
                     <h1 className="text-3xl font-bold tracking-tight">Organizational Overview</h1>
                     <p className="text-muted-foreground">Click on a CTO to drill down to their Project Managers</p>
                 </div>
-             
+
             </div>
 
             {/* Create New Project Dialog */}
@@ -258,12 +255,12 @@ export function TeamLevel() {
                                         ))}
                                     </Bar>
                                     <Bar dataKey="totalTLs" name="TLs" radius={[6, 6, 0, 0]} cursor="pointer">
-                                        {teams.map((_, index: number) => (
+                                        {teams.map((_: any, index: number) => (
                                             <Cell key={`cell-tl-${index}`} fill="#06B6D4" fillOpacity={0.7} />
                                         ))}
                                     </Bar>
                                     <Bar dataKey="totalEmployees" name="Employees" radius={[6, 6, 0, 0]} cursor="pointer">
-                                        {teams.map((_, index: number) => (
+                                        {teams.map((_: any, index: number) => (
                                             <Cell key={`cell-emp-${index}`} fill="#10b981" fillOpacity={0.7} />
                                         ))}
                                     </Bar>

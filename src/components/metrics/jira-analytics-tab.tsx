@@ -32,42 +32,20 @@ interface DetailedMetric {
 }
 
 interface MetricsData {
-    connected: boolean;
-    scopeLabel: string;
-    scopeType: string;
-    projectKeys: string[];
-    data: {
-        velocity: number;
-        commit_ratio: string;
-        productivity: number;
-        defect_density: number;
-        planned: number;
-        delivered: number;
-        assignees: number;
-        bugs: number;
-        velocity_per_person: number;
-        delivery_commitment: string;
-        defect_leakage: string;
-        utilization: string;
-        rsi: string;
-        reopen_rate: string;
-        qa_rejection_rate: string;
-        detailed_metrics: DetailedMetric[];
-        start_date: string;
-        end_date: string;
+    status: string;
+    metrics: {
+        velocity: { sprintName: string; velocity: number; issueCount: number }[];
+        defects: { bugCount: number; totalCount: number; defectRate: string };
+        trend: { day: string; issue_status: string; event_count: number; total_points: number }[];
+        delivery: { completedItems: number; committedItems: number; commitmentMet: string };
     };
+    scope: any;
+    generatedAt: string;
 }
 
 interface ChartData {
-    connected: boolean;
-    scopeLabel: string;
-    data: {
-        date: string;
-        done: number;
-        in_progress: number;
-        todo: number;
-        story_points: number;
-    }[];
+    status: string;
+    chartData: { day: string; issue_status: string; event_count: number; total_points: number }[];
 }
 
 // ─────────────────────────────────────────────
@@ -143,12 +121,59 @@ export function JiraAnalyticsTab() {
 
     useEffect(() => { fetchAll(); }, [fetchAll]);
 
-    const d = metrics?.data;
-    const cd = chartData?.data ?? [];
-    const dms = d?.detailed_metrics ?? [];
+    const [drillDownData, setDrillDownData] = useState<any[] | null>(null);
+    const [drillView, setDrillView] = useState<string>('none');
+
+    const handleDrill = async (view: string) => {
+        setLoading(true);
+        setDrillView(view);
+        try {
+            if (view === 'none') {
+                setDrillDownData(null);
+            } else if (view === 'market') {
+                const res = await jiraMetricsAPI.getByMarket();
+                setDrillDownData(res.metrics);
+            } else if (view === 'account') {
+                const res = await jiraMetricsAPI.getByAccount();
+                setDrillDownData([{ name: 'Your Account', ...res.metrics }]); // Wrap single object for table
+            } else if (view === 'team') {
+                const res = await jiraMetricsAPI.getByTeam();
+                setDrillDownData(res.metrics);
+            }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const d = metrics?.metrics;
+
+    // Normalize chart data back to AreaChart format
+    const cd = (chartData?.chartData || []).map(r => ({
+        date: new Date(r.day).toISOString().split('T')[0],
+        done: r.issue_status === 'Done' ? r.event_count : 0,
+        in_progress: r.issue_status === 'In Progress' ? r.event_count : 0,
+        todo: r.issue_status === 'To Do' ? r.event_count : 0,
+        story_points: r.total_points || 0
+    }));
+
+    // Aggregate values
+    const aggVelocity = d?.velocity?.reduce((sum, s) => sum + s.velocity, 0) || 0;
+    const aggVelocityString = Math.round(aggVelocity).toString();
+    const aggBugs = d?.defects?.bugCount || 0;
+    const aggDefectRate = d?.defects?.defectRate || '0.00';
+    const aggCommitment = (d?.delivery?.commitmentMet || 0) + '%';
+    const completedItems = d?.delivery?.completedItems || 0;
+
+    // Build hierarchical scope label
+    const scopeObj = metrics?.scope || {};
+    const scopeLabel = Object.keys(scopeObj).length > 0
+        ? Object.entries(scopeObj).map(([k, v]) => `${k.replace('cto', '').replace('Id', '')}: ${v}`).join(' | ')
+        : 'Enterprise (All)';
 
     // ── Offline / No data state ──────────────────────────────────
-    if (!loading && (!metrics?.connected || !d)) {
+    if (!loading && !metrics) {
         return (
             <div className="flex flex-col items-center justify-center py-24 gap-4">
                 <div className="p-5 rounded-full bg-amber-500/10">
@@ -156,8 +181,7 @@ export function JiraAnalyticsTab() {
                 </div>
                 <h3 className="text-xl font-bold">Jira Not Connected</h3>
                 <p className="text-muted-foreground text-center max-w-sm text-sm">
-                    Your Jira backend is offline or no projects are linked.
-                    Go to <b>Integrations → Connect Jira</b> and map your project keys.
+                    No data returned from backend for your scope.
                 </p>
                 <Button variant="outline" className="rounded-xl gap-2" onClick={fetchAll}>
                     <RefreshCw className="h-4 w-4" /> Retry
@@ -174,12 +198,6 @@ export function JiraAnalyticsTab() {
         { name: 'To Do', value: latestDay.todo },
     ] : [];
 
-    // Group detailed metrics by type
-    const grouped = dms.reduce((acc: Record<string, DetailedMetric[]>, m) => {
-        (acc[m.type] = acc[m.type] || []).push(m);
-        return acc;
-    }, {});
-
     return (
         <div className="space-y-6">
 
@@ -188,19 +206,26 @@ export function JiraAnalyticsTab() {
                 <div className="flex items-center gap-3">
                     {/* Scope badge */}
                     <Badge variant="outline" className="rounded-full px-3 py-1 bg-primary/10 border-primary/30 text-primary font-semibold">
-                        {metrics?.scopeLabel ?? '…'}
+                        Scope: {scopeLabel}
                     </Badge>
-                    {metrics?.projectKeys && metrics.projectKeys.length > 0 && (
-                        <div className="flex gap-1.5 flex-wrap">
-                            {metrics.projectKeys.map(k => (
-                                <Badge key={k} variant="outline" className="rounded-full text-[10px] px-2 bg-blue-500/5 border-blue-500/20 text-blue-400">
-                                    {k}
-                                </Badge>
+                </div>
+                <div className="flex items-center gap-2">
+                    {role === 'ORG' && (
+                        <div className="flex bg-muted/30 rounded-xl overflow-hidden p-0.5 border border-border/40">
+                            {['none', 'market', 'team'].map(v => (
+                                <button
+                                    key={v}
+                                    onClick={() => handleDrill(v)}
+                                    className={cn(
+                                        "px-3 py-1 text-xs font-semibold capitalize rounded-lg transition-colors",
+                                        drillView === v ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:bg-muted/50"
+                                    )}
+                                >
+                                    {v === 'none' ? 'Overview' : v}
+                                </button>
                             ))}
                         </div>
                     )}
-                </div>
-                <div className="flex items-center gap-2">
                     {lastUpdated && (
                         <span className="text-[11px] text-muted-foreground">
                             Updated {lastUpdated.toLocaleTimeString()}
@@ -233,17 +258,40 @@ export function JiraAnalyticsTab() {
 
             {!loading && d && (<>
 
-                {/* ── Top KPI Cards (8 cards) ──────────────────────────── */}
+                {/* ── Top KPI Cards (4 cards matching V3 backend) ──────────────────────────── */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <KpiCard icon={<Zap />} label="Velocity" value={String(Math.round(d.delivered))} unit="SP" color="blue" trend="up" />
-                    <KpiCard icon={<Target />} label="Commit Ratio" value={d.commit_ratio} unit="" color="green" trend="up" />
-                    <KpiCard icon={<TrendingUp />} label="Productivity" value={String(d.productivity)} unit="ratio" color="purple" trend="up" />
-                    <KpiCard icon={<Users />} label="Contributors" value={String(d.assignees)} unit="devs" color="indigo" trend="neutral" />
-                    <KpiCard icon={<Bug />} label="Defect Density" value={String(d.defect_density)} unit="/SP" color="rose" trend="down" />
-                    <KpiCard icon={<ShieldCheck />} label="Defect Leakage" value={d.defect_leakage} unit="" color="amber" trend="down" />
-                    <KpiCard icon={<Clock />} label="Utilization" value={d.utilization} unit="" color="cyan" trend="up" />
-                    <KpiCard icon={<BarChart3 />} label="Delivery %" value={d.delivery_commitment} unit="" color="orange" trend="up" />
+                    <KpiCard icon={<Zap />} label="Velocity" value={aggVelocityString} unit="SP" color="blue" trend="up" />
+                    <KpiCard icon={<Target />} label="Commit Ratio" value={aggCommitment} unit="" color="green" trend="up" />
+                    <KpiCard icon={<Bug />} label="Defect Rate" value={String(aggDefectRate)} unit="%" color="rose" trend="down" />
+                    <KpiCard icon={<BarChart3 />} label="Delivered" value={String(completedItems)} unit="items" color="orange" trend="up" />
                 </div>
+
+                {drillView !== 'none' && drillDownData && (
+                    <Card className="border-border/40 mb-4 bg-muted/5">
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-base font-semibold capitalize">Metrics by {drillView}</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                {drillDownData.map((item, idx) => (
+                                    <div key={idx} className="p-3 bg-background rounded-xl border border-border/40 flex flex-col gap-1 shadow-sm">
+                                        <div className="text-sm font-bold truncate">
+                                            {item.marketName || item.teamName || item.name || `Item ${idx + 1}`}
+                                        </div>
+                                        <div className="flex justify-between items-center text-xs mt-1">
+                                            <span className="text-muted-foreground">Velocity:</span>
+                                            <span className="font-semibold">{item.velocity?.reduce?.((acc: number, s: any) => acc + s.velocity, 0) || 0} SP</span>
+                                        </div>
+                                        <div className="flex justify-between items-center text-xs text-rose-500">
+                                            <span>Bug Rate:</span>
+                                            <span className="font-semibold">{item.defects?.defectRate || '0.00'}%</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
 
                 {/* ── Charts Row 1: Status Trend + Story Points ───────── */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -352,47 +400,47 @@ export function JiraAnalyticsTab() {
                                 <ResponsiveContainer width={160} height={160}>
                                     <RadialBarChart
                                         innerRadius={50} outerRadius={70}
-                                        data={[{ name: 'Velocity/Person', value: Math.min(Number(d.velocity_per_person ?? 0), 20), fill: COLORS.cyan }]}
+                                        data={[{ name: 'Delivery', value: Math.min(parseFloat(aggCommitment), 100), fill: COLORS.cyan }]}
                                         startAngle={180} endAngle={-180}
                                     >
                                         <RadialBar background={{ fill: 'rgba(255,255,255,0.05)' }} dataKey="value" cornerRadius={6} />
                                     </RadialBarChart>
                                 </ResponsiveContainer>
                                 <div className="absolute text-center">
-                                    <p className="text-3xl font-black text-cyan-400">{d.velocity_per_person ?? 0}</p>
-                                    <p className="text-[10px] text-muted-foreground">SP / dev</p>
+                                    <p className="text-3xl font-black text-cyan-400">{aggCommitment}</p>
+                                    <p className="text-[10px] text-muted-foreground">Completion</p>
                                 </div>
                             </div>
-                            <p className="text-xs text-muted-foreground">{d.assignees} contributors total</p>
+                            <p className="text-xs text-muted-foreground">{completedItems} Items done</p>
                         </CardContent>
                     </Card>
 
-                    {/* RSI Gauge */}
+                    {/* Quality Overview Gauge */}
                     <Card className="border-border/40">
                         <CardHeader className="pb-2">
-                            <CardTitle className="text-base font-semibold">Requirements Stability Index</CardTitle>
-                            <CardDescription>% of sprint scope unchanged after start</CardDescription>
+                            <CardTitle className="text-base font-semibold">Quality Overview</CardTitle>
+                            <CardDescription>Defect rate per sprint events</CardDescription>
                         </CardHeader>
                         <CardContent className="flex flex-col items-center justify-center h-[220px] gap-2">
                             <div className="relative flex items-center justify-center">
                                 <ResponsiveContainer width={160} height={160}>
                                     <RadialBarChart
                                         innerRadius={50} outerRadius={70}
-                                        data={[{ value: parseFloat(String(d.rsi ?? 0)), fill: COLORS.indigo }]}
+                                        data={[{ value: parseFloat(aggDefectRate), fill: COLORS.indigo }]}
                                         startAngle={180} endAngle={-180}
                                     >
                                         <RadialBar background={{ fill: 'rgba(255,255,255,0.05)' }} dataKey="value" cornerRadius={6} />
                                     </RadialBarChart>
                                 </ResponsiveContainer>
                                 <div className="absolute text-center">
-                                    <p className="text-3xl font-black text-indigo-400">{d.rsi ?? '—'}</p>
-                                    <p className="text-[10px] text-muted-foreground">Stability</p>
+                                    <p className="text-3xl font-black text-indigo-400">{aggDefectRate}%</p>
+                                    <p className="text-[10px] text-muted-foreground">Bug Rate</p>
                                 </div>
                             </div>
-                            <Badge variant="outline" className={cn('rounded-full text-xs',
-                                parseFloat(String(d.rsi ?? 0)) >= 85 ? 'text-green-500 border-green-500/30' : 'text-amber-500 border-amber-500/30'
+                            <Badge variant="outline" className={cn('rounded-full text-xs hover:bg-muted',
+                                parseFloat(aggDefectRate) <= 5 ? 'text-green-500 border-green-500/30' : 'text-amber-500 border-amber-500/30'
                             )}>
-                                Target: &gt; 85%
+                                Target: &lt; 5%
                             </Badge>
                         </CardContent>
                     </Card>
@@ -421,35 +469,9 @@ export function JiraAnalyticsTab() {
                     </CardContent>
                 </Card>
 
-                {/* ── All 12 Metrics Detailed Table ────────────────────── */}
-                <div className="space-y-4">
-                    <h3 className="text-lg font-bold">All 12 Agile Metrics — {metrics?.scopeLabel}</h3>
-                    {Object.entries(grouped).map(([type, items]) => (
-                        <div key={type}>
-                            <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2 ml-1">
-                                {type}
-                            </h4>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                                {items.map((m) => (
-                                    <MetricDetailCard key={m.name} metric={m} />
-                                ))}
-                            </div>
-                        </div>
-                    ))}
+                {/* Omitted the detailed 12 metrics table because V3 backend only computes core KPIs natively */}
 
-                    {dms.length === 0 && (
-                        <div className="text-center py-12 text-muted-foreground text-sm">
-                            No metric data available yet. Connect Jira and trigger some webhook events.
-                        </div>
-                    )}
-                </div>
-
-                {/* ── Date Range ───────────────────────────────────────── */}
-                {d.start_date && (
-                    <p className="text-[11px] text-muted-foreground text-center">
-                        Data range: {d.start_date} → {d.end_date}
-                    </p>
-                )}
+                {/* ── End  ───────────────────────────────────────── */}
             </>)}
         </div>
     );
