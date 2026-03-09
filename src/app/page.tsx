@@ -6,7 +6,6 @@ import { useRole } from '@/contexts/role-context';
 import { CTODashboard } from '@/components/dashboard/cto-dashboard';
 import { ManagerDashboard } from '@/components/dashboard/manager-dashboard';
 import { TLDashboard } from '@/components/dashboard/tl-dashboard';
-import { EmployeeDashboard } from '@/components/dashboard/employee-dashboard';
 import { MarketDashboard } from '@/components/dashboard/market-dashboard';
 import { AccountsDashboard } from '@/components/dashboard/accounts-dashboard';
 
@@ -45,9 +44,7 @@ export default function DashboardPage() {
     case 'TeamLead' as any:
       return <TLDashboard />;
     case 'TEAM':
-    case 'Employee' as any:
-      return <EmployeeDashboard />;
-    default:
+   
       return <CTODashboard />;
   }
 }

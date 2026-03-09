@@ -18,6 +18,7 @@ export function BreadcrumbNav() {
         selectedPMName,
         selectedTLName,
         selectedEmployeeName,
+        selectedTeamName,
     } = useAppSelector((state) => state.drilldown);
 
     const items: BreadcrumbItem[] = [];
@@ -36,6 +37,9 @@ export function BreadcrumbNav() {
     }
     if (selectedEmployeeName) {
         items.push({ label: selectedEmployeeName, level: 'employee' });
+    }
+    if (selectedTeamName) {
+        items.push({ label: selectedTeamName, level: 'team' });
     }
 
     return (

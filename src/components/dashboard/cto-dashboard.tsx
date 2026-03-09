@@ -19,12 +19,7 @@ import {
 import { cn } from '@/lib/utils';
 import { jiraMetricsAPI } from '@/lib/api/jira-metrics';
 import { useRole } from '@/contexts/role-context';
-import {
-    MARKETS,
-    getAccountsForMarket,
-    getProjectsForAccount,
-    getTeamsForProject,
-} from '@/lib/mock-data/dashboard-filtered';
+import { marketsAPI, adminAccountsAPI, adminProjectsAPI, adminTeamsAPI } from '@/lib/api/admin';
 import { useAppSelector } from '@/redux/store';
 import { DateRangeFilter } from '@/components/filters/date-range-filter';
 
@@ -158,6 +153,31 @@ export function CTODashboard() {
     const [error, setError] = useState<string | null>(null);
     const { dateRange } = useAppSelector((s) => s.dashboard);
 
+    const [dynamicMarkets, setDynamicMarkets] = useState<any[]>([]);
+    const [dynamicAccounts, setDynamicAccounts] = useState<any[]>([]);
+    const [dynamicProjects, setDynamicProjects] = useState<any[]>([]);
+    const [dynamicTeams, setDynamicTeams] = useState<any[]>([]);
+
+    useEffect(() => {
+        async function fetchDropdowns() {
+            try {
+                const [m, a, p, t] = await Promise.all([
+                    marketsAPI.getAll().catch(() => []),
+                    adminAccountsAPI.getAll().catch(() => []),
+                    adminProjectsAPI.getAll().catch(() => []),
+                    adminTeamsAPI.getAll().catch(() => [])
+                ]);
+                setDynamicMarkets(m || []);
+                setDynamicAccounts(a || []);
+                setDynamicProjects(p || []);
+                setDynamicTeams(t || []);
+            } catch (e) {
+                console.error("Failed to fetch dropdowns:", e);
+            }
+        }
+        fetchDropdowns();
+    }, []);
+
     const fetchAll = useCallback(async () => {
         setLoading(true);
         setError(null);
@@ -249,16 +269,16 @@ export function CTODashboard() {
     const assigneeWorkload = charts?.assigneeWorkload || [];
     const velocityBySprint = charts?.velocityBySprint || [];
 
-    const accounts = getAccountsForMarket(marketId);
-    const projects = getProjectsForAccount(accountId);
-    const teams = getTeamsForProject(projectId);
+    const accounts = dynamicAccounts.filter(a => marketId === 'all' || a.marketId === marketId);
+    const projects = accountId === 'all' ? dynamicProjects : dynamicProjects.filter(p => !p.accountId || p.accountId === accountId);
+    const teams = projectId === 'all' ? dynamicTeams : dynamicTeams.filter(t => !t.projectId || t.projectId === projectId);
 
     return (
         <div className="space-y-6">
 
             {/* ── Header Bar ──────────────────────────────────── */}
             <div className="flex flex-col gap-4">
-               
+
                 {/* Inline Scope Filters */}
                 <div className="bg-muted/30 p-3 rounded-2xl border border-border/40 flex flex-wrap items-center gap-3">
 
@@ -269,7 +289,7 @@ export function CTODashboard() {
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">All Markets</SelectItem>
-                                {MARKETS.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+                                {dynamicMarkets.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
                             </SelectContent>
                         </Select>
                     )}
@@ -303,12 +323,12 @@ export function CTODashboard() {
                             <SelectContent>
                                 <SelectItem value="all">All Teams</SelectItem>
                                 {teams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-                                
+
                             </SelectContent>
-                             <DateRangeFilter />
+                            <DateRangeFilter />
 
                         </Select>
-                        
+
                     )}
                 </div>
             </div>
@@ -505,7 +525,7 @@ export function CTODashboard() {
                                     </RadialBarChart>
                                 </ResponsiveContainer>
                                 <div className="absolute text-center">
-                                    <p className="text-3xl font-black text-cyan-400">{aggCommitment}</p>
+                                    <p className="text-2xl font-black text-cyan-700">{aggCommitment}</p>
                                     <p className="text-[10px] text-muted-foreground">Completion</p>
                                 </div>
                             </div>
@@ -614,7 +634,7 @@ export function CTODashboard() {
                                     <BarChart data={assigneeWorkload.slice(0, 10)} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
                                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
                                         <XAxis dataKey="name" tick={{ fontSize: 9 }} tickLine={false} axisLine={false}
-                                            tickFormatter={(v: string) => v.length > 8 ? v.slice(0, 8) + '…' : v} />
+                                            tickFormatter={(v: string) => v.length > 15 ? v.slice(0, 15) + '…' : v} />
                                         <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
                                         <Tooltip content={<CustomTooltip />} />
                                         <Legend wrapperStyle={{ fontSize: 11 }} />
@@ -667,7 +687,7 @@ export function CTODashboard() {
                     </div>
                 </div>
 
-              
+
 
             </>)}
         </div>

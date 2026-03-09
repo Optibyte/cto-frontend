@@ -49,25 +49,24 @@ interface UserMapping {
 // Main Integrations Page
 // ─────────────────────────────────────────────────────────────────────
 export default function IntegrationsPage() {
-    const [jiraStatus, setJiraStatus] = useState<JiraStatus | null>(null);
+    const [jiraStatus, setJiraStatus] = useState<any>(null);
     const [statusLoading, setStatusLoading] = useState(true);
     const [connectOpen, setConnectOpen] = useState(false);
+    const [isJiraConnected, setIsJiraConnected] = useState(false);
 
     const fetchStatus = useCallback(async () => {
         setStatusLoading(true);
         try {
-            const s = await jiraMetricsAPI.getStatus();
-            setJiraStatus(s);
+            const integr = await jiraMetricsAPI.getIntegration();
+            setIsJiraConnected(!!integr?.jiraSiteUrl);
         } catch {
-            setJiraStatus(null);
+            setIsJiraConnected(false);
         } finally {
             setStatusLoading(false);
         }
     }, []);
 
     useEffect(() => { fetchStatus(); }, [fetchStatus]);
-
-    const isJiraConnected = jiraStatus?.flaskConnected && (jiraStatus?.projectsLinked ?? 0) > 0;
 
     return (
         <div className="space-y-6 fade-in">
@@ -115,10 +114,6 @@ export default function IntegrationsPage() {
                             <Badge variant="outline" className="rounded-full bg-green-500/10 text-green-500 border-green-500/20 px-3 py-1">
                                 <CheckCircle2 className="h-3 w-3 mr-1" /> Connected
                             </Badge>
-                        ) : jiraStatus?.flaskConnected ? (
-                            <Badge variant="outline" className="rounded-full bg-amber-500/10 text-amber-500 border-amber-500/20 px-3 py-1">
-                                <AlertCircle className="h-3 w-3 mr-1" /> Partial
-                            </Badge>
                         ) : (
                             <Badge variant="secondary" className="rounded-full px-3 py-1 bg-secondary/50">
                                 Available
@@ -134,40 +129,7 @@ export default function IntegrationsPage() {
                             </CardDescription>
                         </div>
 
-                        {/* Status Stats */}
-                        {jiraStatus && !statusLoading && (
-                            <div className="grid grid-cols-3 gap-2 pt-1">
-                                <StatusStat
-                                    icon={<Zap className="h-3.5 w-3.5" />}
-                                    label="Backend"
-                                    value={jiraStatus.flaskConnected ? 'Live' : 'Offline'}
-                                    good={jiraStatus.flaskConnected}
-                                />
-                                <StatusStat
-                                    icon={<FolderKanban className="h-3.5 w-3.5" />}
-                                    label="Projects"
-                                    value={`${jiraStatus.projectsLinked}/${jiraStatus.totalProjects}`}
-                                    good={jiraStatus.projectsLinked > 0}
-                                />
-                                <StatusStat
-                                    icon={<Users className="h-3.5 w-3.5" />}
-                                    label="Users"
-                                    value={`${jiraStatus.usersLinked} linked`}
-                                    good={jiraStatus.usersLinked > 0}
-                                />
-                            </div>
-                        )}
 
-                        {/* Active scope */}
-                        {isJiraConnected && jiraStatus?.activeProjectKeys && jiraStatus.activeProjectKeys.length > 0 && (
-                            <div className="flex flex-wrap gap-1 pt-1">
-                                {jiraStatus.activeProjectKeys.map(k => (
-                                    <Badge key={k} variant="outline" className="text-[10px] rounded-full px-2 bg-blue-500/5 border-blue-500/20 text-blue-400">
-                                        {k}
-                                    </Badge>
-                                ))}
-                            </div>
-                        )}
                     </CardContent>
 
                     <CardFooter>
@@ -183,39 +145,6 @@ export default function IntegrationsPage() {
                     </CardFooter>
                 </Card>
 
-                {/* ── GitHub Card ────────────────────────────────── */}
-                <Card className="group hover:-translate-y-1 transition-all duration-300 border-border/50 shadow-md hover:shadow-xl hover:border-purple-500/20">
-                    <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
-                        <div className="p-3 rounded-xl text-purple-500 bg-purple-500/10">
-                            <Github className="h-6 w-6" />
-                        </div>
-                        <Badge variant="outline" className="rounded-full bg-green-500/10 text-green-500 border-green-500/20 px-3 py-1">
-                            <CheckCircle2 className="h-3 w-3 mr-1" /> Connected
-                        </Badge>
-                    </CardHeader>
-                    <CardContent className="pt-4 space-y-2">
-                        <CardTitle className="text-xl">GitHub</CardTitle>
-                        <CardDescription className="line-clamp-2">
-                            Track PR velocity, code review times, and deployment frequency.
-                        </CardDescription>
-                    </CardContent>
-                    <CardFooter>
-                        <Button variant="outline" className="w-full rounded-xl gap-2 font-medium">
-                            Configure <ArrowUpRight className="h-4 w-4" />
-                        </Button>
-                    </CardFooter>
-                </Card>
-
-                {/* ── More Coming Soon ────────────────────────────── */}
-                <Card className="border-dashed border-2 border-border/50 bg-secondary/10 flex flex-col justify-center items-center text-center p-8 hover:bg-secondary/20 transition-colors cursor-pointer group">
-                    <div className="p-4 rounded-full bg-secondary/20 mb-4 group-hover:scale-110 transition-transform">
-                        <Puzzle className="h-8 w-8 text-muted-foreground" />
-                    </div>
-                    <h3 className="font-semibold text-lg">More Coming Soon</h3>
-                    <p className="text-sm text-muted-foreground mt-2">
-                        Adding support for GitLab, Bitbucket, and Linear.
-                    </p>
-                </Card>
             </div>
 
             {/* Jira Connect Dialog */}
@@ -247,7 +176,7 @@ function StatusStat({ icon, label, value, good }: { icon: React.ReactNode; label
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Jira Connect Modal — 3-step wizard
+// Jira Connect Modal — 1-step wizard
 // ─────────────────────────────────────────────────────────────────────
 function JiraConnectModal({ open, onOpenChange, onSuccess }: {
     open: boolean;
@@ -284,25 +213,28 @@ function JiraConnectModal({ open, onOpenChange, onSuccess }: {
             if (integr) {
                 setJiraSiteUrl(integr.jiraSiteUrl || '');
                 setJiraEmail(integr.jiraEmail || '');
-                // We don't fill the token for security, but we can set a dummy or just leave it blank
-                // setJiraApiToken('********'); 
             }
-
-            // Pre-fill mappings with existing jiraProjectKey if any
-            setProjectMaps(pArr.map((proj: any) => ({
-                ctoProjectId: proj.id,
-                ctoProjectName: proj.name,
-                jiraProjectKey: proj.jiraProjectKey || '',
-                jiraBoardId: proj.jiraBoardId || '',
-            })));
-            setUserMaps(uArr.map((usr: any) => ({
-                ctoUserId: usr.id,
-                ctoUserName: usr.fullName,
-                ctoUserEmail: usr.email,
-                jiraAccountId: usr.jiraAccountId || '',
-            })));
         }).finally(() => setLoading(false));
     }, [open]);
+
+    const handleDisconnect = async () => {
+        setSaving(true);
+        try {
+            const res = await jiraMetricsAPI.connect({
+                jiraSiteUrl: '',
+                jiraEmail: '',
+                jiraApiToken: '',
+                projectMappings: [],
+                userMappings: []
+            });
+            toast.success(`✅ Jira disconnected.`);
+            onSuccess();
+        } catch (e: any) {
+            toast.error(`Disconnect failed: ${e.message}`);
+        } finally {
+            setSaving(false);
+        }
+    };
 
     const handleSave = async () => {
         setSaving(true);
@@ -314,11 +246,11 @@ function JiraConnectModal({ open, onOpenChange, onSuccess }: {
                 projectMappings: projectMaps.filter(p => p.jiraProjectKey.trim()),
                 userMappings: userMaps.filter(u => u.jiraAccountId.trim()),
             });
-            if (res.success || res.projectsUpdated > 0 || res.usersUpdated > 0) {
-                toast.success(`✅ Jira connected! ${res.message}`);
+            if (res.status === 'success' || res.success || res.projectsUpdated > 0 || res.usersUpdated > 0) {
+                toast.success(`✅ Jira connected! ${res.message || ''}`);
                 onSuccess();
             } else {
-                toast.error(`Partial errors: ${res.errors?.join(', ')}`);
+                toast.error(`Partial errors: ${res.errors?.join(', ') || res.message || 'Unknown error'}`);
             }
         } catch (e: any) {
             toast.error(`Connection failed: ${e.message}`);
@@ -338,162 +270,51 @@ function JiraConnectModal({ open, onOpenChange, onSuccess }: {
                         <div>
                             <DialogTitle className="text-xl">Connect Jira Software</DialogTitle>
                             <DialogDescription>
-                                Step {step} of 3 — {step === 1 ? 'API Credentials' : step === 2 ? 'Project Key Mapping' : 'User Account ID Mapping'}
+                                API Credentials
                             </DialogDescription>
                         </div>
-                    </div>
-                    {/* Step Indicator */}
-                    <div className="flex gap-2 mt-4">
-                        {[1, 2, 3].map(s => (
-                            <div key={s} className={cn(
-                                'h-1.5 flex-1 rounded-full transition-all duration-300',
-                                s <= step ? 'bg-blue-500' : 'bg-muted'
-                            )} />
-                        ))}
                     </div>
                 </DialogHeader>
 
                 <div className="py-2 space-y-4">
                     {/* ── Step 1: Credentials ──────────────────────── */}
-                    {step === 1 && (
-                        <div className="space-y-4">
-                            <div className="p-4 rounded-xl bg-blue-500/5 border border-blue-500/15 text-sm text-muted-foreground">
-                                <p className="font-semibold text-blue-400 mb-1">ℹ️ Where to find these?</p>
-                                <ul className="space-y-1 list-disc list-inside">
-                                    <li><b>Jira Site URL</b>: your Atlassian URL (e.g. <code>company.atlassian.net</code>)</li>
-                                    <li><b>Email</b>: your Jira login email</li>
-                                    <li><b>API Token</b>: from <code>id.atlassian.com → Security → API tokens</code></li>
-                                </ul>
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Jira Site URL *</Label>
-                                <Input className="rounded-xl" placeholder="yourcompany.atlassian.net"
-                                    value={jiraSiteUrl} onChange={e => setJiraSiteUrl(e.target.value)} />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Jira Email *</Label>
-                                <Input type="email" className="rounded-xl" placeholder="you@company.com"
-                                    value={jiraEmail} onChange={e => setJiraEmail(e.target.value)} />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Jira API Token *</Label>
-                                <Input type="password" className="rounded-xl" placeholder="••••••••••••"
-                                    value={jiraApiToken} onChange={e => setJiraApiToken(e.target.value)} />
-                            </div>
+                    <div className="space-y-4">
+                        <div className="p-4 rounded-xl bg-blue-500/5 border border-blue-500/15 text-sm text-muted-foreground">
+                            <p className="font-semibold text-blue-400 mb-1">ℹ️ Where to find these?</p>
+                            <ul className="space-y-1 list-disc list-inside">
+                                <li><b>Jira Site URL</b>: your Atlassian URL (e.g. <code>company.atlassian.net</code>)</li>
+                                <li><b>Email</b>: your Jira login email</li>
+                                <li><b>API Token</b>: from <code>id.atlassian.com → Security → API tokens</code></li>
+                            </ul>
                         </div>
-                    )}
-
-                    {/* ── Step 2: Project Key Mapping ──────────────── */}
-                    {step === 2 && (
-                        <div className="space-y-3">
-                            <p className="text-sm text-muted-foreground">
-                                Enter the <b>Jira Project Key</b> for each CTO Platform project.
-                                Find it in Jira → Project Settings → Key (e.g. <code className="bg-muted px-1 rounded">BANK</code>).
-                            </p>
-                            {loading ? (
-                                <div className="flex justify-center py-8">
-                                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                                </div>
-                            ) : projectMaps.length === 0 ? (
-                                <div className="text-center py-8 text-muted-foreground text-sm">
-                                    No projects found. Create projects in Admin Console first.
-                                </div>
-                            ) : (
-                                <div className="space-y-2 max-h-[340px] overflow-y-auto pr-1">
-                                    {projectMaps.map((pm, i) => (
-                                        <div key={pm.ctoProjectId} className="flex items-center gap-3 p-3 rounded-xl border border-border/40 bg-muted/20">
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-semibold truncate">{pm.ctoProjectName}</p>
-                                                <p className="text-[10px] text-muted-foreground">CTO ID: {pm.ctoProjectId.slice(0, 8)}…</p>
-                                            </div>
-                                            <div className="flex gap-2 shrink-0">
-                                                <Input
-                                                    className="rounded-lg h-8 w-24 text-sm font-mono uppercase"
-                                                    placeholder="KEY"
-                                                    value={pm.jiraProjectKey}
-                                                    onChange={e => {
-                                                        const updated = [...projectMaps];
-                                                        updated[i] = { ...updated[i], jiraProjectKey: e.target.value.toUpperCase() };
-                                                        setProjectMaps(updated);
-                                                    }}
-                                                />
-                                                <Input
-                                                    className="rounded-lg h-8 w-24 text-sm"
-                                                    placeholder="Board ID"
-                                                    value={pm.jiraBoardId}
-                                                    onChange={e => {
-                                                        const updated = [...projectMaps];
-                                                        updated[i] = { ...updated[i], jiraBoardId: e.target.value };
-                                                        setProjectMaps(updated);
-                                                    }}
-                                                />
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
+                        <div className="space-y-2">
+                            <Label>Jira Site URL *</Label>
+                            <Input className="rounded-xl" placeholder="yourcompany.atlassian.net"
+                                value={jiraSiteUrl} onChange={e => setJiraSiteUrl(e.target.value)} />
                         </div>
-                    )}
-
-                    {/* ── Step 3: User Account ID Mapping ─────────── */}
-                    {step === 3 && (
-                        <div className="space-y-3">
-                            <p className="text-sm text-muted-foreground">
-                                Map CTO Platform users to their <b>Jira Account ID</b>.
-                                Find it in Jira → Profile → Account ID (starts with a number string like <code className="bg-muted px-1 rounded">6123abc…</code>).
-                                <br /><span className="text-[11px]">Leave blank to skip a user.</span>
-                            </p>
-                            {loading ? (
-                                <div className="flex justify-center py-8">
-                                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                                </div>
-                            ) : (
-                                <div className="space-y-2 max-h-[340px] overflow-y-auto pr-1">
-                                    {userMaps.map((um, i) => (
-                                        <div key={um.ctoUserId} className="flex items-center gap-3 p-3 rounded-xl border border-border/40 bg-muted/20">
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-semibold truncate">{um.ctoUserName}</p>
-                                                <p className="text-[10px] text-muted-foreground truncate">{um.ctoUserEmail}</p>
-                                            </div>
-                                            <Input
-                                                className="rounded-lg h-8 w-40 text-sm shrink-0"
-                                                placeholder="Jira Account ID"
-                                                value={um.jiraAccountId}
-                                                onChange={e => {
-                                                    const updated = [...userMaps];
-                                                    updated[i] = { ...updated[i], jiraAccountId: e.target.value };
-                                                    setUserMaps(updated);
-                                                }}
-                                            />
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
+                        <div className="space-y-2">
+                            <Label>Jira Email *</Label>
+                            <Input type="email" className="rounded-xl" placeholder="you@company.com"
+                                value={jiraEmail} onChange={e => setJiraEmail(e.target.value)} />
                         </div>
-                    )}
+                        <div className="space-y-2">
+                            <Label>Jira API Token *</Label>
+                            <Input type="password" className="rounded-xl" placeholder="••••••••••••"
+                                value={jiraApiToken} onChange={e => setJiraApiToken(e.target.value)} />
+                        </div>
+                    </div>
                 </div>
 
-                <DialogFooter className="flex gap-2 pt-2">
-                    {step > 1 && (
-                        <Button variant="ghost" className="rounded-xl" onClick={() => setStep(s => s - 1)}>
-                            ← Back
-                        </Button>
-                    )}
-                    <div className="flex-1" />
-                    {step < 3 ? (
-                        <Button
-                            className="rounded-xl gap-2"
-                            onClick={() => setStep(s => s + 1)}
-                            disabled={step === 1 && (!jiraSiteUrl || !jiraEmail || !jiraApiToken)}
-                        >
-                            Next →
-                        </Button>
-                    ) : (
-                        <Button className="rounded-xl gap-2 font-bold" onClick={handleSave} disabled={saving}>
+                <DialogFooter className="flex gap-2 pt-2 justify-between w-full">
+                    <Button variant="destructive" className="rounded-xl" onClick={handleDisconnect} disabled={saving}>
+                        Disconnect
+                    </Button>
+                    <div className="flex gap-2">
+                        <Button className="rounded-xl gap-2 font-bold" onClick={handleSave} disabled={saving || (!jiraSiteUrl || !jiraEmail || !jiraApiToken)}>
                             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
                             Save & Connect
                         </Button>
-                    )}
+                    </div>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

@@ -9,6 +9,8 @@ import { PMLevel } from '@/components/drilldown/pm-level';
 import { TLLevel } from '@/components/drilldown/tl-level';
 import { EmployeeLevel } from '@/components/drilldown/employee-level';
 import { EmployeeProjectsLevel } from '@/components/drilldown/employee-projects-level';
+import { TeamListLevel } from '@/components/drilldown/team-list-level';
+import { MemberListLevel } from '@/components/drilldown/member-list-level';
 import { ArrowLeft, RotateCcw } from 'lucide-react';
 
 export default function DrilldownPage() {
@@ -29,6 +31,10 @@ export default function DrilldownPage() {
                 return <EmployeeLevel />;
             case 'employeeProjects':
                 return <EmployeeProjectsLevel />;
+            case 'team':
+                return <TeamListLevel />;
+            case 'member':
+                return <MemberListLevel />;
             default:
                 return <ProjectLevel />;
         }

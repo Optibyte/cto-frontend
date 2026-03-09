@@ -8,6 +8,7 @@ import { ChartCustomizer, ChartCustomization } from '@/components/dashboard/char
 import { DateRangeFilter } from '@/components/filters/date-range-filter';
 import { mockLearningMetrics } from '@/lib/mock-data/learning-metrics';
 import { Users, BarChart3, Activity, TrendingUp, Target, Briefcase } from 'lucide-react';
+import { DashboardFilters } from '@/components/dashboard/dashboard-filters';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, AreaChart, Area
 } from 'recharts';
@@ -79,13 +80,14 @@ export function ManagerDashboard() {
                         {selectedTeam !== 'all' && ` · ${selectedTeam.toUpperCase()}`}
                     </p>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-col md:flex-row flex-wrap items-end md:items-center gap-3">
+                    <DashboardFilters />
+                    <div className="hidden md:block h-8 w-px bg-border/20 mx-1" />
                     <MetricSelector
                         metrics={mockLearningMetrics}
                         selectedIds={selectedMetricIds}
                         onSelectionChange={setSelectedMetricIds}
                     />
-                    <div className="hidden md:block h-8 w-px bg-border/20 mx-1" />
                     <DateRangeFilter />
                 </div>
             </div>

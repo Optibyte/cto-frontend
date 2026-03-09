@@ -730,7 +730,11 @@ function buildPayload(tab: TabKey, form: Record<string, any>, isEdit: boolean): 
         }
         case 'members': return { teamId: form.teamId, userIds: form.userIds || [], roleInTeam: form.roleInTeam || 'Member' };
         case 'users': {
-            const u: any = { fullName: form.fullName, role: form.role, jobRole: form.jobRole };
+            const u: any = {
+                fullName: form.fullName,
+                role: form.role || 'TEAM',
+                jobRole: form.jobRole || ''
+            };
             if (form.jiraAccountId) u.jiraAccountId = form.jiraAccountId.trim();
             if (!isEdit) {
                 u.email = form.email;

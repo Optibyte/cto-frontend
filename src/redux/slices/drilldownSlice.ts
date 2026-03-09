@@ -1,6 +1,6 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
-export type DrilldownLevel = 'project' | 'cto' | 'pm' | 'tl' | 'employee' | 'employeeProjects';
+export type DrilldownLevel = 'project' | 'cto' | 'pm' | 'tl' | 'employee' | 'employeeProjects' | 'team' | 'member';
 
 interface DrilldownState {
     level: DrilldownLevel;
@@ -14,6 +14,8 @@ interface DrilldownState {
     selectedTLName: string | null;
     selectedEmployee: string | null;
     selectedEmployeeName: string | null;
+    selectedTeam: string | null;
+    selectedTeamName: string | null;
     loading: boolean;
 }
 
@@ -29,6 +31,8 @@ const initialState: DrilldownState = {
     selectedTLName: null,
     selectedEmployee: null,
     selectedEmployeeName: null,
+    selectedTeam: null,
+    selectedTeamName: null,
     loading: false,
 };
 
@@ -64,6 +68,16 @@ const drilldownSlice = createSlice({
             state.selectedEmployee = action.payload.employeeId;
             state.selectedEmployeeName = action.payload.employeeName;
         },
+        drillToTeam(state, action: PayloadAction<{ projectId: string; projectName: string }>) {
+            state.level = 'team';
+            state.selectedProject = action.payload.projectId;
+            state.selectedProjectName = action.payload.projectName;
+        },
+        drillToMember(state, action: PayloadAction<{ teamId: string; teamName: string }>) {
+            state.level = 'member';
+            state.selectedTeam = action.payload.teamId;
+            state.selectedTeamName = action.payload.teamName;
+        },
         goBack(state) {
             switch (state.level) {
                 case 'employeeProjects':
@@ -87,6 +101,16 @@ const drilldownSlice = createSlice({
                     state.selectedCTOName = null;
                     break;
                 case 'cto':
+                    state.level = 'project';
+                    state.selectedProject = null;
+                    state.selectedProjectName = null;
+                    break;
+                case 'member':
+                    state.level = 'team';
+                    state.selectedTeam = null;
+                    state.selectedTeamName = null;
+                    break;
+                case 'team':
                     state.level = 'project';
                     state.selectedProject = null;
                     state.selectedProjectName = null;
@@ -130,6 +154,14 @@ const drilldownSlice = createSlice({
                 state.selectedEmployee = null;
                 state.selectedEmployeeName = null;
             }
+            if (target === 'team') {
+                state.level = 'team';
+                state.selectedTeam = null;
+                state.selectedTeamName = null;
+            }
+            if (target === 'member') {
+                state.level = 'member';
+            }
         },
         resetDrilldown() {
             return { ...initialState };
@@ -144,6 +176,8 @@ export const {
     drillToTL,
     drillToEmployee,
     drillToEmployeeProjects,
+    drillToTeam,
+    drillToMember,
     goBack,
     goToLevel,
     resetDrilldown,

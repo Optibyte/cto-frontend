@@ -622,7 +622,9 @@ export const managersAPI = {
 export const auditAPI = {
     getAll: async (limit: number = 50, offset: number = 0) => {
         try {
-            const response = await fetch(`${AUDIT_API_URL}?limit=${limit}&offset=${offset}`);
+            const response = await fetch(`${AUDIT_API_URL}?limit=${limit}&offset=${offset}`, {
+                headers: getHeaders()
+            });
             if (!response.ok) throw new Error('Failed to fetch audit logs');
             const data = await response.json();
             return { data };
@@ -633,7 +635,9 @@ export const auditAPI = {
     },
     getStats: async () => {
         try {
-            const response = await fetch(`${AUDIT_API_URL}/stats`);
+            const response = await fetch(`${AUDIT_API_URL}/stats`, {
+                headers: getHeaders()
+            });
             if (!response.ok) throw new Error('Failed to fetch audit stats');
             const data = await response.json();
             return { data };
@@ -644,7 +648,9 @@ export const auditAPI = {
     },
     getByEntity: async (type: string, id: string) => {
         try {
-            const response = await fetch(`${AUDIT_API_URL}/entity/${type}/${id}`);
+            const response = await fetch(`${AUDIT_API_URL}/entity/${type}/${id}`, {
+                headers: getHeaders()
+            });
             if (!response.ok) throw new Error('Failed to fetch entity audit logs');
             const data = await response.json();
             return { data };

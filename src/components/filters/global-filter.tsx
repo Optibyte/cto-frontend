@@ -27,12 +27,10 @@ import {
     setIsFiltering,
 } from '@/redux/slices/dashboardSlice';
 import {
-    MARKETS,
-    getAccountsForMarket,
-    getProjectsForAccount,
-    getTeamsForProject,
     getMembersForTeam,
 } from '@/lib/mock-data/dashboard-filtered';
+import { marketsAPI, adminAccountsAPI, adminProjectsAPI, adminTeamsAPI } from '@/lib/api/admin';
+import { useEffect } from 'react';
 import { useRole } from '@/contexts/role-context';
 
 export function GlobalFilter() {
@@ -48,9 +46,35 @@ export function GlobalFilter() {
 
     const [open, setOpen] = useState(false);
 
-    const accounts = getAccountsForMarket(selectedMarket);
-    const projects = getProjectsForAccount(selectedAccount);
-    const teams = getTeamsForProject(selectedProject);
+    const [dynamicMarkets, setDynamicMarkets] = useState<any[]>([]);
+    const [dynamicAccounts, setDynamicAccounts] = useState<any[]>([]);
+    const [dynamicProjects, setDynamicProjects] = useState<any[]>([]);
+    const [dynamicTeams, setDynamicTeams] = useState<any[]>([]);
+
+    useEffect(() => {
+        if (!open) return;
+        async function fetchDropdowns() {
+            try {
+                const [m, a, p, t] = await Promise.all([
+                    marketsAPI.getAll().catch(() => []),
+                    adminAccountsAPI.getAll().catch(() => []),
+                    adminProjectsAPI.getAll().catch(() => []),
+                    adminTeamsAPI.getAll().catch(() => [])
+                ]);
+                setDynamicMarkets(m || []);
+                setDynamicAccounts(a || []);
+                setDynamicProjects(p || []);
+                setDynamicTeams(t || []);
+            } catch (e) {
+                console.error("Failed to fetch dropdowns:", e);
+            }
+        }
+        fetchDropdowns();
+    }, [open]);
+
+    const accounts = dynamicAccounts.filter(a => selectedMarket === 'all' || a.marketId === selectedMarket);
+    const projects = selectedAccount === 'all' ? dynamicProjects : dynamicProjects.filter(p => !p.accountId || p.accountId === selectedAccount);
+    const teams = selectedProject === 'all' ? dynamicTeams : dynamicTeams.filter(t => !t.projectId || t.projectId === selectedProject);
     const members = getMembersForTeam(selectedTeam);
 
     const handleApply = () => {
@@ -113,7 +137,7 @@ export function GlobalFilter() {
                                 </SelectTrigger>
                                 <SelectContent className="rounded-xl border-border/50 shadow-xl">
                                     <SelectItem value="all">All Markets</SelectItem>
-                                    {MARKETS.map((m) => (
+                                    {dynamicMarkets.map((m) => (
                                         <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
                                     ))}
                                 </SelectContent>

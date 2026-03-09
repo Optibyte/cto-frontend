@@ -52,6 +52,9 @@ interface MetricsData {
             qaDefectRejectionRate: string;
         };
     };
+    charts?: {
+        assigneeWorkload?: { name: string; storyPoints: number; issueCount: number }[];
+    };
     scope: any;
     generatedAt: string;
 }
@@ -59,6 +62,9 @@ interface MetricsData {
 interface ChartData {
     status: string;
     chartData: { day: string; issue_status: string; event_count: number; total_points: number }[];
+    charts?: {
+        assigneeWorkload?: { name: string; storyPoints: number; issueCount: number }[];
+    };
 }
 
 // ─────────────────────────────────────────────
@@ -581,6 +587,38 @@ export function JiraAnalyticsTab() {
                         </CardContent>
                     </Card>
                 </div>
+
+                {/* ── Charts Row 3: Contributor Workload (Added for V4) ── */}
+                <Card className="border-border/40">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-base font-semibold">Contributor Workload</CardTitle>
+                        <CardDescription>Story points and issue count per member</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        {!(metrics?.charts?.assigneeWorkload || chartData?.charts?.assigneeWorkload) ? <EmptyChart /> : (
+                            <ResponsiveContainer width="100%" height={260}>
+                                <BarChart
+                                    data={(metrics?.charts?.assigneeWorkload || chartData?.charts?.assigneeWorkload || []).slice(0, 10)}
+                                    margin={{ top: 5, right: 10, left: -10, bottom: 0 }}
+                                >
+                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                                    <XAxis
+                                        dataKey="name"
+                                        tick={{ fontSize: 9 }}
+                                        tickLine={false}
+                                        axisLine={false}
+                                        tickFormatter={(v: string) => v.length > 15 ? v.slice(0, 15) + '…' : v}
+                                    />
+                                    <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
+                                    <Tooltip content={<CustomTooltip />} />
+                                    <Legend wrapperStyle={{ fontSize: 11 }} />
+                                    <Bar dataKey="storyPoints" name="Story Points" fill={COLORS.primary} radius={[6, 6, 0, 0]} />
+                                    <Bar dataKey="issueCount" name="Issues" fill={COLORS.cyan} radius={[6, 6, 0, 0]} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        )}
+                    </CardContent>
+                </Card>
 
                 {/* ── Charts Row 3: Quality Metrics Line Chart ─────────── */}
                 <Card className="border-border/40">
