@@ -14,6 +14,12 @@ const getHeaders = () => {
 async function apiFetch(url: string, options?: RequestInit) {
     const res = await fetch(url, { ...options, headers: { ...getHeaders(), ...options?.headers } });
     if (!res.ok) {
+        if (res.status === 401 && typeof window !== 'undefined') {
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('current_user_id');
+            window.location.href = '/login';
+            return;
+        }
         const err = await res.json().catch(() => ({}));
         throw new Error(err.message || `Request failed: ${res.status}`);
     }
@@ -26,11 +32,15 @@ const BASE = `${API_BASE_URL}/api/v1/jira-metrics`;
 // ── Jira Metrics API ──────────────────────────────────────────
 export const jiraMetricsAPI = {
     /** Role-scoped KPI metrics from Flask via NestJS proxy */
-    getMetrics: (params?: { start?: string; end?: string; days?: number }) => {
+    getMetrics: (params?: { start?: string; end?: string; days?: number, marketId?: string, accountId?: string, projectId?: string, teamId?: string }) => {
         const qs = new URLSearchParams();
         if (params?.start) qs.set('start', params.start);
         if (params?.end) qs.set('end', params.end);
         if (params?.days) qs.set('days', String(params.days));
+        if (params?.marketId && params?.marketId !== 'all') qs.set('marketId', params.marketId);
+        if (params?.accountId && params?.accountId !== 'all') qs.set('accountId', params.accountId);
+        if (params?.projectId && params?.projectId !== 'all') qs.set('projectId', params.projectId);
+        if (params?.teamId && params?.teamId !== 'all') qs.set('teamId', params.teamId);
         return apiFetch(`${BASE}?${qs.toString()}`);
     },
 

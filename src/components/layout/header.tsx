@@ -8,7 +8,6 @@ import { Input } from '@/components/ui/input';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { useRole } from '@/contexts/role-context';
 import { UserRole } from '@/lib/types';
-import { GlobalFilter } from '@/components/filters/global-filter';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -55,72 +54,70 @@ export function Header() {
             </div>
 
             <div className="flex items-center gap-2">
-                {/* Dashboard Filters */}
-                {mounted && role !== 'TEAM' && (
+                {mounted ? (
                     <>
-                        <GlobalFilter />
-                        <div className="h-6 w-px bg-border/40 mx-1" />
-                    </>
-                )}
-
-                <ThemeToggle />
-                <Button variant="ghost" size="icon" className="relative hover:bg-primary/10 transition-colors rounded-xl">
-                    <Bell className="h-5 w-5" />
-                    <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500 animate-pulse shadow-lg shadow-red-500/50" />
-                </Button>
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="hover:bg-primary/10 transition-colors rounded-xl overflow-hidden border border-border/40 p-0 h-9 w-9">
-                            <span className="h-full w-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-primary/5">
-                                <User className="h-5 w-5 text-primary" />
-                            </span>
+                        <ThemeToggle />
+                        <Button variant="ghost" size="icon" className="relative hover:bg-primary/10 transition-colors rounded-xl">
+                            <Bell className="h-5 w-5" />
+                            <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500 animate-pulse shadow-lg shadow-red-500/50" />
                         </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56 rounded-2xl p-2 shadow-2xl border-border/50 bg-popover/95 backdrop-blur-sm">
-                        <DropdownMenuLabel className="px-3 py-2">
-                            <div className="flex flex-col gap-1">
-                                <span className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-bold leading-none">Logged in as</span>
-                                <span className="text-sm font-bold truncate leading-none mt-1">{displayEmail}</span>
-                                {displayId && (
-                                    <span className="text-[10px] text-primary font-mono mt-1 font-bold bg-primary/10 px-1.5 py-0.5 rounded-sm w-fit" title="Tracking/Employee ID">
-                                        TRK: {displayId}
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="hover:bg-primary/10 transition-colors rounded-xl overflow-hidden border border-border/40 p-0 h-9 w-9">
+                                    <span className="h-full w-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-primary/5">
+                                        <User className="h-5 w-5 text-primary" />
                                     </span>
-                                )}
-                                {(user?.id || user?.user?.id) && (
-                                    <span className="text-[9px] text-muted-foreground font-mono mt-1 bg-muted/50 px-1.5 py-0.5 rounded-sm w-fit" title="System UUID">
-                                        ID: {(user?.id || user?.user?.id)?.slice(0, 8)}...
-                                    </span>
-                                )}
-                                <div className="flex items-center gap-1.5 mt-1.5">
-                                    <span className={`h-1.5 w-1.5 rounded-full ${currentRole.color}`} />
-                                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{currentRole.label} ROLE</span>
-                                </div>
-                            </div>
-                        </DropdownMenuLabel>
-                        <DropdownMenuSeparator className="my-1 opacity-50" />
-                        <DropdownMenuItem className="flex items-center gap-2 p-2.5 rounded-xl cursor-not-allowed opacity-50">
-                            <User className="h-4 w-4" />
-                            <span className="text-sm font-medium">Profile Settings</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem className="flex items-center gap-2 p-2.5 rounded-xl cursor-not-allowed opacity-50">
-                            <Shield className="h-4 w-4" />
-                            <span className="text-sm font-medium">Security</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator className="my-1 opacity-50" />
-                        <DropdownMenuItem
-                            onClick={() => {
-                                logout();
-                                router.push('/login');
-                            }}
-                            className="flex items-center gap-2 p-2.5 rounded-xl cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10 transition-colors"
-                        >
-                            <div className="flex items-center gap-2">
-                                <Lock className="h-4 w-4" />
-                                <span className="text-sm font-bold">Log out</span>
-                            </div>
-                        </DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-56 rounded-2xl p-2 shadow-2xl border-border/50 bg-popover/95 backdrop-blur-sm">
+                                <DropdownMenuLabel className="px-3 py-2">
+                                    <div className="flex flex-col gap-1">
+                                        <span className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-bold leading-none">Logged in as</span>
+                                        <span className="text-sm font-bold truncate leading-none mt-1">{displayEmail}</span>
+                                        {displayId && (
+                                            <span className="text-[10px] text-primary font-mono mt-1 font-bold bg-primary/10 px-1.5 py-0.5 rounded-sm w-fit" title="Tracking/Employee ID">
+                                                TRK: {displayId}
+                                            </span>
+                                        )}
+                                        {user?.id && (
+                                            <span className="text-[9px] text-muted-foreground font-mono mt-1 bg-muted/50 px-1.5 py-0.5 rounded-sm w-fit" title="System UUID">
+                                                ID: {user?.id?.slice(0, 8)}...
+                                            </span>
+                                        )}
+                                        <div className="flex items-center gap-1.5 mt-1.5">
+                                            <span className={`h-1.5 w-1.5 rounded-full ${currentRole.color}`} />
+                                            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{currentRole.label} ROLE</span>
+                                        </div>
+                                    </div>
+                                </DropdownMenuLabel>
+                                <DropdownMenuSeparator className="my-1 opacity-50" />
+                                <DropdownMenuItem className="flex items-center gap-2 p-2.5 rounded-xl cursor-not-allowed opacity-50">
+                                    <User className="h-4 w-4" />
+                                    <span className="text-sm font-medium">Profile Settings</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem className="flex items-center gap-2 p-2.5 rounded-xl cursor-not-allowed opacity-50">
+                                    <Shield className="h-4 w-4" />
+                                    <span className="text-sm font-medium">Security</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator className="my-1 opacity-50" />
+                                <DropdownMenuItem
+                                    onClick={() => {
+                                        logout();
+                                        router.push('/login');
+                                    }}
+                                    className="flex items-center gap-2 p-2.5 rounded-xl cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10 transition-colors"
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <Lock className="h-4 w-4" />
+                                        <span className="text-sm font-bold">Log out</span>
+                                    </div>
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </>
+                ) : (
+                    <div className="h-9 w-[124px]" /> // Placeholder for ThemeToggle (36) + Bell (36) + User (36) + Gaps to avoid layout shift
+                )}
             </div>
         </header>
     );

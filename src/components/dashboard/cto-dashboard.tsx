@@ -1,375 +1,784 @@
 'use client';
 
-import { KPICard } from '@/components/dashboard/kpi-card';
-import { TeamPerformanceChart } from '@/components/dashboard/team-performance-chart';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { TrendingUp, Target, Zap, Clock, Activity, BarChart3, Loader2, Users, LayoutDashboard } from 'lucide-react';
-import { PerformanceTrendChart } from '@/components/dashboard/performance-trend-chart';
-import { DateRangeFilter } from '@/components/filters/date-range-filter';
-import { useDashboardKPIs, useTeamPerformance } from '@/hooks/use-dashboard-data';
-import { useProjects } from '@/hooks/use-projects';
-import { useState } from 'react';
-import { LearningMetricsCards } from '@/components/dashboard/learning-metrics-cards';
-import { MetricSelector } from '@/components/dashboard/metric-selector';
-import { ChartCustomizer, ChartCustomization } from '@/components/dashboard/chart-customizer';
-import { mockLearningMetrics } from '@/lib/mock-data/learning-metrics';
+import { useState, useEffect, useCallback } from 'react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
-    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, AreaChart, Area
+    AreaChart, Area, BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
+    XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, RadialBarChart, RadialBar,
+    ComposedChart, Scatter
 } from 'recharts';
+import {
+    TrendingUp, TrendingDown, Minus, RefreshCw, Loader2,
+    Zap, Bug, Users, Target, Clock, BarChart3, ShieldCheck, Activity,
+    FlaskConical, AlertTriangle, Database, CheckCircle2, XCircle, Gauge,
+    Layers, GitBranch, Shield, ArrowUpDown
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { jiraMetricsAPI } from '@/lib/api/jira-metrics';
+import { useRole } from '@/contexts/role-context';
+import {
+    MARKETS,
+    getAccountsForMarket,
+    getProjectsForAccount,
+    getTeamsForProject,
+} from '@/lib/mock-data/dashboard-filtered';
 import { useAppSelector } from '@/redux/store';
-import { PROJECTS } from '@/lib/mock-data/dashboard-filtered';
+import { DateRangeFilter } from '@/components/filters/date-range-filter';
 
-const ctoPerformanceData = [
-    { name: 'Architecture', compliance: 92, coverage: 88, debt: 12, quality: 94 },
-    { name: 'Infrastructure', compliance: 95, coverage: 90, debt: 8, quality: 96 },
-    { name: 'Security', compliance: 98, coverage: 95, debt: 5, quality: 99 },
-    { name: 'Frontend', compliance: 88, coverage: 82, debt: 15, quality: 85 },
-    { name: 'Backend', compliance: 90, coverage: 85, debt: 10, quality: 88 },
-];
+// ─────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────
+interface DetailedMetric {
+    type: string;
+    name: string;
+    uom: string;
+    formula: string;
+    value: string | number;
+    target: string;
+    trend: 'up' | 'down' | 'neutral';
+}
 
-const ctoTrendData = [
-    { month: 'Jan', velocity: 180, quality: 85, efficiency: 78 },
-    { month: 'Feb', velocity: 195, quality: 88, efficiency: 82 },
-    { month: 'Mar', velocity: 210, quality: 90, efficiency: 85 },
-    { month: 'Apr', velocity: 225, quality: 92, efficiency: 88 },
-    { month: 'May', velocity: 248, quality: 94, efficiency: 91 },
-    { month: 'Jun', velocity: 260, quality: 95, efficiency: 93 },
-    { month: 'Jul', velocity: 275, quality: 96, efficiency: 95 },
-];
+interface DailyTrend {
+    date: string;
+    done: number;
+    in_progress: number;
+    todo: number;
+    story_points: number;
+}
 
-const CHART_AXIS_OPTIONS = ['name', 'compliance', 'coverage', 'debt', 'quality'];
+interface MetricsResponse {
+    status: string;
+    metrics: {
+        velocity: { sprintName: string; velocity: number; issueCount: number }[];
+        defects: { bugCount: number; totalCount: number; defectRate: string };
+        trend: any[];
+        delivery: { completedItems: number; committedItems: number; commitmentMet: string };
+        productivity: {
+            productivity: string;
+            doneToSaidRatio: string;
+            velocityPerPerson: string;
+            resourceUtilization: string;
+        };
+        advancedQuality: {
+            defectLeakage: string;
+            defectDensityEffort: string;
+            requirementsStability: string;
+            defectReopenRate: string;
+            qaDefectRejectionRate: string;
+        };
+    };
+    charts: {
+        dailyTrend: DailyTrend[];
+        statusDistribution: { name: string; value: number }[];
+        priorityDistribution: { name: string; value: number }[];
+        typeDistribution: { name: string; value: number }[];
+        assigneeWorkload: { name: string; storyPoints: number; issueCount: number }[];
+        velocityBySprint: { sprintName: string; velocity: number; issueCount: number }[];
+    };
+    summary: {
+        totalIssues: number;
+        totalEvents: number;
+        deliveredSP: number;
+        plannedSP: number;
+        teamSize: number;
+        totalBugs: number;
+        doneCount: number;
+        inProgressCount: number;
+        todoCount: number;
+    };
+    detailedMetrics: DetailedMetric[];
+    generatedAt: string;
+}
 
-export function CTODashboard() {
-    const { data: kpiData, isLoading: kpiLoading } = useDashboardKPIs();
-    const { data: teamPerformance = [], isLoading: teamLoading } = useTeamPerformance();
-    const { data: projects = [], isLoading: projectsLoading } = useProjects();
-    const { selectedProject } = useAppSelector((state) => state.dashboard);
+// ─────────────────────────────────────────────
+// Colours
+// ─────────────────────────────────────────────
+const COLORS = {
+    primary: '#8b5cf6',
+    blue: '#3b82f6',
+    green: '#10b981',
+    amber: '#f59e0b',
+    rose: '#f43f5e',
+    cyan: '#06b6d4',
+    orange: '#f97316',
+    indigo: '#6366f1',
+    pink: '#ec4899',
+    teal: '#14b8a6',
+    lime: '#84cc16',
+    sky: '#0ea5e9',
+};
+const PIE_COLORS = [COLORS.green, COLORS.blue, COLORS.amber, COLORS.rose, COLORS.cyan, COLORS.orange, COLORS.indigo, COLORS.pink];
+const PRIORITY_COLORS: Record<string, string> = {
+    'Highest': '#ef4444', 'High': '#f97316', 'Medium': '#f59e0b',
+    'Low': '#22c55e', 'Lowest': '#6b7280', 'None': '#9ca3af',
+};
 
-    const [selectedMetricIds, setSelectedMetricIds] = useState<string[]>(
-        mockLearningMetrics.map((m) => m.id)
+// ─────────────────────────────────────────────
+// Day presets
+// ─────────────────────────────────────────────
+
+
+// ─────────────────────────────────────────────
+// Custom Tooltip
+// ─────────────────────────────────────────────
+const CustomTooltip = ({ active, payload, label }: any) => {
+    if (!active || !payload?.length) return null;
+    return (
+        <div className="rounded-xl border border-border/60 bg-background/95 backdrop-blur-md p-3 shadow-xl text-sm">
+            <p className="font-semibold text-foreground mb-2">{label}</p>
+            {payload.map((p: any, i: number) => (
+                <p key={i} className="flex items-center gap-2" style={{ color: p.color }}>
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: p.color }} />
+                    {p.name}: <b>{typeof p.value === 'number' ? p.value.toLocaleString() : p.value}</b>
+                </p>
+            ))}
+        </div>
     );
-    const [drillLevel, setDrillLevel] = useState(0);
-    const [chartConfig, setChartConfig] = useState<ChartCustomization>({
-        xAxis: 'name',
-        yAxis: 'quality',
-        colorScheme: 'default',
-        showValues: false,
-    });
+};
 
-    const isLoading = kpiLoading || teamLoading || projectsLoading;
+// ─────────────────────────────────────────────
+// Main Component
+// ─────────────────────────────────────────────
+export function CTODashboard() {
+    const { role } = useRole();
+    const [days, setDays] = useState('30');
 
-    // Prepare trend data from sparkline
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'];
-    const trendData = kpiData?.velocity?.sparkline?.map((val: number, i: number) => ({
-        name: months[i] || `Point ${i + 1}`,
-        value: val
-    })) || [];
+    // Dynamic Filter states
+    const [marketId, setMarketId] = useState('all');
+    const [accountId, setAccountId] = useState('all');
+    const [projectId, setProjectId] = useState('all');
+    const [teamId, setTeamId] = useState('all');
 
-    // Build resource allocation from real projects data
-    const projectColors = ['#8B5CF6', '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#EC4899', '#06B6D4', '#84CC16'];
-    const resourceData = projects.map((project: any, index: number) => {
-        const totalMembers =
-            (project.ctos?.length || 0) +
-            (project.pms?.length || 0) +
-            (project.teamLeads?.length || 0) +
-            (project.employees?.length || 0);
-        return {
-            project: project.name,
-            projectId: project.id,
-            allocated: totalMembers,
-            total: projects.reduce((acc: number, p: any) =>
-                acc + (p.ctos?.length || 0) + (p.pms?.length || 0) + (p.teamLeads?.length || 0) + (p.employees?.length || 0), 0),
-            color: projectColors[index % projectColors.length],
-        };
-    });
+    const [data, setData] = useState<MetricsResponse | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+    const [error, setError] = useState<string | null>(null);
+    const { dateRange } = useAppSelector((s) => s.dashboard);
 
-    // Map team performance data for the chart (backend returns {team, score, members, velocity, quality})
-    const chartData = teamPerformance.map((t: any) => ({
-        name: t.team || t.name,
-        score: t.score,
-        members: t.members,
-        velocity: t.velocity,
-        quality: t.quality,
-    }));
+    const fetchAll = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const result = await jiraMetricsAPI.getMetrics({
+                days: Number(days),
+                marketId,
+                accountId,
+                projectId,
+                teamId,
+                start: dateRange?.from,
+                end: dateRange?.to
+            });
+            setData(result);
+            setLastUpdated(new Date());
+        } catch (err: any) {
+            console.error('Failed to load Jira metrics:', err);
+            setError(err.message || 'Failed to load metrics');
+        } finally {
+            setLoading(false);
+        }
+    }, [days, marketId, accountId, projectId, teamId, dateRange]);
 
-    const visibleMetrics = mockLearningMetrics.filter((m) => selectedMetricIds.includes(m.id));
+    useEffect(() => { fetchAll(); }, [fetchAll]);
 
-    const getBarColor = () => {
-        const schemes: Record<string, string> = {
-            default: '#8b5cf6',
-            ocean: '#0ea5e9',
-            sunset: '#f43f5e',
-            forest: '#22c55e',
-            neon: '#d946ef',
-        };
-        return schemes[chartConfig.colorScheme] || '#8b5cf6';
+    const [drillDownData, setDrillDownData] = useState<any[] | null>(null);
+    const [drillView, setDrillView] = useState<string>('none');
+
+    const handleDrill = async (view: string) => {
+        setLoading(true);
+        setDrillView(view);
+        try {
+            if (view === 'none') {
+                setDrillDownData(null);
+            } else if (view === 'market') {
+                const res = await jiraMetricsAPI.getByMarket();
+                setDrillDownData(res.metrics);
+            } else if (view === 'account') {
+                const res = await jiraMetricsAPI.getByAccount();
+                setDrillDownData(res.metrics);
+            } else if (view === 'team') {
+                const res = await jiraMetricsAPI.getByTeam();
+                setDrillDownData(res.metrics);
+            } else if (view === 'project') {
+                const res = await jiraMetricsAPI.getByProject();
+                setDrillDownData(res.metrics);
+            }
+        } catch (e) { console.error(e); } finally { setLoading(false); }
     };
 
-    const projectName = selectedProject === 'all'
-        ? 'Enterprise View'
-        : PROJECTS.find(p => p.id === selectedProject)?.name || 'Project View';
-
-    if (isLoading) {
+    // ── Offline / No data state ──────────────────────────────────
+    if (!loading && !data) {
         return (
-            <div className="flex items-center justify-center h-96">
-                <div className="flex flex-col items-center gap-3">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                    <span className="text-muted-foreground font-medium">Loading dashboard...</span>
+            <div className="flex flex-col items-center justify-center py-24 gap-4">
+                <div className="p-5 rounded-full bg-amber-500/10">
+                    <Database className="h-10 w-10 text-amber-500" />
                 </div>
+                <h3 className="text-xl font-bold">Jira Not Connected</h3>
+                <p className="text-muted-foreground text-center max-w-sm text-sm">
+                    {error || 'No data returned from backend for your scope.'}
+                </p>
+                <Button variant="outline" className="rounded-xl gap-2" onClick={fetchAll}>
+                    <RefreshCw className="h-4 w-4" /> Retry
+                </Button>
             </div>
         );
     }
 
+    // Shortcut references
+    const d = data?.metrics;
+    const charts = data?.charts;
+    const summary = data?.summary;
+    const detailedMetrics = data?.detailedMetrics || [];
+
+    // Aggregate values
+    const aggVelocity = d?.velocity?.reduce((sum, s) => sum + s.velocity, 0) || 0;
+    const aggVelocityString = Math.round(aggVelocity).toString();
+    const aggBugs = d?.defects?.bugCount || 0;
+    const aggDefectRate = d?.defects?.defectRate || '0.00';
+    const aggCommitment = (d?.delivery?.commitmentMet || '0') + '%';
+    const completedItems = d?.delivery?.completedItems || 0;
+    const totalItems = d?.delivery?.committedItems || 0;
+
+    // Chart data
+    const dailyTrend = charts?.dailyTrend || [];
+    const statusDistribution = charts?.statusDistribution || [];
+    const priorityDistribution = charts?.priorityDistribution || [];
+    const typeDistribution = charts?.typeDistribution || [];
+    const assigneeWorkload = charts?.assigneeWorkload || [];
+    const velocityBySprint = charts?.velocityBySprint || [];
+
+    const accounts = getAccountsForMarket(marketId);
+    const projects = getProjectsForAccount(accountId);
+    const teams = getTeamsForProject(projectId);
+
     return (
-        <div className="space-y-8 animate-in fade-in duration-700">
-            {/* Dashboard Header */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-border/10 pb-6">
-                <div className="space-y-1">
-                    <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent flex items-center gap-3">
-                        <LayoutDashboard className="h-8 w-8 text-primary" />
-                        {projectName} CTO Dashboard
-                    </h1>
-                    <p className="text-muted-foreground flex items-center gap-2">
-                        <Activity className="h-4 w-4 text-primary/70" />
-                        Executive learning summary and technical excellence metrics
-                    </p>
-                </div>
-                <div className="flex items-center gap-3">
-                    <MetricSelector
-                        metrics={mockLearningMetrics}
-                        selectedIds={selectedMetricIds}
-                        onSelectionChange={setSelectedMetricIds}
-                    />
-                    <div className="hidden md:block h-8 w-px bg-border/20 mx-1" />
-                    <DateRangeFilter />
-                </div>
-            </div>
+        <div className="space-y-6">
 
-            {/* Learning Metrics Cards */}
-            <div className="space-y-4">
-                <div className="flex items-center gap-2 px-1">
-                    <Target className="h-5 w-5 text-primary" />
-                    <h2 className="text-xl font-bold tracking-tight">Organization Learning Health</h2>
-                    <span className="text-xs text-muted-foreground ml-2">({visibleMetrics.length} of {mockLearningMetrics.length} metrics)</span>
-                </div>
-                <LearningMetricsCards
-                    metrics={visibleMetrics}
-                    onDrillUp={drillLevel > 0 ? () => setDrillLevel(drillLevel - 1) : undefined}
-                    onDrillDown={() => setDrillLevel(drillLevel + 1)}
-                />
-            </div>
+            {/* ── Header Bar ──────────────────────────────────── */}
+            <div className="flex flex-col gap-4">
+               
+                {/* Inline Scope Filters */}
+                <div className="bg-muted/30 p-3 rounded-2xl border border-border/40 flex flex-wrap items-center gap-3">
 
-            {/* Top Stats Section */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <KPICard
-                    title="System Velocity"
-                    value={kpiData?.velocity?.current ?? 0}
-                    unit="points"
-                    change={kpiData?.velocity?.change ?? 0}
-                    trend={kpiData?.velocity?.trend ?? 'neutral'}
-                    icon={TrendingUp}
-                    sparklineData={kpiData?.velocity?.sparkline ?? []}
-                />
-                <KPICard
-                    title="Product Quality"
-                    value={kpiData?.quality?.current ?? 0}
-                    unit="%"
-                    change={kpiData?.quality?.change ?? 0}
-                    trend={kpiData?.quality?.trend ?? 'neutral'}
-                    icon={Target}
-                    sparklineData={kpiData?.quality?.sparkline ?? []}
-                />
-                <KPICard
-                    title="Throughput"
-                    value={kpiData?.throughput?.current ?? 0}
-                    unit="tasks/wk"
-                    change={kpiData?.throughput?.change ?? 0}
-                    trend={kpiData?.throughput?.trend ?? 'neutral'}
-                    icon={Zap}
-                    sparklineData={kpiData?.throughput?.sparkline ?? []}
-                />
-                <KPICard
-                    title="Cycle Time"
-                    value={kpiData?.cycleTime?.current ?? 0}
-                    unit="hrs"
-                    change={kpiData?.cycleTime?.change ?? 0}
-                    trend={kpiData?.cycleTime?.trend ?? 'neutral'}
-                    icon={Clock}
-                    sparklineData={kpiData?.cycleTime?.sparkline ?? []}
-                />
-            </div>
-
-            {/* Performance Analysis & Trend */}
-            <div className="grid gap-6 lg:grid-cols-3 items-stretch">
-                {/* Main Performance Chart - Spans 2 columns */}
-                <Card className="lg:col-span-2 border-border/40 shadow-xl shadow-black/5 dark:shadow-black/20 overflow-hidden group bg-card/50 backdrop-blur-md relative">
-                    <div className="absolute inset-0 border border-primary/10 rounded-2xl pointer-events-none group-hover:border-primary/30 transition-colors duration-500" />
-                    <CardHeader className="flex flex-row items-center justify-between pb-2 relative z-10">
-                        <div className="space-y-1">
-                            <CardTitle className="text-lg font-bold flex items-center gap-2">
-                                <BarChart3 className="h-5 w-5 text-primary" />
-                                Strategic Excellence {drillLevel > 0 && `(Level ${drillLevel})`}
-                            </CardTitle>
-                            <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Domain Performance & Compliance</p>
-                        </div>
-                        <ChartCustomizer
-                            axisOptions={CHART_AXIS_OPTIONS}
-                            customization={chartConfig}
-                            onCustomizationChange={setChartConfig}
-                            onDrillUp={drillLevel > 0 ? () => setDrillLevel(drillLevel - 1) : undefined}
-                            onDrillDown={() => setDrillLevel(drillLevel + 1)}
-                        />
-                    </CardHeader>
-                    <CardContent className="pt-4 relative z-10">
-                        <TeamPerformanceChart data={chartData} />
-                    </CardContent>
-                </Card>
-
-                {/* Domain Performance Bar Chart from incoming */}
-                <Card className="border-border/40 shadow-xl shadow-black/5 dark:shadow-black/20 overflow-hidden group bg-card/50 backdrop-blur-md relative">
-                    <div className="absolute inset-0 border border-primary/10 rounded-2xl pointer-events-none group-hover:border-primary/30 transition-colors duration-500" />
-                    <CardHeader className="flex flex-row items-center justify-between pb-2 relative z-10">
-                        <div className="space-y-1">
-                            <CardTitle className="text-lg font-bold flex items-center gap-2">
-                                <BarChart3 className="h-5 w-5 text-primary" />
-                                Domain Performance
-                            </CardTitle>
-                        </div>
-                    </CardHeader>
-                    <CardContent className="pt-4 relative z-10">
-                        <ResponsiveContainer width="100%" height={350}>
-                            <BarChart data={ctoPerformanceData}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
-                                <XAxis dataKey={chartConfig.xAxis} tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
-                                <YAxis tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
-                                <Tooltip
-                                    contentStyle={{
-                                        backgroundColor: 'hsl(var(--popover))',
-                                        border: '1px solid hsl(var(--border))',
-                                        borderRadius: '12px',
-                                        fontSize: '12px',
-                                    }}
-                                />
-                                <Legend />
-                                <Bar
-                                    dataKey={chartConfig.yAxis}
-                                    fill={getBarColor()}
-                                    radius={[6, 6, 0, 0]}
-                                    label={chartConfig.showValues ? { position: 'top', fontSize: 11 } : false}
-                                />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </CardContent>
-                </Card>
-                <Card className="border-border/40 shadow-xl shadow-black/5 dark:shadow-black/20 overflow-hidden group bg-card/50 backdrop-blur-md relative">
-                    <div className="absolute inset-0 border border-primary/10 rounded-2xl pointer-events-none group-hover:border-primary/30 transition-colors duration-500" />
-                    <CardHeader className="pb-2 relative z-10">
-                        <div className="space-y-1">
-                            <CardTitle className="text-lg font-bold flex items-center gap-2">
-                                <TrendingUp className="h-5 w-5 text-primary" />
-                                Velocity & Quality Trend
-                            </CardTitle>
-                            <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Engineering Excellence Progression</p>
-                        </div>
-                    </CardHeader>
-                    <CardContent className="pt-4 relative z-10">
-                        <ResponsiveContainer width="100%" height={300}>
-                            <AreaChart data={ctoTrendData}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
-                                <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
-                                <YAxis tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
-                                <Tooltip
-                                    contentStyle={{
-                                        backgroundColor: 'hsl(var(--popover))',
-                                        border: '1px solid hsl(var(--border))',
-                                        borderRadius: '12px',
-                                        fontSize: '12px',
-                                    }}
-                                />
-                                <Legend />
-                                <Area type="monotone" dataKey="velocity" stackId="1" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.3} name="Velocity" />
-                                <Area type="monotone" dataKey="quality" stackId="1" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.3} name="Quality" />
-                                <Area type="monotone" dataKey="efficiency" stackId="1" stroke="#10b981" fill="#10b981" fillOpacity={0.3} name="Efficiency" />
-                            </AreaChart>
-                        </ResponsiveContainer>
-                    </CardContent>
-                </Card>
-            </div>
-
-            {/* Bottom Row - Resource Allocation from real projects */}
-            <Card className="border-border/40 shadow-xl shadow-black/5 dark:shadow-black/20 overflow-hidden group bg-card/50 backdrop-blur-md relative">
-                <div className="absolute inset-0 border border-primary/10 rounded-2xl pointer-events-none" />
-                <CardHeader className="flex flex-row items-center justify-between pb-2 relative z-10">
-                    <div className="space-y-1">
-                        <CardTitle className="text-lg font-bold flex items-center gap-2">
-                            <Users className="h-5 w-5 text-primary" />
-                            Resource Allocation
-                        </CardTitle>
-                        <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Members per Project</p>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Users className="h-4 w-4" />
-                        <span className="font-bold text-foreground">
-                            {resourceData.reduce((acc: number, r: any) => acc + r.allocated, 0)}
-                        </span>
-                        <span>/ {resourceData.length} projects</span>
-                    </div>
-                </CardHeader>
-                <CardContent className="relative z-10 space-y-4 pt-4">
-                    {resourceData.length > 0 ? (
-                        resourceData.map((item: any, index: number) => (
-                            <div key={item.projectId} className="space-y-2">
-                                <div className="flex items-center justify-between text-sm">
-                                    <div className="flex items-center gap-2">
-                                        <div className="h-3 w-3 rounded-full" style={{ backgroundColor: item.color }} />
-                                        <span className="font-medium">{item.project}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2 text-muted-foreground">
-                                        <span className="font-semibold text-foreground">{item.allocated} members</span>
-                                        {item.total > 0 && (
-                                            <span className="font-bold">{Math.round((item.allocated / item.total) * 100)}%</span>
-                                        )}
-                                    </div>
-                                </div>
-                                <div className="h-2.5 overflow-hidden rounded-full bg-muted/50 shadow-inner">
-                                    <div
-                                        className="h-full rounded-full shadow-sm transition-all duration-700"
-                                        style={{
-                                            width: item.total > 0 ? `${(item.allocated / item.total) * 100}%` : '0%',
-                                            backgroundColor: item.color,
-                                        }}
-                                    />
-                                </div>
-                            </div>
-                        ))
-                    ) : (
-                        <p className="text-center text-muted-foreground py-8">No projects found. Create a project to see resource allocation.</p>
+                    {(role === 'ORG') && (
+                        <Select value={marketId} onValueChange={(v) => { setMarketId(v); setAccountId('all'); setProjectId('all'); setTeamId('all'); }}>
+                            <SelectTrigger className="w-[160px] h-8 rounded-xl text-sm bg-background">
+                                <SelectValue placeholder="All Markets" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All Markets</SelectItem>
+                                {MARKETS.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
                     )}
-                </CardContent>
-            </Card>
+                    {(role === 'ORG' || role === 'MARKET') && (
+                        <Select value={accountId} onValueChange={(v) => { setAccountId(v); setProjectId('all'); setTeamId('all'); }}>
+                            <SelectTrigger className="w-[160px] h-8 rounded-xl text-sm bg-background">
+                                <SelectValue placeholder="All Accounts" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All Accounts</SelectItem>
+                                {accounts.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    )}
+                    {(role === 'ORG' || role === 'MARKET' || role === 'ACCOUNT') && (
+                        <Select value={projectId} onValueChange={(v) => { setProjectId(v); setTeamId('all'); }}>
+                            <SelectTrigger className="w-[160px] h-8 rounded-xl text-sm bg-background">
+                                <SelectValue placeholder="All Projects" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All Projects</SelectItem>
+                                {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    )}
+                    {role !== 'TEAM' && (
+                        <Select value={teamId} onValueChange={setTeamId}>
+                            <SelectTrigger className="w-[160px] h-8 rounded-xl text-sm bg-background">
+                                <SelectValue placeholder="All Teams" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All Teams</SelectItem>
+                                {teams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                                
+                            </SelectContent>
+                             <DateRangeFilter />
 
-            {/* High-level Summary */}
-            <div className="grid gap-4 md:grid-cols-3">
-                {[
-                    { label: 'Technical Debt', value: '12.4%', sub: 'Target < 15%', icon: Target },
-                    { label: 'Engineering Satisfaction', value: '94%', sub: 'Avg across teams', icon: Users },
-                    { label: 'System Uptime', value: '99.99%', sub: 'Last 30 days', icon: Activity },
-                ].map((stat, i) => (
-                    <Card key={i} className="border-border/40 shadow-lg bg-card/50 backdrop-blur-md group hover:shadow-xl hover:border-primary/30 transition-all">
-                        <CardContent className="pt-5 pb-4">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2.5 rounded-xl bg-primary/10 group-hover:bg-primary/20 transition-colors">
-                                    <stat.icon className="h-5 w-5 text-primary" />
-                                </div>
-                                <div>
-                                    <p className="text-2xl font-extrabold">{stat.value}</p>
-                                    <p className="text-xs text-muted-foreground">{stat.label} · {stat.sub}</p>
-                                </div>
+                        </Select>
+                        
+                    )}
+                </div>
+            </div>
+
+            {/* ── Loading Skeleton ─────────────────────────────── */}
+            {loading && (
+                <div className="flex flex-col items-center justify-center py-20 gap-3">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    <p className="text-sm text-muted-foreground">Fetching live Jira data…</p>
+                </div>
+            )}
+
+            {!loading && d && (<>
+
+                {/* ── Top KPI Cards (6 headline metrics) ─────────── */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                    <KpiCard icon={<Zap />} label="Velocity" value={aggVelocityString} unit="SP" color="blue" trend="up" />
+                    <KpiCard icon={<Target />} label="Commit Ratio" value={aggCommitment} unit="" color="green" trend="up" />
+                    <KpiCard icon={<Bug />} label="Bug Rate" value={String(aggDefectRate)} unit="%" color="rose" trend="down" />
+                    <KpiCard icon={<BarChart3 />} label="Delivered" value={String(completedItems)} unit={`/ ${totalItems}`} color="orange" trend="up" />
+                    <KpiCard icon={<Users />} label="Team Size" value={String(summary?.teamSize || 0)} unit="devs" color="cyan" trend="neutral" />
+                    <KpiCard icon={<Layers />} label="Total SP" value={String(summary?.deliveredSP || 0)} unit={`/ ${summary?.plannedSP || 0}`} color="indigo" trend="up" />
+                </div>
+
+                {/* ── Drill Down ───────────────────────────────────── */}
+                {drillView !== 'none' && drillDownData && (
+                    <Card className="border-border/40 mb-4 bg-muted/5">
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-base font-semibold capitalize">Metrics by {drillView}</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                {drillDownData.map((item, idx) => (
+                                    <div key={idx} className="p-3 bg-background rounded-xl border border-border/40 flex flex-col gap-1 shadow-sm">
+                                        <div className="text-sm font-bold truncate">
+                                            {item.marketName || item.teamName || item.name || `Item ${idx + 1}`}
+                                        </div>
+                                        <div className="flex justify-between items-center text-xs mt-1">
+                                            <span className="text-muted-foreground">Velocity:</span>
+                                            <span className="font-semibold">{item.velocity?.reduce?.((acc: number, s: any) => acc + s.velocity, 0) || 0} SP</span>
+                                        </div>
+                                        <div className="flex justify-between items-center text-xs">
+                                            <span className="text-muted-foreground">Commit Ratio:</span>
+                                            <span className="font-semibold text-green-500">{item.delivery?.commitmentMet || '0.00'}%</span>
+                                        </div>
+                                        <div className="flex justify-between items-center text-xs">
+                                            <span className="text-muted-foreground">Delivered:</span>
+                                            <span className="font-semibold">{item.delivery?.completedItems || 0} items</span>
+                                        </div>
+                                        <div className="flex justify-between items-center text-xs text-rose-500">
+                                            <span>Bug Rate:</span>
+                                            <span className="font-semibold">{item.defects?.defectRate || '0.00'}%</span>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
                         </CardContent>
                     </Card>
-                ))}
-            </div>
+                )}
+
+                {/* ── Charts Row 1: Daily Trend + Story Points ───── */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+                    {/* Daily Issue Status Trend */}
+                    <Card className="border-border/40">
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-base font-semibold">Daily Issue Status Trend</CardTitle>
+                            <CardDescription>Done · In Progress · To Do over {days} days</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            {dailyTrend.length === 0 ? <EmptyChart /> : (
+                                <ResponsiveContainer width="100%" height={260}>
+                                    <AreaChart data={dailyTrend} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                                        <defs>
+                                            <linearGradient id="gDone" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor={COLORS.green} stopOpacity={0.4} />
+                                                <stop offset="95%" stopColor={COLORS.green} stopOpacity={0} />
+                                            </linearGradient>
+                                            <linearGradient id="gIP" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor={COLORS.blue} stopOpacity={0.4} />
+                                                <stop offset="95%" stopColor={COLORS.blue} stopOpacity={0} />
+                                            </linearGradient>
+                                            <linearGradient id="gTodo" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor={COLORS.amber} stopOpacity={0.4} />
+                                                <stop offset="95%" stopColor={COLORS.amber} stopOpacity={0} />
+                                            </linearGradient>
+                                        </defs>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                                        <XAxis dataKey="date" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
+                                        <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
+                                        <Tooltip content={<CustomTooltip />} />
+                                        <Legend wrapperStyle={{ fontSize: 11 }} />
+                                        <Area type="monotone" dataKey="done" name="Done" stroke={COLORS.green} fill="url(#gDone)" strokeWidth={2} />
+                                        <Area type="monotone" dataKey="in_progress" name="In Progress" stroke={COLORS.blue} fill="url(#gIP)" strokeWidth={2} />
+                                        <Area type="monotone" dataKey="todo" name="To Do" stroke={COLORS.amber} fill="url(#gTodo)" strokeWidth={2} />
+                                    </AreaChart>
+                                </ResponsiveContainer>
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    {/* Story Points Delivered Per Day */}
+                    <Card className="border-border/40">
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-base font-semibold">Story Points Delivered Per Day</CardTitle>
+                            <CardDescription>Daily completed story point volume</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            {dailyTrend.length === 0 ? <EmptyChart /> : (
+                                <ResponsiveContainer width="100%" height={260}>
+                                    <BarChart data={dailyTrend} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                                        <defs>
+                                            <linearGradient id="gSP" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor={COLORS.primary} stopOpacity={1} />
+                                                <stop offset="95%" stopColor={COLORS.primary} stopOpacity={0.4} />
+                                            </linearGradient>
+                                        </defs>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                                        <XAxis dataKey="date" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
+                                        <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
+                                        <Tooltip content={<CustomTooltip />} />
+                                        <Bar dataKey="story_points" name="Story Points" fill="url(#gSP)" radius={[6, 6, 0, 0]} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            )}
+                        </CardContent>
+                    </Card>
+                </div>
+
+                {/* ── Charts Row 2: Status Pie + Sprint Velocity Bar + Delivery Gauge ── */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+                    {/* Status Distribution Pie */}
+                    <Card className="border-border/40">
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-base font-semibold">Status Distribution</CardTitle>
+                            <CardDescription>Current snapshot of all issues</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            {statusDistribution.every(s => s.value === 0) ? <EmptyChart /> : (
+                                <ResponsiveContainer width="100%" height={220}>
+                                    <PieChart>
+                                        <Pie data={statusDistribution} cx="50%" cy="50%" innerRadius={50} outerRadius={80}
+                                            paddingAngle={4} dataKey="value" labelLine={false}
+                                            label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}>
+                                            {statusDistribution.map((_, i) => (
+                                                <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip content={<CustomTooltip />} />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    {/* Sprint Velocity Bar Chart */}
+                    <Card className="border-border/40">
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-base font-semibold">Sprint Velocity</CardTitle>
+                            <CardDescription>Story points per sprint</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            {velocityBySprint.length === 0 ? <EmptyChart /> : (
+                                <ResponsiveContainer width="100%" height={220}>
+                                    <BarChart data={velocityBySprint} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                                        <XAxis dataKey="sprintName" tick={{ fontSize: 9 }} tickLine={false} axisLine={false} />
+                                        <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
+                                        <Tooltip content={<CustomTooltip />} />
+                                        <Bar dataKey="velocity" name="Velocity (SP)" fill={COLORS.cyan} radius={[6, 6, 0, 0]} />
+                                        <Bar dataKey="issueCount" name="Issues" fill={COLORS.indigo} radius={[6, 6, 0, 0]} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    {/* Delivery Commitment Gauge */}
+                    <Card className="border-border/40">
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-base font-semibold">Delivery Commitment</CardTitle>
+                            <CardDescription>Done vs total issues</CardDescription>
+                        </CardHeader>
+                        <CardContent className="flex flex-col items-center justify-center h-[220px] gap-2">
+                            <div className="relative flex items-center justify-center">
+                                <ResponsiveContainer width={160} height={160}>
+                                    <RadialBarChart
+                                        innerRadius={50} outerRadius={70}
+                                        data={[{ name: 'Delivery', value: Math.min(parseFloat(d?.delivery?.commitmentMet || '0'), 100), fill: COLORS.cyan }]}
+                                        startAngle={180} endAngle={-180}
+                                    >
+                                        <RadialBar background={{ fill: 'rgba(255,255,255,0.05)' }} dataKey="value" cornerRadius={6} />
+                                    </RadialBarChart>
+                                </ResponsiveContainer>
+                                <div className="absolute text-center">
+                                    <p className="text-3xl font-black text-cyan-400">{aggCommitment}</p>
+                                    <p className="text-[10px] text-muted-foreground">Completion</p>
+                                </div>
+                            </div>
+                            <p className="text-xs text-muted-foreground">{completedItems} / {totalItems} items done</p>
+                        </CardContent>
+                    </Card>
+                </div>
+
+                {/* ── Charts Row 3: Issue Types + Priority + Quality Trend ── */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+                    {/* Issue Type Distribution */}
+                    <Card className="border-border/40">
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-base font-semibold">Issue Types</CardTitle>
+                            <CardDescription>Breakdown by type</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            {typeDistribution.length === 0 ? <EmptyChart /> : (
+                                <ResponsiveContainer width="100%" height={220}>
+                                    <PieChart>
+                                        <Pie data={typeDistribution} cx="50%" cy="50%" outerRadius={80}
+                                            paddingAngle={3} dataKey="value"
+                                            label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}>
+                                            {typeDistribution.map((_, i) => (
+                                                <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip content={<CustomTooltip />} />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    {/* Priority Distribution */}
+                    <Card className="border-border/40">
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-base font-semibold">Priority Distribution</CardTitle>
+                            <CardDescription>Issues by priority level</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            {priorityDistribution.length === 0 ? <EmptyChart /> : (
+                                <ResponsiveContainer width="100%" height={220}>
+                                    <BarChart data={priorityDistribution} layout="vertical" margin={{ top: 5, right: 10, left: 5, bottom: 0 }}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                                        <XAxis type="number" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
+                                        <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} width={60} />
+                                        <Tooltip content={<CustomTooltip />} />
+                                        <Bar dataKey="value" name="Issues" radius={[0, 6, 6, 0]}>
+                                            {priorityDistribution.map((entry, i) => (
+                                                <Cell key={i} fill={PRIORITY_COLORS[entry.name] || COLORS.blue} />
+                                            ))}
+                                        </Bar>
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    {/* Quality Metrics Gauge */}
+                    <Card className="border-border/40">
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-base font-semibold">Quality Overview</CardTitle>
+                            <CardDescription>Bug rate across all issues</CardDescription>
+                        </CardHeader>
+                        <CardContent className="flex flex-col items-center justify-center h-[220px] gap-2">
+                            <div className="relative flex items-center justify-center">
+                                <ResponsiveContainer width={160} height={160}>
+                                    <RadialBarChart
+                                        innerRadius={50} outerRadius={70}
+                                        data={[{ value: Math.min(parseFloat(aggDefectRate), 100), fill: parseFloat(aggDefectRate) <= 5 ? COLORS.green : COLORS.rose }]}
+                                        startAngle={180} endAngle={-180}
+                                    >
+                                        <RadialBar background={{ fill: 'rgba(255,255,255,0.05)' }} dataKey="value" cornerRadius={6} />
+                                    </RadialBarChart>
+                                </ResponsiveContainer>
+                                <div className="absolute text-center">
+                                    <p className={cn("text-3xl font-black", parseFloat(aggDefectRate) <= 5 ? 'text-green-400' : 'text-rose-400')}>
+                                        {aggDefectRate}%
+                                    </p>
+                                    <p className="text-[10px] text-muted-foreground">Bug Rate</p>
+                                </div>
+                            </div>
+                            <Badge variant="outline" className={cn('rounded-full text-xs hover:bg-muted',
+                                parseFloat(aggDefectRate) <= 5 ? 'text-green-500 border-green-500/30' : 'text-amber-500 border-amber-500/30'
+                            )}>
+                                {aggBugs} bugs out of {totalItems} issues
+                            </Badge>
+                        </CardContent>
+                    </Card>
+                </div>
+
+                {/* ── Charts Row 4: Assignee Workload + Quality Over Time ── */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+                    {/* Assignee Workload */}
+                    <Card className="border-border/40">
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-base font-semibold">Contributor Workload</CardTitle>
+                            <CardDescription>Story points and issue count per member</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            {assigneeWorkload.length === 0 ? <EmptyChart /> : (
+                                <ResponsiveContainer width="100%" height={260}>
+                                    <BarChart data={assigneeWorkload.slice(0, 10)} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                                        <XAxis dataKey="name" tick={{ fontSize: 9 }} tickLine={false} axisLine={false}
+                                            tickFormatter={(v: string) => v.length > 8 ? v.slice(0, 8) + '…' : v} />
+                                        <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
+                                        <Tooltip content={<CustomTooltip />} />
+                                        <Legend wrapperStyle={{ fontSize: 11 }} />
+                                        <Bar dataKey="storyPoints" name="Story Points" fill={COLORS.primary} radius={[6, 6, 0, 0]} />
+                                        <Bar dataKey="issueCount" name="Issues" fill={COLORS.teal} radius={[6, 6, 0, 0]} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    {/* Quality Metrics Over Time */}
+                    <Card className="border-border/40">
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-base font-semibold">Issue Progress Over Time</CardTitle>
+                            <CardDescription>Done vs In Progress vs Backlog</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            {dailyTrend.length === 0 ? <EmptyChart /> : (
+                                <ResponsiveContainer width="100%" height={260}>
+                                    <LineChart data={dailyTrend} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                                        <XAxis dataKey="date" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
+                                        <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
+                                        <Tooltip content={<CustomTooltip />} />
+                                        <Legend wrapperStyle={{ fontSize: 11 }} />
+                                        <Line type="monotone" dataKey="done" name="Done" stroke={COLORS.green} strokeWidth={2.5} dot={false} />
+                                        <Line type="monotone" dataKey="in_progress" name="In Progress" stroke={COLORS.blue} strokeWidth={2} dot={false} />
+                                        <Line type="monotone" dataKey="todo" name="Backlog" stroke={COLORS.rose} strokeWidth={2} dot={false} strokeDasharray="4 2" />
+                                    </LineChart>
+                                </ResponsiveContainer>
+                            )}
+                        </CardContent>
+                    </Card>
+                </div>
+
+                {/* ── 12 Specific Metrics Matrix ───────────────────── */}
+                <div className="pt-6 border-t border-border/40">
+                    <div className="flex items-center gap-2 mb-5">
+                        <FlaskConical className="h-5 w-5 text-purple-400" />
+                        <h3 className="text-lg font-bold">All 12 SLA Metrics</h3>
+                        <Badge variant="outline" className="ml-2 rounded-full text-[10px] px-2 py-0.5 border-purple-500/30 text-purple-400">
+                            Live from jira_webhook_raw
+                        </Badge>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        {detailedMetrics.map((m, idx) => (
+                            <MetricDetailCard key={idx} metric={m} index={idx} />
+                        ))}
+                    </div>
+                </div>
+
+              
+
+            </>)}
+        </div>
+    );
+}
+
+// ─────────────────────────────────────────────
+// Subcomponents
+// ─────────────────────────────────────────────
+const METRIC_ICONS = [
+    <Activity key="0" />, <ArrowUpDown key="1" />, <Zap key="2" />, <Users key="3" />,
+    <Bug key="4" />, <Shield key="5" />, <Clock key="6" />, <Target key="7" />,
+    <Gauge key="8" />, <GitBranch key="9" />, <RefreshCw key="10" />, <ShieldCheck key="11" />,
+];
+
+const METRIC_COLORS = [
+    'text-blue-400 bg-blue-500/10 border-blue-500/20',
+    'text-green-400 bg-green-500/10 border-green-500/20',
+    'text-cyan-400 bg-cyan-500/10 border-cyan-500/20',
+    'text-indigo-400 bg-indigo-500/10 border-indigo-500/20',
+    'text-rose-400 bg-rose-500/10 border-rose-500/20',
+    'text-amber-400 bg-amber-500/10 border-amber-500/20',
+    'text-purple-400 bg-purple-500/10 border-purple-500/20',
+    'text-orange-400 bg-orange-500/10 border-orange-500/20',
+    'text-teal-400 bg-teal-500/10 border-teal-500/20',
+    'text-pink-400 bg-pink-500/10 border-pink-500/20',
+    'text-sky-400 bg-sky-500/10 border-sky-500/20',
+    'text-lime-400 bg-lime-500/10 border-lime-500/20',
+];
+
+function KpiCard({
+    icon, label, value, unit, color, trend,
+}: {
+    icon: React.ReactNode; label: string; value: string; unit: string;
+    color: string; trend: 'up' | 'down' | 'neutral';
+}) {
+    const colorMap: Record<string, string> = {
+        blue: 'text-blue-400 bg-blue-500/10 border-blue-500/20',
+        green: 'text-green-400 bg-green-500/10 border-green-500/20',
+        purple: 'text-purple-400 bg-purple-500/10 border-purple-500/20',
+        indigo: 'text-indigo-400 bg-indigo-500/10 border-indigo-500/20',
+        rose: 'text-rose-400 bg-rose-500/10 border-rose-500/20',
+        amber: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
+        cyan: 'text-cyan-400 bg-cyan-500/10 border-cyan-500/20',
+        orange: 'text-orange-400 bg-orange-500/10 border-orange-500/20',
+    };
+    const cls = colorMap[color] || colorMap.blue;
+    const TrendIcon = trend === 'up' ? TrendingUp : trend === 'down' ? TrendingDown : Minus;
+    const trendCls = trend === 'up' ? 'text-green-400' : trend === 'down' ? 'text-rose-400' : 'text-muted-foreground';
+
+    return (
+        <Card className={cn('border group hover:-translate-y-0.5 transition-all duration-200', cls.split(' ')[2])}>
+            <CardContent className="p-3 flex items-center gap-2.5">
+                <div className={cn('p-2 rounded-xl shrink-0', cls.split(' ')[0], cls.split(' ')[1])}>
+                    <span className="h-4 w-4 block">{icon}</span>
+                </div>
+                <div className="min-w-0">
+                    <p className="text-[10px] text-muted-foreground truncate">{label}</p>
+                    <p className={cn('text-lg font-black leading-none mt-0.5', cls.split(' ')[0])}>
+                        {value} <span className="text-[10px] font-normal text-muted-foreground">{unit}</span>
+                    </p>
+                </div>
+                <TrendIcon className={cn('h-3.5 w-3.5 shrink-0 ml-auto', trendCls)} />
+            </CardContent>
+        </Card>
+    );
+}
+
+function MetricDetailCard({ metric, index }: { metric: DetailedMetric; index: number }) {
+    const TrendIcon = metric.trend === 'up' ? TrendingUp : metric.trend === 'down' ? TrendingDown : Minus;
+    const trendCls = metric.trend === 'up' ? 'text-green-400' : metric.trend === 'down' ? 'text-rose-400' : 'text-muted-foreground';
+    const colorCls = METRIC_COLORS[index % METRIC_COLORS.length];
+    const icon = METRIC_ICONS[index % METRIC_ICONS.length];
+
+    return (
+        <Card className="border-border/40 hover:border-primary/30 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg group">
+            <CardContent className="p-4 space-y-3">
+                <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                        <div className={cn('p-1.5 rounded-lg shrink-0', colorCls.split(' ')[0], colorCls.split(' ')[1])}>
+                            <span className="h-3.5 w-3.5 block">{icon}</span>
+                        </div>
+                        <p className="text-sm font-bold leading-tight">{metric.name}</p>
+                    </div>
+                    <TrendIcon className={cn('h-4 w-4 shrink-0 mt-0.5', trendCls)} />
+                </div>
+                <p className="text-2xl font-black text-foreground">
+                    {typeof metric.value === 'number'
+                        ? metric.value.toLocaleString(undefined, { maximumFractionDigits: 2 })
+                        : metric.value}
+                    <span className="text-xs font-normal text-muted-foreground ml-1">{metric.uom}</span>
+                </p>
+                <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-muted-foreground">Target: <b>{metric.target}</b></span>
+                    <Badge variant="outline" className="text-[9px] rounded-full px-2 py-0">
+                        {metric.type}
+                    </Badge>
+                </div>
+                <p className="text-[10px] text-muted-foreground leading-relaxed border-t border-border/30 pt-2">
+                    {metric.formula}
+                </p>
+            </CardContent>
+        </Card>
+    );
+}
+
+function EmptyChart() {
+    return (
+        <div className="flex flex-col items-center justify-center h-[180px] gap-2 text-muted-foreground">
+            <AlertTriangle className="h-6 w-6" />
+            <p className="text-xs">No data for this period</p>
         </div>
     );
 }
