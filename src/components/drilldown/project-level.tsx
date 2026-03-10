@@ -2,15 +2,21 @@
 
 import { Card, CardContent } from '@/components/ui/card';
 import { useAppDispatch } from '@/redux/store';
-import { drillToCTO } from '@/redux/slices/drilldownSlice';
+import { drillToTeam } from '@/redux/slices/drilldownSlice';
 import { useProjects } from '@/hooks/use-projects';
-import { FolderKanban, Users, Loader2, Shield, UserCheck, UserCog, User } from 'lucide-react';
+import { useTeams } from '@/hooks/use-teams';
+import { useUsers } from '@/hooks/use-users';
+import { FolderKanban, Users, Loader2, Shield, UserCog, Boxes } from 'lucide-react';
 
 const COLORS = ['#8B5CF6', '#3B82F6', '#06B6D4', '#10B981', '#F59E0B', '#EF4444', '#EC4899', '#84CC16'];
 
 export function ProjectLevel() {
     const dispatch = useAppDispatch();
-    const { data: projects = [], isLoading } = useProjects();
+    const { data: projects = [], isLoading: projectsLoading } = useProjects();
+    const { data: teams = [], isLoading: teamsLoading } = useTeams();
+    const { data: users = [], isLoading: usersLoading } = useUsers();
+
+    const isLoading = projectsLoading || teamsLoading || usersLoading;
 
     if (isLoading) {
         return (
@@ -24,34 +30,26 @@ export function ProjectLevel() {
     }
 
     const projectCards = projects.map((project: any, index: number) => {
-        const ctoCount = project.ctos?.length || 0;
-        const pmCount = project.pms?.length || 0;
-        const tlCount = project.teamLeads?.length || 0;
-        const empCount = project.employees?.length || 0;
-        const total = ctoCount + pmCount + tlCount + empCount;
+        const teamsInProject = teams.filter((t: any) => t.projectId === project.id);
+        const teamCount = teamsInProject.length;
+        const memberCount = teamsInProject.reduce((acc: number, t: any) => acc + (t.members?.length || 0), 0);
 
         return {
             id: project.id,
             name: project.name,
-            ctoCount,
-            pmCount,
-            tlCount,
-            empCount,
-            total,
+            teamCount,
+            memberCount,
             color: COLORS[index % COLORS.length],
             createdAt: project.createdAt,
         };
     });
 
-    const totalMembers = projectCards.reduce((s: number, p: any) => s + p.total, 0);
-    const totalCTOs = projectCards.reduce((s: number, p: any) => s + p.ctoCount, 0);
-    const totalPMs = projectCards.reduce((s: number, p: any) => s + p.pmCount, 0);
-    const totalEmployees = projectCards.reduce((s: number, p: any) => s + p.empCount, 0);
+    const totalTeams = teams.length;
+    const totalMembers = users.length;
 
     const summaryCards = [
-        { title: 'Projects', value: projectCards.length, icon: FolderKanban, color: 'from-purple-500/20 to-purple-600/10', textColor: 'text-purple-500', iconBg: 'bg-purple-500/10' },
-        { title: 'Total CTOs', value: totalCTOs, icon: Shield, color: 'from-blue-500/20 to-blue-600/10', textColor: 'text-blue-500', iconBg: 'bg-blue-500/10' },
-        { title: 'Total PMs', value: totalPMs, icon: UserCog, color: 'from-cyan-500/20 to-cyan-600/10', textColor: 'text-cyan-500', iconBg: 'bg-cyan-500/10' },
+        { title: 'Projects', value: projects.length, icon: FolderKanban, color: 'from-purple-500/20 to-purple-600/10', textColor: 'text-purple-500', iconBg: 'bg-purple-500/10' },
+        { title: 'Total Teams', value: totalTeams, icon: Boxes, color: 'from-blue-500/20 to-blue-600/10', textColor: 'text-blue-500', iconBg: 'bg-blue-500/10' },
         { title: 'Total Members', value: totalMembers, icon: Users, color: 'from-emerald-500/20 to-emerald-600/10', textColor: 'text-emerald-500', iconBg: 'bg-emerald-500/10' },
     ];
 
@@ -63,7 +61,7 @@ export function ProjectLevel() {
             </div>
 
             {/* Summary KPI Cards */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {summaryCards.map((card, i) => (
                     <Card key={i} className="overflow-hidden relative group rounded-2xl border border-border/40 shadow-lg shadow-black/5 dark:shadow-black/20 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-primary/10 hover:border-primary/30">
                         <div className={`absolute inset-0 bg-gradient-to-br opacity-30 group-hover:opacity-50 transition-opacity duration-300 ${card.color}`} />
@@ -88,7 +86,7 @@ export function ProjectLevel() {
                     <Card
                         key={project.id}
                         className="overflow-hidden relative group rounded-2xl border border-border/40 shadow-lg cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:border-primary/30"
-                        onClick={() => dispatch(drillToCTO({ projectId: project.id, projectName: project.name }))}
+                        onClick={() => dispatch(drillToTeam({ projectId: project.id, projectName: project.name }))}
                     >
                         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                         <div className="absolute top-0 left-0 w-full h-1 rounded-t-2xl" style={{ backgroundColor: project.color }} />
@@ -97,28 +95,20 @@ export function ProjectLevel() {
                                 <h3 className="text-lg font-semibold">{project.name}</h3>
                                 <div className="h-3 w-3 rounded-full" style={{ backgroundColor: project.color }} />
                             </div>
-                            <div className="grid grid-cols-4 gap-2">
-                                <div className="text-center p-2 rounded-xl bg-purple-500/10">
-                                    <p className="text-lg font-bold text-purple-500">{project.ctoCount}</p>
-                                    <p className="text-xs text-muted-foreground">CTOs</p>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="text-center p-3 rounded-2xl bg-blue-500/10 border border-blue-500/20">
+                                    <p className="text-2xl font-black text-blue-500">{project.teamCount}</p>
+                                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Teams</p>
                                 </div>
-                                <div className="text-center p-2 rounded-xl bg-blue-500/10">
-                                    <p className="text-lg font-bold text-blue-500">{project.pmCount}</p>
-                                    <p className="text-xs text-muted-foreground">PMs</p>
-                                </div>
-                                <div className="text-center p-2 rounded-xl bg-cyan-500/10">
-                                    <p className="text-lg font-bold text-cyan-500">{project.tlCount}</p>
-                                    <p className="text-xs text-muted-foreground">TLs</p>
-                                </div>
-                                <div className="text-center p-2 rounded-xl bg-emerald-500/10">
-                                    <p className="text-lg font-bold text-emerald-500">{project.empCount}</p>
-                                    <p className="text-xs text-muted-foreground">Devs</p>
+                                <div className="text-center p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20">
+                                    <p className="text-2xl font-black text-emerald-500">{project.memberCount}</p>
+                                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Members</p>
                                 </div>
                             </div>
-                            <div className="mt-4 flex justify-between items-center">
-                                <span className="text-sm text-muted-foreground">{project.total} total members</span>
-                                <span className="text-xs text-primary font-medium group-hover:translate-x-1 transition-transform">
-                                    View Team →
+                            <div className="mt-6 flex justify-between items-center pt-4 border-t border-border/20">
+                                <span className="text-xs font-semibold text-muted-foreground">{project.memberCount} active professionals</span>
+                                <span className="text-sm text-primary font-bold group-hover:translate-x-1 transition-transform flex items-center gap-1">
+                                    Explore <Boxes className="h-4 w-4" />
                                 </span>
                             </div>
                         </CardContent>

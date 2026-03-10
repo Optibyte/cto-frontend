@@ -24,7 +24,7 @@ export default function MetricsPage() {
                     <h1 className="text-4xl font-extrabold tracking-tight text-gradient">
                         Metrics Explorer
                     </h1>
-                    <GlobalFilter />
+
                 </div>
                 <p className="text-muted-foreground text-lg">
                     View, manage, and analyze team performance metrics across all sources
@@ -58,8 +58,8 @@ export default function MetricsPage() {
 
                     </TabsList>
                 </div>
-
-                {/* <TabsContent value="jira" className="mt-0">
+{/* 
+                <TabsContent value="jira" className="mt-0">
                     <JiraAnalyticsTab />
                 </TabsContent> */}
 

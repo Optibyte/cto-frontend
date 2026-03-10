@@ -19,6 +19,7 @@ import {
 import { cn } from '@/lib/utils';
 import { jiraMetricsAPI } from '@/lib/api/jira-metrics';
 import { useRole } from '@/contexts/role-context';
+import { marketsAPI, adminAccountsAPI, adminProjectsAPI, adminTeamsAPI } from '@/lib/api/admin';
 import { useAppSelector } from '@/redux/store';
 import { DateRangeFilter } from '@/components/filters/date-range-filter';
 import { useOrgHierarchy } from '@/hooks/use-hierarchy';
@@ -179,6 +180,30 @@ export function CTODashboard() {
         ? (currentAccount?.teams || [])
         : (projectId !== 'all' ? (allProjects.find((p: any) => p.id === projectId)?.teams || []) : []);
 
+    const [dynamicMarkets, setDynamicMarkets] = useState<any[]>([]);
+    const [dynamicAccounts, setDynamicAccounts] = useState<any[]>([]);
+    const [dynamicProjects, setDynamicProjects] = useState<any[]>([]);
+    const [dynamicTeams, setDynamicTeams] = useState<any[]>([]);
+
+    useEffect(() => {
+        async function fetchDropdowns() {
+            try {
+                const [m, a, p, t] = await Promise.all([
+                    marketsAPI.getAll().catch(() => []),
+                    adminAccountsAPI.getAll().catch(() => []),
+                    adminProjectsAPI.getAll().catch(() => []),
+                    adminTeamsAPI.getAll().catch(() => [])
+                ]);
+                setDynamicMarkets(m || []);
+                setDynamicAccounts(a || []);
+                setDynamicProjects(p || []);
+                setDynamicTeams(t || []);
+            } catch (e) {
+                console.error("Failed to fetch dropdowns:", e);
+            }
+        }
+        fetchDropdowns();
+    }, []);
 
     const fetchAll = useCallback(async () => {
         setLoading(true);
@@ -273,6 +298,9 @@ export function CTODashboard() {
 
     // Removed mock filtered getters
 
+    const filteredDynamicAccounts = dynamicAccounts.filter(a => marketId === 'all' || a.marketId === marketId);
+    const filteredDynamicProjects = accountId === 'all' ? dynamicProjects : dynamicProjects.filter(p => !p.accountId || p.accountId === accountId);
+    const filteredDynamicTeams = projectId === 'all' ? dynamicTeams : dynamicTeams.filter(t => !t.projectId || t.projectId === projectId);
 
     return (
         <div className="space-y-6">
@@ -296,6 +324,7 @@ export function CTODashboard() {
                             <SelectContent>
                                 <SelectItem value="all">All Markets</SelectItem>
                                 {markets.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+                                {dynamicMarkets.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
                             </SelectContent>
                         </Select>
                     )}
@@ -307,6 +336,7 @@ export function CTODashboard() {
                             <SelectContent>
                                 <SelectItem value="all">All Accounts</SelectItem>
                                 {accounts.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                                {filteredDynamicAccounts.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
                             </SelectContent>
                         </Select>
                     )}
@@ -318,6 +348,7 @@ export function CTODashboard() {
                             <SelectContent>
                                 <SelectItem value="all">All Projects</SelectItem>
                                 {filteredProjects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                                {filteredDynamicProjects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                             </SelectContent>
                         </Select>
                     )}
@@ -329,10 +360,13 @@ export function CTODashboard() {
                             <SelectContent>
                                 <SelectItem value="all">All Teams</SelectItem>
                                 {filteredTeams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                                {filteredDynamicTeams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
                             </SelectContent>
                         </Select>
                     )}
-                    <DateRangeFilter />
+                    <div className="ml-auto">
+                        <DateRangeFilter />
+                    </div>
                 </div>
             </div>
 
@@ -474,7 +508,7 @@ export function CTODashboard() {
                             {statusDistribution.every(s => s.value === 0) ? <EmptyChart /> : (
                                 <ResponsiveContainer width="100%" height={220}>
                                     <PieChart>
-                                        <Pie data={statusDistribution} cx="50%" cy="50%" innerRadius={50} outerRadius={80}
+                                        <Pie data={statusDistribution} cx="60%" cy="50%" innerRadius={50} outerRadius={80}
                                             paddingAngle={4} dataKey="value" labelLine={false}
                                             label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}>
                                             {statusDistribution.map((_, i) => (
@@ -528,7 +562,7 @@ export function CTODashboard() {
                                     </RadialBarChart>
                                 </ResponsiveContainer>
                                 <div className="absolute text-center">
-                                    <p className="text-3xl font-black text-cyan-400">{aggCommitment}</p>
+                                    <p className="text-2xl font-black text-cyan-700">{aggCommitment}</p>
                                     <p className="text-[10px] text-muted-foreground">Completion</p>
                                 </div>
                             </div>
@@ -607,7 +641,7 @@ export function CTODashboard() {
                                     </RadialBarChart>
                                 </ResponsiveContainer>
                                 <div className="absolute text-center">
-                                    <p className={cn("text-3xl font-black", parseFloat(aggDefectRate) <= 5 ? 'text-green-400' : 'text-rose-400')}>
+                                    <p className={cn("text-2xl font-black", parseFloat(aggDefectRate) <= 5 ? 'text-green-400' : 'text-rose-400')}>
                                         {aggDefectRate}%
                                     </p>
                                     <p className="text-[10px] text-muted-foreground">Bug Rate</p>
@@ -637,7 +671,7 @@ export function CTODashboard() {
                                     <BarChart data={assigneeWorkload.slice(0, 10)} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
                                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
                                         <XAxis dataKey="name" tick={{ fontSize: 9 }} tickLine={false} axisLine={false}
-                                            tickFormatter={(v: string) => v.length > 8 ? v.slice(0, 8) + '…' : v} />
+                                            tickFormatter={(v: string) => v.length > 15 ? v.slice(0, 15) + '…' : v} />
                                         <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
                                         <Tooltip content={<CustomTooltip />} />
                                         <Legend wrapperStyle={{ fontSize: 11 }} />
@@ -766,30 +800,41 @@ function MetricDetailCard({ metric, index }: { metric: DetailedMetric; index: nu
     const icon = METRIC_ICONS[index % METRIC_ICONS.length];
 
     return (
-        <Card className="border-border/40 hover:border-primary/30 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg group">
-            <CardContent className="p-4 space-y-3">
-                <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                        <div className={cn('p-1.5 rounded-lg shrink-0', colorCls.split(' ')[0], colorCls.split(' ')[1])}>
-                            <span className="h-3.5 w-3.5 block">{icon}</span>
-                        </div>
-                        <p className="text-sm font-bold leading-tight">{metric.name}</p>
+        <Card className={cn(
+            "transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg group border-border/40",
+            colorCls.split(' ')[1] // Apply the metric's specific light background color (e.g., bg-blue-500/10)
+        )}>
+            <CardContent className="p-3 flex flex-col items-center text-center justify-between h-full gap-3">
+                <div className="flex items-center justify-between w-full">
+                    <div className={cn('p-1.5 rounded-lg shrink-0', colorCls.split(' ')[0], colorCls.split(' ')[1])}>
+                        <span className="h-4 w-4 block">{icon}</span>
                     </div>
-                    <TrendIcon className={cn('h-4 w-4 shrink-0 mt-0.5', trendCls)} />
-                </div>
-                <p className="text-2xl font-black text-foreground">
-                    {typeof metric.value === 'number'
-                        ? metric.value.toLocaleString(undefined, { maximumFractionDigits: 2 })
-                        : metric.value}
-                    <span className="text-xs font-normal text-muted-foreground ml-1">{metric.uom}</span>
-                </p>
-                <div className="flex items-center justify-between">
-                    <span className="text-[10px] text-muted-foreground">Target: <b>{metric.target}</b></span>
-                    <Badge variant="outline" className="text-[9px] rounded-full px-2 py-0">
+                    <Badge variant="secondary" className="text-[9px] rounded-full px-2 py-0.5 bg-muted">
                         {metric.type}
                     </Badge>
+                    <TrendIcon className={cn('h-4 w-4 shrink-0', trendCls)} />
                 </div>
-                <p className="text-[10px] text-muted-foreground leading-relaxed border-t border-border/30 pt-2">
+
+                <h4 className="font-bold text-sm tracking-tight w-full line-clamp-2 h-10 flex items-center justify-center">
+                    {metric.name}
+                </h4>
+
+                <div className="py-1">
+                    <p className="text-3xl font-black text-foreground drop-shadow-sm">
+                        {typeof metric.value === 'number'
+                            ? metric.value.toLocaleString(undefined, { maximumFractionDigits: 2 })
+                            : metric.value}
+                    </p>
+                    <p className="text-[11px] font-medium text-muted-foreground pt-1">
+                        {metric.uom}
+                    </p>
+                </div>
+
+                <div className="w-full bg-muted/20 rounded-lg p-1.5 flex flex-col items-center justify-center border border-border/30">
+                    <span className="text-[11px] text-muted-foreground">Target: <strong className="text-foreground">{metric.target}</strong></span>
+                </div>
+
+                <p className="text-[10.5px] text-muted-foreground/70 leading-tight w-full h-[32px] flex items-center justify-center">
                     {metric.formula}
                 </p>
             </CardContent>

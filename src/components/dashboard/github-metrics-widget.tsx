@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 import {
     Activity, GitMerge, AlertCircle, Users, Bug,
     GitCommit, Target, Zap, ShieldCheck, Clock,
@@ -238,76 +240,7 @@ export function GithubMetricsWidget({ projectId }: { projectId: string }) {
                             </div>
                         </div>
 
-                        {/* ─── METRIC 2: DEFECT DENSITY ─── */}
-                        <div className={`relative rounded-2xl border overflow-hidden ${defectStatus === 'critical' ? 'border-rose-500/30 bg-gradient-to-br from-rose-500/8 to-transparent'
-                            : defectStatus === 'warn' ? 'border-orange-500/30 bg-gradient-to-br from-orange-500/8 to-transparent'
-                                : 'border-violet-500/25 bg-gradient-to-br from-violet-500/8 to-transparent'
-                            }`}>
-                            {/* Glow */}
-                            <div className={`absolute -top-10 -right-10 w-36 h-36 rounded-full blur-3xl opacity-15 ${defectStatus === 'critical' ? 'bg-rose-500'
-                                : defectStatus === 'warn' ? 'bg-orange-500'
-                                    : 'bg-violet-500'
-                                }`} />
 
-                            <div className="relative p-6">
-                                {/* Label */}
-                                <div className="flex items-center justify-between mb-4">
-                                    <div className="flex items-center gap-2">
-                                        <div className={`p-1.5 rounded-lg ${defectStatus === 'critical' ? 'bg-rose-500/15 text-rose-400'
-                                            : defectStatus === 'warn' ? 'bg-orange-500/15 text-orange-400'
-                                                : 'bg-violet-500/15 text-violet-400'
-                                            }`}>
-                                            <FlaskConical className="h-4 w-4" />
-                                        </div>
-                                        <div>
-                                            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Metric 2</p>
-                                            <p className="text-sm font-bold text-foreground leading-tight">Defect Density</p>
-                                        </div>
-                                    </div>
-                                    {defectStatus === 'good'
-                                        ? <CheckCircle2 className="h-5 w-5 text-violet-400" />
-                                        : defectStatus === 'warn'
-                                            ? <AlertTriangle className="h-5 w-5 text-orange-400" />
-                                            : <XCircle className="h-5 w-5 text-rose-400" />}
-                                </div>
-
-                                {/* Big value */}
-                                <p className={`text-6xl font-black tabular-nums mb-1 ${defectStatus === 'critical' ? 'text-rose-400'
-                                    : defectStatus === 'warn' ? 'text-orange-400'
-                                        : 'text-violet-400'
-                                    }`}>
-                                    {defectDensityVal.toFixed(2)}
-                                </p>
-
-                                {/* Sub-stats */}
-                                <p className="text-xs text-muted-foreground">
-                                    {reviewComments} reviews · {qaDefects} QA bugs · {storyPoints} SP
-                                </p>
-
-                                {/* Thin progress bar (capped at 2.0 as max) */}
-                                <div className="mt-4 h-1.5 rounded-full bg-white/8 overflow-hidden">
-                                    <div
-                                        className={`h-full rounded-full transition-all duration-700 ${defectStatus === 'critical' ? 'bg-rose-400'
-                                            : defectStatus === 'warn' ? 'bg-orange-400'
-                                                : 'bg-violet-400'
-                                            }`}
-                                        style={{ width: `${Math.min(defectDensityVal * 50, 100)}%` }}
-                                    />
-                                </div>
-
-                                {/* Recent PR review dots */}
-                                {metrics.prReviews?.length > 0 && (
-                                    <div className="flex items-center gap-1.5 mt-3">
-                                        <span className="text-[10px] text-muted-foreground mr-1">PRs reviewed:</span>
-                                        {[...new Set(metrics.prReviews.map((r: any) => r.prNumber))].slice(0, 8).map((pr: any, i: number) => (
-                                            <span key={i} className="text-[9px] px-1.5 py-0.5 rounded bg-violet-500/15 text-violet-400 font-mono">
-                                                #{pr}
-                                            </span>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
 
                         {/* ─── METRIC 3: BUILD SUCCESS RATE ─── */}
                         <div className={`relative rounded-2xl border overflow-hidden ${buildStatus === 'critical' ? 'border-red-500/30 bg-gradient-to-br from-red-500/8 to-transparent'
@@ -448,13 +381,51 @@ export function GithubMetricsWidget({ projectId }: { projectId: string }) {
                                 <Users className="h-3.5 w-3.5" /> Top Contributors
                             </h4>
                             <div className="flex flex-wrap gap-3">
-                                {metrics.contributors.map((c: any) => (
-                                    <div key={c.login} className="flex flex-col items-center bg-white/5 p-3 rounded-xl border border-white/5 hover:border-violet-500/30 transition-colors w-[88px]">
-                                        <img src={c.avatar_url} alt={c.login} className="w-9 h-9 rounded-full ring-2 ring-violet-500/30 mb-1.5" />
-                                        <span className="text-[11px] font-bold truncate text-center w-full">{c.login}</span>
-                                        <span className="text-[10px] text-muted-foreground">{c.contributions} commits</span>
-                                    </div>
-                                ))}
+                                {metrics.contributors.map((c: any) => {
+                                    const isInternal = !!c.internalUserId;
+                                    const displayRole = c.internalRole || c.role || 'dev';
+                                    const isLead = displayRole.toLowerCase().includes('lead') || displayRole.toLowerCase().includes('cto') || displayRole.toLowerCase().includes('manager');
+
+                                    return (
+                                        <div key={c.login} className="flex flex-col items-center bg-white/5 p-3 rounded-xl border border-white/5 hover:border-violet-500/30 transition-all w-[110px] relative overflow-hidden group/card shadow-sm hover:shadow-violet-500/10">
+                                            {/* Role Badge - Always Visible if identified, or visible on hover */}
+                                            <Badge className={cn(
+                                                "absolute top-1 right-1 px-1.5 py-0 text-[7px] rounded font-black uppercase border-none tracking-tighter shadow-sm transition-all",
+                                                isInternal
+                                                    ? (isLead ? "bg-primary text-primary-foreground opacity-100" : "bg-primary/40 text-primary-foreground opacity-100")
+                                                    : "bg-violet-500/20 text-violet-300 opacity-0 group-hover/card:opacity-100"
+                                            )}>
+                                                {displayRole.replace('_', ' ')}
+                                            </Badge>
+
+                                            <div className="relative mb-2">
+                                                <img src={c.avatar_url} alt={c.login} className={cn(
+                                                    "w-10 h-10 rounded-full ring-2 transition-all shadow-lg",
+                                                    isInternal ? "ring-primary/50" : "ring-violet-500/30 group-hover/card:ring-primary/40"
+                                                )} />
+                                                {isInternal && (
+                                                    <div className="absolute -bottom-1 -right-1 bg-primary text-white p-0.5 rounded-full border-2 border-[#09090b]">
+                                                        <CheckCircle2 className="h-2.5 w-2.5" />
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            <div className="flex flex-col items-center w-full px-1 text-center">
+                                                <span className="text-[10px] font-bold truncate w-full group-hover/card:text-primary transition-colors leading-tight">
+                                                    {c.internalName || c.login}
+                                                </span>
+                                                <span className="text-[8px] text-muted-foreground truncate w-full opacity-60 group-hover/card:opacity-100 transition-opacity">
+                                                    {c.internalEmail ? c.internalEmail.split('@')[0] : `@${c.login}`}
+                                                </span>
+                                            </div>
+
+                                            <div className="mt-1.5 flex items-center gap-1.5 bg-white/5 px-2 py-0.5 rounded-full">
+                                                <GitCommit className="h-2.5 w-2.5 text-violet-400" />
+                                                <span className="text-[9px] font-bold text-foreground/80">{c.contributions}</span>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
                             </div>
                         </div>
                     )}
@@ -468,8 +439,9 @@ export function GithubMetricsWidget({ projectId }: { projectId: string }) {
                         </p>
                     )}
                 </>
-            )}
-        </div>
+            )
+            }
+        </div >
     );
 }
 

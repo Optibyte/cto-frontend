@@ -28,6 +28,11 @@ import {
 } from '@/redux/slices/dashboardSlice';
 import { useOrgHierarchy } from '@/hooks/use-hierarchy';
 import { useProjects } from '@/hooks/use-projects';
+import {
+    getMembersForTeam,
+} from '@/lib/mock-data/dashboard-filtered';
+import { marketsAPI, adminAccountsAPI, adminProjectsAPI, adminTeamsAPI } from '@/lib/api/admin';
+import { useEffect } from 'react';
 import { useRole } from '@/contexts/role-context';
 
 export function GlobalFilter() {
@@ -47,31 +52,58 @@ export function GlobalFilter() {
     const { data: allProjects = [] } = useProjects();
 
     const markets = hierarchy?.markets || [];
-    const currentMarket = markets.find(m => m.id === selectedMarket);
-    const accounts = currentMarket?.accounts || [];
-    const currentAccount = accounts.find(a => a.id === selectedAccount);
+    const currentMarket = markets.find((m: any) => m.id === selectedMarket);
+    const hierarchyAccounts = currentMarket?.accounts || [];
+    const currentAccount = hierarchyAccounts.find((a: any) => a.id === selectedAccount);
 
     // For projects: if an account is selected, show its projects. Otherwise show all projects.
-    let projects: any[] = [];
+    let hierarchyProjects: any[] = [];
     if (selectedAccount !== 'all') {
         const accountTeams = currentAccount?.teams || [];
         const projectMap = new Map();
         accountTeams.forEach((t: any) => {
             if (t.project) projectMap.set(t.project.id, t.project);
         });
-        projects = Array.from(projectMap.values());
+        hierarchyProjects = Array.from(projectMap.values());
     } else {
-        projects = allProjects;
+        hierarchyProjects = allProjects;
     }
 
-    const currentProject = projects.find(p => p.id === selectedProject);
-    const teams = selectedAccount !== 'all'
+    const currentProject = hierarchyProjects.find((p: any) => p.id === selectedProject);
+    const hierarchyTeams = selectedAccount !== 'all'
         ? (currentAccount?.teams || [])
         : (selectedProject !== 'all' ? (allProjects.find((p: any) => p.id === selectedProject)?.teams || []) : []);
 
-    // Member logic (still mock for now or link to team members)
-    const members: any[] = [];
+    const [dynamicMarkets, setDynamicMarkets] = useState<any[]>([]);
+    const [dynamicAccounts, setDynamicAccounts] = useState<any[]>([]);
+    const [dynamicProjects, setDynamicProjects] = useState<any[]>([]);
+    const [dynamicTeams, setDynamicTeams] = useState<any[]>([]);
 
+    useEffect(() => {
+        if (!open) return;
+        async function fetchDropdowns() {
+            try {
+                const [m, a, p, t] = await Promise.all([
+                    marketsAPI.getAll().catch(() => []),
+                    adminAccountsAPI.getAll().catch(() => []),
+                    adminProjectsAPI.getAll().catch(() => []),
+                    adminTeamsAPI.getAll().catch(() => [])
+                ]);
+                setDynamicMarkets(m || []);
+                setDynamicAccounts(a || []);
+                setDynamicProjects(p || []);
+                setDynamicTeams(t || []);
+            } catch (e) {
+                console.error("Failed to fetch dropdowns:", e);
+            }
+        }
+        fetchDropdowns();
+    }, [open]);
+
+    const accounts = [...hierarchyAccounts, ...dynamicAccounts.filter(a => selectedMarket === 'all' || a.marketId === selectedMarket)];
+    const projects = [...hierarchyProjects, ...(selectedAccount === 'all' ? dynamicProjects : dynamicProjects.filter(p => !p.accountId || p.accountId === selectedAccount))];
+    const teams = [...hierarchyTeams, ...(selectedProject === 'all' ? dynamicTeams : dynamicTeams.filter(t => !t.projectId || t.projectId === selectedProject))];
+    const members = getMembersForTeam(selectedTeam);
 
     const handleApply = () => {
         dispatch(setIsFiltering(true));
@@ -133,7 +165,10 @@ export function GlobalFilter() {
                                 </SelectTrigger>
                                 <SelectContent className="rounded-xl border-border/50 shadow-xl">
                                     <SelectItem value="all">All Markets</SelectItem>
-                                    {markets.map((m) => (
+                                    {markets.map((m: any) => (
+                                        <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                                    ))}
+                                    {dynamicMarkets.map((m: any) => (
                                         <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
                                     ))}
                                 </SelectContent>

@@ -7,6 +7,7 @@ import { MetricSelector } from '@/components/dashboard/metric-selector';
 import { ChartCustomizer, ChartCustomization } from '@/components/dashboard/chart-customizer';
 import { DateRangeFilter } from '@/components/filters/date-range-filter';
 import { mockLearningMetrics } from '@/lib/mock-data/learning-metrics';
+import { DashboardFilters } from '@/components/dashboard/dashboard-filters';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, LineChart, Line
 } from 'recharts';
@@ -110,7 +111,9 @@ export function TLDashboard() {
                         Team-level learning tracking and skill development
                     </p>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-col md:flex-row flex-wrap items-end md:items-center gap-3">
+                    <DashboardFilters />
+                    <div className="hidden md:block h-8 w-px bg-border/20 mx-1" />
                     <button
                         onClick={handleDownload}
                         className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg transition-all shadow-lg shadow-emerald-500/20 text-sm font-medium"
@@ -118,7 +121,6 @@ export function TLDashboard() {
                         <Download className="h-4 w-4" />
                         Download Report
                     </button>
-                    <div className="hidden md:block h-8 w-px bg-border/20 mx-1" />
                     <DateRangeFilter />
                 </div>
             </div>

@@ -1,5 +1,5 @@
 // User types
-export type UserRole = 'ORG' | 'MARKET' | 'ACCOUNT' | 'PROJECT_MANAGER' | 'PROJECT' | 'TEAM_LEAD' | 'TEAM';
+export type UserRole = 'ORG' | 'MARKET' | 'ACCOUNT' | 'PROJECT_MANAGER' | 'PROJECT' | 'TEAM_LEAD' | 'TEAM' | 'MEMBER' | 'CTO';
 
 export interface User {
     id: string;
@@ -9,6 +9,7 @@ export interface User {
     role: UserRole;
     avatar?: string;         // For mock data compatibility
     avatarUrl?: string;      // From backend API
+    githubEmail?: string;
 }
 
 // Team types

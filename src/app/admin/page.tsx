@@ -415,11 +415,13 @@ function renderRow(tab: TabKey, item: any) {
                     'bg-amber-500/10 text-amber-500 border-amber-500/20': item.role === 'PROJECT_MANAGER',
                     'bg-indigo-500/10 text-indigo-500 border-indigo-500/20': item.role === 'PROJECT',
                     'bg-orange-500/10 text-orange-500 border-orange-500/20': item.role === 'TEAM_LEAD',
+                    'bg-pink-500/10 text-pink-500 border-pink-500/20': item.role === 'CTO',
                     'bg-rose-500/10 text-rose-500 border-rose-500/20': item.role === 'TEAM',
                 })} variant="outline">
                     {item.role === 'PROJECT_MANAGER' ? 'PROJECT MANAGER' :
                         item.role === 'TEAM_LEAD' ? 'TEAM LEAD' :
-                            item.role === 'TEAM' ? 'TEAM MEMBER' : item.role}
+                            item.role === 'TEAM' ? 'TEAM MEMBER' :
+                                item.role === 'CTO' ? 'CTO' : item.role}
                 </Badge></td>
                 <td className="py-3 text-sm text-muted-foreground">{item.jobRole || '—'}</td>
                 <td className="py-3">{item.isActive ? <Badge className="bg-emerald-500/10 text-emerald-500 rounded-full text-[10px]" variant="outline">Active</Badge> : <Badge variant="outline" className="rounded-full text-[10px]">Inactive</Badge>}</td>
@@ -684,14 +686,21 @@ function EntityDialog({ open, onOpenChange, tab, editItem, onSave, markets, acco
                                     <SelectItem value="PROJECT_MANAGER">Project Manager</SelectItem>
                                     <SelectItem value="PROJECT">Project Access</SelectItem>
                                     <SelectItem value="TEAM_LEAD">Team Lead</SelectItem>
+                                    <SelectItem value="CTO">CTO</SelectItem>
                                     <SelectItem value="TEAM">Team Member</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
                         <div className="space-y-2"><Label>Job Role / Designation</Label><Input className="rounded-xl" value={form.jobRole || ''} onChange={e => set('jobRole', e.target.value)} placeholder="e.g. Senior Software Engineer" /></div>
-                        <div className="space-y-2">
-                            <Label className="flex items-center gap-1.5">Jira Account ID <span className="text-[10px] text-blue-400 font-normal">(links to Jira user)</span></Label>
-                            <Input className="rounded-xl font-mono" value={form.jiraAccountId || ''} onChange={e => set('jiraAccountId', e.target.value)} placeholder="e.g. 6123abc..." />
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label className="flex items-center gap-1.5">Jira Account ID <span className="text-[10px] text-blue-400 font-normal">(links to Jira user)</span></Label>
+                                <Input className="rounded-xl font-mono" value={form.jiraAccountId || ''} onChange={e => set('jiraAccountId', e.target.value)} placeholder="e.g. 6123abc..." />
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="flex items-center gap-1.5">GitHub Mail ID <span className="text-[10px] text-orange-400 font-normal">(for metrics)</span></Label>
+                                <Input className="rounded-xl font-mono" value={form.githubEmail || ''} onChange={e => set('githubEmail', e.target.value)} placeholder="e.g. user@github.com" />
+                            </div>
                         </div>
                     </>)}
                 </div>
@@ -715,7 +724,7 @@ function getDefaultForm(tab: TabKey): Record<string, any> {
         case 'projects': return { name: '', startDate: '', enddate: '', status: 'PLANNED', teamSize: 0, progress: 0, jiraProjectKey: '', jiraBoardId: '', githubRepoId: '', githubToken: '' };
         case 'teams': return { name: '', description: '', teamLeadId: '', accountId: '', projectId: '' };
         case 'members': return { teamId: '', userIds: [], roleInTeam: 'Member' };
-        case 'users': return { fullName: '', email: '', role: 'TEAM', jobRole: '', auth0Id: '', jiraAccountId: '' };
+        case 'users': return { fullName: '', email: '', role: 'TEAM', jobRole: '', auth0Id: '', jiraAccountId: '', githubEmail: '' };
     }
 }
 
@@ -742,8 +751,13 @@ function buildPayload(tab: TabKey, form: Record<string, any>, isEdit: boolean): 
         }
         case 'members': return { teamId: form.teamId, userIds: form.userIds || [], roleInTeam: form.roleInTeam || 'Member' };
         case 'users': {
-            const u: any = { fullName: form.fullName, role: form.role, jobRole: form.jobRole };
+            const u: any = {
+                fullName: form.fullName,
+                role: form.role || 'TEAM',
+                jobRole: form.jobRole || ''
+            };
             if (form.jiraAccountId) u.jiraAccountId = form.jiraAccountId.trim();
+            if (form.githubEmail) u.githubEmail = form.githubEmail.trim();
             if (!isEdit) {
                 u.email = form.email;
                 u.auth0Id = `auth0|${form.email}`;
