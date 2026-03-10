@@ -5,7 +5,7 @@ import { ManualMetricsTab } from '@/components/metrics/manual-metrics-tab';
 import { CalculatedMetricsTab } from '@/components/metrics/calculated-metrics-tab';
 import { AddMetricForm } from '@/components/metrics/add-metric-form';
 import { GlobalFilter } from '@/components/filters/global-filter';
-import { JiraAnalyticsTab } from '@/components/metrics/jira-analytics-tab';
+// import { JiraAnalyticsTab } from '@/components/metrics/jira-analytics-tab';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const TAB_TRIGGER_CLS = `
@@ -36,10 +36,10 @@ export default function MetricsPage() {
                 <div className="sticky top-0 z-10 py-4 bg-background/80 backdrop-blur-md -mx-4 px-4 overflow-x-auto no-scrollbar">
                     <TabsList className="inline-flex h-12 items-center justify-start rounded-2xl bg-muted/30 p-1.5 gap-2 border border-border/50 shadow-inner w-max min-w-full">
 
-                        <TabsTrigger value="jira" className={TAB_TRIGGER_CLS}>
+                        {/* <TabsTrigger value="jira" className={TAB_TRIGGER_CLS}>
                             <Database className="h-4 w-4" />
                             Jira Analytics
-                        </TabsTrigger>
+                        </TabsTrigger> */}
 
                         <TabsTrigger value="manual" className={TAB_TRIGGER_CLS}>
                             <Pencil className="h-4 w-4" />
@@ -58,10 +58,10 @@ export default function MetricsPage() {
 
                     </TabsList>
                 </div>
-
+{/* 
                 <TabsContent value="jira" className="mt-0">
                     <JiraAnalyticsTab />
-                </TabsContent>
+                </TabsContent> */}
 
                 <TabsContent value="manual" className="mt-0">
                     <ManualMetricsTab />

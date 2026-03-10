@@ -91,6 +91,12 @@ export const ROLE_PERMISSIONS: Record<UserRole, Feature[]> = {
         'notifications',
         'settings',
     ],
+    MEMBER: [
+        'dashboard',
+        'metrics',
+        'notifications',
+        'settings',
+    ],
 };
 
 // Map sidebar href to feature key

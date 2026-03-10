@@ -14,12 +14,7 @@ export default function LoginPage() {
             <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 brightness-100 contrast-150" />
 
             <div className="z-10 w-full px-4 flex flex-col items-center gap-8">
-                <div className="flex items-center gap-2 mb-2">
-                    <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center">
 
-                    </div>
-
-                </div>
                 <LoginForm />
                 <p className="text-slate-500 text-sm">
                     &copy; 2026 CTO Performance Intelligence Platform. All rights reserved.
