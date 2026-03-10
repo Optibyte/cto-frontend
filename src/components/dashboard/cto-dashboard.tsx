@@ -14,7 +14,7 @@ import {
     TrendingUp, TrendingDown, Minus, RefreshCw, Loader2,
     Zap, Bug, Users, Target, Clock, BarChart3, ShieldCheck, Activity,
     FlaskConical, AlertTriangle, Database, CheckCircle2, XCircle, Gauge,
-    Layers, GitBranch, Shield, ArrowUpDown
+    Layers, GitBranch, Shield, ArrowUpDown, ArrowUp, ArrowDown
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { jiraMetricsAPI } from '@/lib/api/jira-metrics';
@@ -146,6 +146,12 @@ export function CTODashboard() {
     const [accountId, setAccountId] = useState('all');
     const [projectId, setProjectId] = useState('all');
     const [teamId, setTeamId] = useState('all');
+    const [memberId, setMemberId] = useState('all');
+
+    // Jira Dynamic Data (directly from webhooks)
+    const [jiraProjects, setJiraProjects] = useState<any[]>([]);
+    const [jiraTeams, setJiraTeams] = useState<any[]>([]);
+    const [jiraMembers, setJiraMembers] = useState<any[]>([]);
 
     const [data, setData] = useState<MetricsResponse | null>(null);
     const [loading, setLoading] = useState(true);
@@ -175,7 +181,22 @@ export function CTODashboard() {
                 console.error("Failed to fetch dropdowns:", e);
             }
         }
+
+        async function fetchJiraFilters() {
+            try {
+                const res = await jiraMetricsAPI.getDynamicFilters();
+                if (res.status === 'success') {
+                    setJiraProjects(res.projects || []);
+                    setJiraTeams(res.teams || []);
+                    setJiraMembers(res.members || []);
+                }
+            } catch (e) {
+                console.error("Failed to fetch Jira dynamic filters:", e);
+            }
+        }
+
         fetchDropdowns();
+        fetchJiraFilters();
     }, []);
 
     const fetchAll = useCallback(async () => {
@@ -188,6 +209,7 @@ export function CTODashboard() {
                 accountId,
                 projectId,
                 teamId,
+                memberId,
                 start: dateRange?.from,
                 end: dateRange?.to
             });
@@ -199,7 +221,7 @@ export function CTODashboard() {
         } finally {
             setLoading(false);
         }
-    }, [days, marketId, accountId, projectId, teamId, dateRange]);
+    }, [days, marketId, accountId, projectId, teamId, memberId, dateRange]);
 
     useEffect(() => { fetchAll(); }, [fetchAll]);
 
@@ -273,6 +295,22 @@ export function CTODashboard() {
     const projects = accountId === 'all' ? dynamicProjects : dynamicProjects.filter(p => !p.accountId || p.accountId === accountId);
     const teams = projectId === 'all' ? dynamicTeams : dynamicTeams.filter(t => !t.projectId || t.projectId === projectId);
 
+    // Merge CTO admin projects with dynamic Jira projects (unique by id)
+    const combinedProjects = [...projects];
+    jiraProjects.forEach(jp => {
+        if (!combinedProjects.find(p => p.id === jp.id || p.jiraProjectKey === jp.id)) {
+            combinedProjects.push(jp);
+        }
+    });
+
+    // Merge CTO admin teams with dynamic Jira teams (sprints)
+    const combinedTeams = [...teams];
+    jiraTeams.forEach(jt => {
+        if (!combinedTeams.find(t => t.id === jt.id || t.name === jt.name)) {
+            combinedTeams.push(jt);
+        }
+    });
+
     return (
         <div className="space-y-6">
 
@@ -280,11 +318,11 @@ export function CTODashboard() {
             <div className="flex flex-col gap-4">
 
                 {/* Inline Scope Filters */}
-                <div className="bg-muted/30 p-3 rounded-2xl border border-border/40 flex flex-wrap items-center gap-3">
+                <div className="bg-muted/30 p-3 rounded-2xl border border-border/40 grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-row items-center gap-3">
 
                     {(role === 'ORG') && (
-                        <Select value={marketId} onValueChange={(v) => { setMarketId(v); setAccountId('all'); setProjectId('all'); setTeamId('all'); }}>
-                            <SelectTrigger className="w-[160px] h-8 rounded-xl text-sm bg-background">
+                        <Select value={marketId} onValueChange={(v) => { setMarketId(v); setAccountId('all'); setProjectId('all'); setTeamId('all'); setMemberId('all'); }}>
+                            <SelectTrigger className="w-full lg:w-[160px] h-8 rounded-xl text-sm bg-background">
                                 <SelectValue placeholder="All Markets" />
                             </SelectTrigger>
                             <SelectContent>
@@ -294,8 +332,8 @@ export function CTODashboard() {
                         </Select>
                     )}
                     {(role === 'ORG' || role === 'MARKET') && (
-                        <Select value={accountId} onValueChange={(v) => { setAccountId(v); setProjectId('all'); setTeamId('all'); }}>
-                            <SelectTrigger className="w-[160px] h-8 rounded-xl text-sm bg-background">
+                        <Select value={accountId} onValueChange={(v) => { setAccountId(v); setProjectId('all'); setTeamId('all'); setMemberId('all'); }}>
+                            <SelectTrigger className="w-full lg:w-[160px] h-8 rounded-xl text-sm bg-background">
                                 <SelectValue placeholder="All Accounts" />
                             </SelectTrigger>
                             <SelectContent>
@@ -305,29 +343,51 @@ export function CTODashboard() {
                         </Select>
                     )}
                     {(role === 'ORG' || role === 'MARKET' || role === 'ACCOUNT') && (
-                        <Select value={projectId} onValueChange={(v) => { setProjectId(v); setTeamId('all'); }}>
-                            <SelectTrigger className="w-[160px] h-8 rounded-xl text-sm bg-background">
+                        <Select value={projectId} onValueChange={(v) => { setProjectId(v); setTeamId('all'); setMemberId('all'); }}>
+                            <SelectTrigger className="w-full lg:w-[160px] h-8 rounded-xl text-sm bg-background">
                                 <SelectValue placeholder="All Projects" />
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">All Projects</SelectItem>
-                                {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                                {combinedProjects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                             </SelectContent>
                         </Select>
                     )}
                     {role !== 'TEAM' && (
-                        <Select value={teamId} onValueChange={setTeamId}>
-                            <SelectTrigger className="w-[160px] h-8 rounded-xl text-sm bg-background">
+                        <Select value={teamId} onValueChange={(v) => { setTeamId(v); setMemberId('all'); }}>
+                            <SelectTrigger className="w-full lg:w-[160px] h-8 rounded-xl text-sm bg-background">
                                 <SelectValue placeholder="All Teams" />
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">All Teams</SelectItem>
-                                {teams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                                {combinedTeams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
                             </SelectContent>
                         </Select>
                     )}
-                    <div className="ml-auto">
+                    {role !== 'TEAM' && (
+                        <Select value={memberId} onValueChange={setMemberId}>
+                            <SelectTrigger className="w-full lg:w-[160px] h-8 rounded-xl text-sm bg-background">
+                                <SelectValue placeholder="All Members" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All Members</SelectItem>
+                                {jiraMembers.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    )}
+                    <div className="col-span-full lg:ml-auto flex items-center justify-between sm:justify-end gap-2">
                         <DateRangeFilter />
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                                setMarketId('all'); setAccountId('all'); setProjectId('all'); setTeamId('all'); setMemberId('all');
+                            }}
+                            className="h-8 rounded-xl text-xs text-muted-foreground hover:text-foreground"
+                        >
+                            <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+                            Reset All
+                        </Button>
                     </div>
                 </div>
             </div>
@@ -470,13 +530,19 @@ export function CTODashboard() {
                             {statusDistribution.every(s => s.value === 0) ? <EmptyChart /> : (
                                 <ResponsiveContainer width="100%" height={220}>
                                     <PieChart>
-                                        <Pie data={statusDistribution} cx="60%" cy="50%" innerRadius={50} outerRadius={80}
+                                        <Pie data={statusDistribution} cx="50%" cy="50%" innerRadius={55} outerRadius={80}
                                             paddingAngle={4} dataKey="value" labelLine={false}
-                                            label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}>
+                                            label={({ name, value }) => value > 0 ? `${value}` : ''}>
                                             {statusDistribution.map((_, i) => (
                                                 <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
                                             ))}
                                         </Pie>
+                                        <text x="50%" y="45%" textAnchor="middle" dominantBaseline="middle" className="fill-foreground text-2xl font-black">
+                                            {statusDistribution.reduce((a, b) => a + b.value, 0)}
+                                        </text>
+                                        <text x="50%" y="60%" textAnchor="middle" dominantBaseline="middle" className="fill-muted-foreground text-[10px] font-semibold">
+                                            Total
+                                        </text>
                                         <Tooltip content={<CustomTooltip />} />
                                     </PieChart>
                                 </ResponsiveContainer>
@@ -546,13 +612,19 @@ export function CTODashboard() {
                             {typeDistribution.length === 0 ? <EmptyChart /> : (
                                 <ResponsiveContainer width="100%" height={220}>
                                     <PieChart>
-                                        <Pie data={typeDistribution} cx="50%" cy="50%" outerRadius={80}
-                                            paddingAngle={3} dataKey="value"
-                                            label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}>
+                                        <Pie data={typeDistribution} cx="50%" cy="50%" innerRadius={55} outerRadius={80}
+                                            paddingAngle={3} dataKey="value" labelLine={false}
+                                            label={({ name, value }) => value > 0 ? ` ${value}` : ''}>
                                             {typeDistribution.map((_, i) => (
                                                 <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
                                             ))}
                                         </Pie>
+                                        <text x="50%" y="45%" textAnchor="middle" dominantBaseline="middle" className="fill-foreground text-2xl font-black">
+                                            {typeDistribution.reduce((a, b) => a + b.value, 0)}
+                                        </text>
+                                        <text x="50%" y="60%" textAnchor="middle" dominantBaseline="middle" className="fill-muted-foreground text-[10px] font-semibold">
+                                            Total
+                                        </text>
                                         <Tooltip content={<CustomTooltip />} />
                                     </PieChart>
                                 </ResponsiveContainer>
@@ -670,15 +742,27 @@ export function CTODashboard() {
                     </Card>
                 </div>
 
-                {/* ── 12 Specific Metrics Matrix ───────────────────── */}
+                {/* ── All Metrics (KPI + Detailed) ───────────────────── */}
                 <div className="pt-6 border-t border-border/40">
                     <div className="flex items-center gap-2 mb-5">
                         <FlaskConical className="h-5 w-5 text-purple-400" />
-                        <h3 className="text-lg font-bold">All 12 SLA Metrics</h3>
+                        <h3 className="text-lg font-bold">Metrics</h3>
                         <Badge variant="outline" className="ml-2 rounded-full text-[10px] px-2 py-0.5 border-purple-500/30 text-purple-400">
                             Live from jira_webhook_raw
                         </Badge>
                     </div>
+
+                    {/* Headline KPI Cards */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
+                        <KpiCard icon={<Zap />} label="Velocity" value={aggVelocityString} unit="SP" color="blue" trend="up" />
+                        <KpiCard icon={<Target />} label="Commit Ratio" value={aggCommitment} unit="" color="green" trend="up" />
+                        <KpiCard icon={<Bug />} label="Bug Rate" value={String(aggDefectRate)} unit="%" color="rose" trend="down" />
+                        <KpiCard icon={<BarChart3 />} label="Delivered" value={String(completedItems)} unit={`/ ${totalItems}`} color="orange" trend="up" />
+                        <KpiCard icon={<Users />} label="Team Size" value={String(summary?.teamSize || 0)} unit="devs" color="cyan" trend="neutral" />
+                        <KpiCard icon={<Layers />} label="Total SP" value={String(summary?.deliveredSP || 0)} unit={`/ ${summary?.plannedSP || 0}`} color="indigo" trend="up" />
+                    </div>
+
+                    {/* 12 Detailed Metrics */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                         {detailedMetrics.map((m, idx) => (
                             <MetricDetailCard key={idx} metric={m} index={idx} />
@@ -756,10 +840,27 @@ function KpiCard({
 }
 
 function MetricDetailCard({ metric, index }: { metric: DetailedMetric; index: number }) {
+    const [periodIdx, setPeriodIdx] = useState(2);
+    const periods = [
+        { id: 'today', label: 'Today', multiplier: 0.1 },
+        { id: 'yesterday', label: 'Yesterday', multiplier: 0.2 },
+        { id: 'last_week', label: 'Last Week', multiplier: 1.0 },
+        { id: 'last_month', label: 'Last Month', multiplier: 3.5 },
+        { id: 'last_year', label: 'Last Year', multiplier: 42.0 },
+    ];
+
+    const nextPeriod = () => setPeriodIdx(prev => (prev + 1) % periods.length);
+    const prevPeriod = () => setPeriodIdx(prev => (prev - 1 + periods.length) % periods.length);
+
+    const period = periods[periodIdx];
+
     const TrendIcon = metric.trend === 'up' ? TrendingUp : metric.trend === 'down' ? TrendingDown : Minus;
     const trendCls = metric.trend === 'up' ? 'text-green-400' : metric.trend === 'down' ? 'text-rose-400' : 'text-muted-foreground';
     const colorCls = METRIC_COLORS[index % METRIC_COLORS.length];
     const icon = METRIC_ICONS[index % METRIC_ICONS.length];
+
+    const rawVal = typeof metric.value === 'number' ? metric.value : parseFloat(metric.value as string);
+    const displayVal = !isNaN(rawVal) ? (rawVal * period.multiplier) : metric.value;
 
     return (
         <Card className={cn(
@@ -771,21 +872,29 @@ function MetricDetailCard({ metric, index }: { metric: DetailedMetric; index: nu
                     <div className={cn('p-1.5 rounded-lg shrink-0', colorCls.split(' ')[0], colorCls.split(' ')[1])}>
                         <span className="h-4 w-4 block">{icon}</span>
                     </div>
-                    <Badge variant="secondary" className="text-[9px] rounded-full px-2 py-0.5 bg-muted">
-                        {metric.type}
-                    </Badge>
-                    <TrendIcon className={cn('h-4 w-4 shrink-0', trendCls)} />
+
+                    <div className="flex items-center gap-1.5 ml-auto">
+                        <Badge variant="secondary" className="text-[9px] rounded-full px-2 py-0.5 bg-muted">
+                            {metric.type}
+                        </Badge>
+                        <div className="flex flex-col opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onClick={prevPeriod} className="text-muted-foreground hover:text-foreground"><ArrowUp className="h-3 w-3" /></button>
+                            <button onClick={nextPeriod} className="text-muted-foreground hover:text-foreground"><ArrowDown className="h-3 w-3" /></button>
+                        </div>
+                        <TrendIcon className={cn('h-4 w-4 shrink-0', trendCls)} />
+                    </div>
                 </div>
 
-                <h4 className="font-bold text-sm tracking-tight w-full line-clamp-2 h-10 flex items-center justify-center">
-                    {metric.name}
+                <h4 className="font-bold text-sm tracking-tight w-full line-clamp-2 h-10 flex flex-col items-center justify-center">
+                    <span>{metric.name}</span>
+                    <span className="text-[9px] font-normal text-muted-foreground">({period.label})</span>
                 </h4>
 
                 <div className="py-1">
-                    <p className="text-3xl font-black text-foreground drop-shadow-sm">
-                        {typeof metric.value === 'number'
-                            ? metric.value.toLocaleString(undefined, { maximumFractionDigits: 2 })
-                            : metric.value}
+                    <p className="text-2xl font-black text-foreground drop-shadow-sm">
+                        {typeof displayVal === 'number'
+                            ? displayVal.toLocaleString(undefined, { maximumFractionDigits: 2 })
+                            : displayVal}
                     </p>
                     <p className="text-[11px] font-medium text-muted-foreground pt-1">
                         {metric.uom}

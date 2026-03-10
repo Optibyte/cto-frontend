@@ -32,7 +32,7 @@ const BASE = `${API_BASE_URL}/api/v1/jira-metrics`;
 // ── Jira Metrics API ──────────────────────────────────────────
 export const jiraMetricsAPI = {
     /** Role-scoped KPI metrics from Flask via NestJS proxy */
-    getMetrics: (params?: { start?: string; end?: string; days?: number, marketId?: string, accountId?: string, projectId?: string, teamId?: string }) => {
+    getMetrics: (params?: { start?: string; end?: string; days?: number, marketId?: string, accountId?: string, projectId?: string, teamId?: string, memberId?: string }) => {
         const qs = new URLSearchParams();
         if (params?.start) qs.set('start', params.start);
         if (params?.end) qs.set('end', params.end);
@@ -41,8 +41,12 @@ export const jiraMetricsAPI = {
         if (params?.accountId && params?.accountId !== 'all') qs.set('accountId', params.accountId);
         if (params?.projectId && params?.projectId !== 'all') qs.set('projectId', params.projectId);
         if (params?.teamId && params?.teamId !== 'all') qs.set('teamId', params.teamId);
+        if (params?.memberId && params?.memberId !== 'all') qs.set('memberId', params.memberId);
         return apiFetch(`${BASE}?${qs.toString()}`);
     },
+
+    /** Dashboard filters directly from Jira webhooks */
+    getDynamicFilters: () => apiFetch(`${BASE}/dynamic-filters`),
 
     /** Role-scoped daily chart data */
     getChartData: (params?: { start?: string; end?: string; days?: number }) => {
