@@ -1,4 +1,3 @@
-// User types
 export type UserRole = 'ORG' | 'MARKET' | 'ACCOUNT' | 'PROJECT_MANAGER' | 'PROJECT' | 'TEAM_LEAD' | 'TEAM' | 'MEMBER' | 'CTO';
 
 export interface User {

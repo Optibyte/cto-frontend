@@ -73,7 +73,6 @@ export function GlobalFilter() {
     const hierarchyTeams = selectedAccount !== 'all'
         ? (currentAccount?.teams || [])
         : (selectedProject !== 'all' ? (allProjects.find((p: any) => p.id === selectedProject)?.teams || []) : []);
-
     const [dynamicMarkets, setDynamicMarkets] = useState<any[]>([]);
     const [dynamicAccounts, setDynamicAccounts] = useState<any[]>([]);
     const [dynamicProjects, setDynamicProjects] = useState<any[]>([]);
