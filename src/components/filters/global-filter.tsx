@@ -26,13 +26,8 @@ import {
     setSelectedMember,
     setIsFiltering,
 } from '@/redux/slices/dashboardSlice';
-import {
-    MARKETS,
-    getAccountsForMarket,
-    getProjectsForAccount,
-    getTeamsForProject,
-    getMembersForTeam,
-} from '@/lib/mock-data/dashboard-filtered';
+import { useOrgHierarchy } from '@/hooks/use-hierarchy';
+import { useProjects } from '@/hooks/use-projects';
 import { useRole } from '@/contexts/role-context';
 
 export function GlobalFilter() {
@@ -48,10 +43,35 @@ export function GlobalFilter() {
 
     const [open, setOpen] = useState(false);
 
-    const accounts = getAccountsForMarket(selectedMarket);
-    const projects = getProjectsForAccount(selectedAccount);
-    const teams = getTeamsForProject(selectedProject);
-    const members = getMembersForTeam(selectedTeam);
+    const { data: hierarchy } = useOrgHierarchy();
+    const { data: allProjects = [] } = useProjects();
+
+    const markets = hierarchy?.markets || [];
+    const currentMarket = markets.find(m => m.id === selectedMarket);
+    const accounts = currentMarket?.accounts || [];
+    const currentAccount = accounts.find(a => a.id === selectedAccount);
+
+    // For projects: if an account is selected, show its projects. Otherwise show all projects.
+    let projects: any[] = [];
+    if (selectedAccount !== 'all') {
+        const accountTeams = currentAccount?.teams || [];
+        const projectMap = new Map();
+        accountTeams.forEach((t: any) => {
+            if (t.project) projectMap.set(t.project.id, t.project);
+        });
+        projects = Array.from(projectMap.values());
+    } else {
+        projects = allProjects;
+    }
+
+    const currentProject = projects.find(p => p.id === selectedProject);
+    const teams = selectedAccount !== 'all'
+        ? (currentAccount?.teams || [])
+        : (selectedProject !== 'all' ? (allProjects.find((p: any) => p.id === selectedProject)?.teams || []) : []);
+
+    // Member logic (still mock for now or link to team members)
+    const members: any[] = [];
+
 
     const handleApply = () => {
         dispatch(setIsFiltering(true));
@@ -113,7 +133,7 @@ export function GlobalFilter() {
                                 </SelectTrigger>
                                 <SelectContent className="rounded-xl border-border/50 shadow-xl">
                                     <SelectItem value="all">All Markets</SelectItem>
-                                    {MARKETS.map((m) => (
+                                    {markets.map((m) => (
                                         <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
                                     ))}
                                 </SelectContent>

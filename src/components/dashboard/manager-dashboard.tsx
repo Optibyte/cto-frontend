@@ -12,7 +12,8 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, AreaChart, Area
 } from 'recharts';
 import { useAppSelector } from '@/redux/store';
-import { PROJECTS } from '@/lib/mock-data/dashboard-filtered';
+import { useProjects } from '@/hooks/use-projects';
+import { GithubMetricsWidget } from './github-metrics-widget';
 
 const managerPerformanceData = [
     { name: 'Team Alpha', completed: 45, certifications: 12, skillPoints: 850, attendance: 98 },
@@ -36,6 +37,7 @@ const CHART_AXIS_OPTIONS = ['name', 'completed', 'certifications', 'skillPoints'
 
 export function ManagerDashboard() {
     const { selectedProject, selectedTeam } = useAppSelector((state) => state.dashboard);
+    const { data: liveProjects = [] } = useProjects();
     const [selectedMetricIds, setSelectedMetricIds] = useState<string[]>(
         mockLearningMetrics.map((m) => m.id)
     );
@@ -62,7 +64,7 @@ export function ManagerDashboard() {
 
     const projectName = selectedProject === 'all'
         ? 'All Projects'
-        : PROJECTS.find(p => p.id === selectedProject)?.name || 'Project';
+        : liveProjects.find((p: any) => p.id === selectedProject)?.name || 'Project';
 
     return (
         <div className="space-y-8 animate-in fade-in duration-700">
@@ -144,6 +146,11 @@ export function ManagerDashboard() {
                     </ResponsiveContainer>
                 </CardContent>
             </Card>
+
+            {/* GitHub Metrics Widget */}
+            {selectedProject !== 'all' && (
+                <GithubMetricsWidget projectId={selectedProject} />
+            )}
 
             {/* Trend Chart */}
             <Card className="border-border/40 shadow-xl shadow-black/5 dark:shadow-black/20 overflow-hidden group bg-card/50 backdrop-blur-md relative">

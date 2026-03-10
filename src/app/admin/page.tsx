@@ -544,6 +544,16 @@ function EntityDialog({ open, onOpenChange, tab, editItem, onSave, markets, acco
                                 <Input className="rounded-xl" value={form.jiraBoardId || ''} onChange={e => set('jiraBoardId', e.target.value)} placeholder="e.g. 12345" />
                             </div>
                         </div>
+                        <div className="grid grid-cols-2 gap-4 mt-4">
+                            <div className="space-y-2">
+                                <Label className="flex items-center gap-1.5">GitHub Repo <span className="text-[10px] text-blue-400 font-normal">(e.g. owner/repo)</span></Label>
+                                <Input className="rounded-xl font-mono" value={form.githubRepoId || ''} onChange={e => set('githubRepoId', e.target.value)} placeholder="e.g. facebook/react" />
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="flex items-center gap-1.5">GitHub Token <span className="text-[10px] text-muted-foreground font-normal">(optional)</span></Label>
+                                <Input type="password" className="rounded-xl font-mono" value={form.githubToken || ''} onChange={e => set('githubToken', e.target.value)} placeholder="ghp_..." />
+                            </div>
+                        </div>
                     </>)}
 
                     {tab === 'teams' && (<>
@@ -702,7 +712,7 @@ function getDefaultForm(tab: TabKey): Record<string, any> {
     switch (tab) {
         case 'markets': return { name: '', regionCode: '' };
         case 'accounts': return { name: '', marketId: '', accountManagerId: '' };
-        case 'projects': return { name: '', startDate: '', enddate: '', status: 'PLANNED', teamSize: 0, progress: 0, jiraProjectKey: '', jiraBoardId: '' };
+        case 'projects': return { name: '', startDate: '', enddate: '', status: 'PLANNED', teamSize: 0, progress: 0, jiraProjectKey: '', jiraBoardId: '', githubRepoId: '', githubToken: '' };
         case 'teams': return { name: '', description: '', teamLeadId: '', accountId: '', projectId: '' };
         case 'members': return { teamId: '', userIds: [], roleInTeam: 'Member' };
         case 'users': return { fullName: '', email: '', role: 'TEAM', jobRole: '', auth0Id: '', jiraAccountId: '' };
@@ -719,6 +729,8 @@ function buildPayload(tab: TabKey, form: Record<string, any>, isEdit: boolean): 
             if (form.enddate) p.enddate = form.enddate;
             if (form.jiraProjectKey) p.jiraProjectKey = form.jiraProjectKey.trim().toUpperCase();
             if (form.jiraBoardId) p.jiraBoardId = form.jiraBoardId.trim();
+            if (form.githubRepoId) p.githubRepoId = form.githubRepoId.trim();
+            if (form.githubToken) p.githubToken = form.githubToken.trim();
             return p;
         }
         case 'teams': {

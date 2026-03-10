@@ -47,6 +47,7 @@ export interface Project {
     pms: ProjectMember[];
     teamLeads: ProjectMember[];
     employees: ProjectMember[];
+    teams?: any[];
 }
 
 export const projectsAPI = {

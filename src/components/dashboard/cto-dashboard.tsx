@@ -19,14 +19,11 @@ import {
 import { cn } from '@/lib/utils';
 import { jiraMetricsAPI } from '@/lib/api/jira-metrics';
 import { useRole } from '@/contexts/role-context';
-import {
-    MARKETS,
-    getAccountsForMarket,
-    getProjectsForAccount,
-    getTeamsForProject,
-} from '@/lib/mock-data/dashboard-filtered';
 import { useAppSelector } from '@/redux/store';
 import { DateRangeFilter } from '@/components/filters/date-range-filter';
+import { useOrgHierarchy } from '@/hooks/use-hierarchy';
+import { useProjects } from '@/hooks/use-projects';
+import { GithubMetricsWidget } from '@/components/dashboard/github-metrics-widget';
 
 // ─────────────────────────────────────────────
 // Types
@@ -152,11 +149,36 @@ export function CTODashboard() {
     const [projectId, setProjectId] = useState('all');
     const [teamId, setTeamId] = useState('all');
 
+    const { data: hierarchy } = useOrgHierarchy();
+    const { data: allProjects = [] } = useProjects();
     const [data, setData] = useState<MetricsResponse | null>(null);
     const [loading, setLoading] = useState(true);
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
     const [error, setError] = useState<string | null>(null);
     const { dateRange } = useAppSelector((s) => s.dashboard);
+
+    const markets = hierarchy?.markets || [];
+    const currentMarket = markets.find(m => m.id === marketId);
+    const accounts = currentMarket?.accounts || [];
+    const currentAccount = accounts.find(a => a.id === accountId);
+
+    // For projects: if an account is selected, show its projects. Otherwise show all projects.
+    let filteredProjects: any[] = [];
+    if (accountId !== 'all') {
+        const accountTeams = currentAccount?.teams || [];
+        const projectMap = new Map();
+        accountTeams.forEach((t: any) => {
+            if (t.project) projectMap.set(t.project.id, t.project);
+        });
+        filteredProjects = Array.from(projectMap.values());
+    } else {
+        filteredProjects = allProjects;
+    }
+
+    const filteredTeams = accountId !== 'all'
+        ? (currentAccount?.teams || [])
+        : (projectId !== 'all' ? (allProjects.find((p: any) => p.id === projectId)?.teams || []) : []);
+
 
     const fetchAll = useCallback(async () => {
         setLoading(true);
@@ -249,16 +271,20 @@ export function CTODashboard() {
     const assigneeWorkload = charts?.assigneeWorkload || [];
     const velocityBySprint = charts?.velocityBySprint || [];
 
-    const accounts = getAccountsForMarket(marketId);
-    const projects = getProjectsForAccount(accountId);
-    const teams = getTeamsForProject(projectId);
+    // Removed mock filtered getters
+
 
     return (
         <div className="space-y-6">
 
+            {/* ── GitHub Metrics Widget (shown when a project is selected) ── */}
+            {projectId !== 'all' && (
+                <GithubMetricsWidget projectId={projectId} />
+            )}
+
             {/* ── Header Bar ──────────────────────────────────── */}
             <div className="flex flex-col gap-4">
-               
+
                 {/* Inline Scope Filters */}
                 <div className="bg-muted/30 p-3 rounded-2xl border border-border/40 flex flex-wrap items-center gap-3">
 
@@ -269,7 +295,7 @@ export function CTODashboard() {
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">All Markets</SelectItem>
-                                {MARKETS.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+                                {markets.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
                             </SelectContent>
                         </Select>
                     )}
@@ -291,7 +317,7 @@ export function CTODashboard() {
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">All Projects</SelectItem>
-                                {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                                {filteredProjects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                             </SelectContent>
                         </Select>
                     )}
@@ -302,14 +328,11 @@ export function CTODashboard() {
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">All Teams</SelectItem>
-                                {teams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-                                
+                                {filteredTeams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
                             </SelectContent>
-                             <DateRangeFilter />
-
                         </Select>
-                        
                     )}
+                    <DateRangeFilter />
                 </div>
             </div>
 
@@ -667,7 +690,7 @@ export function CTODashboard() {
                     </div>
                 </div>
 
-              
+
 
             </>)}
         </div>
