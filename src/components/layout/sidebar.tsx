@@ -24,6 +24,7 @@ import {
     UserPlus,
     UserCheck,
     LayoutGrid,
+    Activity,
     Settings2,
 } from 'lucide-react';
 import { title } from 'process';
@@ -80,7 +81,11 @@ const navigationItems: NavItem[] = [
         icon: Settings2,
         href: '/admin',
     },
-
+    {
+        title: 'GitHub Metrics',
+        icon: Activity,
+        href: '/github-metrics',
+    },
 ];
 
 const ROLE_LABELS: Record<string, string> = {

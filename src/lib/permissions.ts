@@ -14,7 +14,8 @@ export type Feature =
     | 'audit'
     | 'settings'
     | 'access-control'
-    | 'admin';
+    | 'admin'
+    | 'github-metrics';
 
 export const ROLE_PERMISSIONS: Record<UserRole, Feature[]> = {
     ORG: [
@@ -32,6 +33,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Feature[]> = {
         'settings',
         'access-control',
         'admin',
+        'github-metrics',
     ],
     MARKET: [
         'dashboard',
@@ -42,6 +44,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Feature[]> = {
         'reports',
         'notifications',
         'settings',
+        'github-metrics',
     ],
     ACCOUNT: [
         'dashboard',
@@ -52,6 +55,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Feature[]> = {
         'reports',
         'notifications',
         'settings',
+        'github-metrics',
     ],
     PROJECT: [
         'dashboard',
@@ -63,6 +67,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Feature[]> = {
         'reports',
         'notifications',
         'settings',
+        'github-metrics',
     ],
     PROJECT_MANAGER: [
         'dashboard',
@@ -75,6 +80,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Feature[]> = {
         'notifications',
         'settings',
         'admin',
+        'github-metrics',
     ],
     TEAM_LEAD: [
         'dashboard',
@@ -83,6 +89,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Feature[]> = {
         'notifications',
         'settings',
         'admin',
+        'github-metrics',
     ],
     TEAM: [
         'dashboard',
@@ -90,12 +97,31 @@ export const ROLE_PERMISSIONS: Record<UserRole, Feature[]> = {
         'metrics',
         'notifications',
         'settings',
+        'github-metrics',
     ],
     MEMBER: [
         'dashboard',
         'metrics',
         'notifications',
         'settings',
+        'github-metrics',
+    ],
+    CTO: [
+        'dashboard',
+        'projects',
+        'drilldown',
+        'teams',
+        'metrics',
+        'sla',
+        'reports',
+        'integrations',
+        'import',
+        'notifications',
+        'audit',
+        'settings',
+        'access-control',
+        'admin',
+        'github-metrics',
     ],
 };
 
@@ -118,6 +144,7 @@ export const ROUTE_FEATURE_MAP: Record<string, Feature> = {
     '/onboard/team-lead': 'teams',
     '/onboard/employee': 'teams',
     '/admin': 'admin',
+    '/github-metrics': 'github-metrics',
 };
 
 export function canAccess(role: UserRole, feature: Feature): boolean {
