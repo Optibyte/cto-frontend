@@ -787,14 +787,14 @@ export function CTODashboard() {
                     </div>
 
                     {/* Headline KPI Cards */}
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
+                    {/* <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
                         <KpiCard icon={<Zap />} label="Velocity" value={aggVelocityString} unit="SP" color="blue" trend="up" />
                         <KpiCard icon={<Target />} label="Commit Ratio" value={aggCommitment} unit="" color="green" trend="up" />
                         <KpiCard icon={<Bug />} label="Bug Rate" value={String(aggDefectRate)} unit="%" color="rose" trend="down" />
                         <KpiCard icon={<BarChart3 />} label="Delivered" value={String(completedItems)} unit={`/ ${totalItems}`} color="orange" trend="up" />
                         <KpiCard icon={<Users />} label="Team Size" value={String(summary?.teamSize || 0)} unit="devs" color="cyan" trend="neutral" />
                         <KpiCard icon={<Layers />} label="Total SP" value={String(summary?.deliveredSP || 0)} unit={`/ ${summary?.plannedSP || 0}`} color="indigo" trend="up" />
-                    </div>
+                    </div> */}
 
                     {/* 12 Detailed Metrics */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
