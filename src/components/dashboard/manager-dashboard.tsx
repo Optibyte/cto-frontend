@@ -116,13 +116,13 @@ export function ManagerDashboard() {
     // Role-based project scope
     const isProjectLevel = role === 'PROJECT_MANAGER' || role === 'PROJECT';
     const baseProjects: any[] = isProjectLevel
-        ? (liveProjects as any[]).filter((p: any) => 
+        ? (liveProjects as any[]).filter((p: any) =>
             p.pms?.some((m: any) => m.user?.id === user?.id || m.userId === user?.id) ||
             p.teamLeads?.some((m: any) => m.user?.id === user?.id || m.userId === user?.id) ||
             p.employees?.some((m: any) => m.user?.id === user?.id || m.userId === user?.id) ||
             // Fallback for differently structured backends
             p.users?.some((u: any) => u.id === user?.id)
-          )
+        )
         : (liveProjects as any[]);
 
     const filteredTeams = useMemo(() => {
@@ -201,12 +201,12 @@ export function ManagerDashboard() {
         const assigneeWorkload: any[] = charts?.assigneeWorkload || [];
         return membersToShow.slice(0, 15).map(m => {
             const memberName = (m.user?.fullName || m.userName || m.userId || 'Member').toLowerCase();
-            const jiraMatch = assigneeWorkload.find(a => 
-                a.name?.toLowerCase().includes(memberName) || 
+            const jiraMatch = assigneeWorkload.find(a =>
+                a.name?.toLowerCase().includes(memberName) ||
                 memberName.includes(a.name?.toLowerCase())
             );
             const seed = (m.userId?.charCodeAt?.(0) || 65) + (m.userId?.charCodeAt?.(m.userId?.length - 1) || 90);
-            
+
             return {
                 name: m.user?.fullName || m.userName || 'Member',
                 completed: jiraMatch?.issueCount || (10 + (seed * 7 % 20)),
@@ -556,12 +556,12 @@ export function ManagerDashboard() {
                             const seed = team.id.charCodeAt(0) + (team.id.charCodeAt(team.id.length - 1) || 0);
                             const teamWorkload = teamMembers.map((mem: any) => {
                                 const memberName = (mem.user?.fullName || mem.userName || '').toLowerCase();
-                                return (charts?.assigneeWorkload || []).find((a: any) => 
-                                    a.name?.toLowerCase().includes(memberName) || 
+                                return (charts?.assigneeWorkload || []).find((a: any) =>
+                                    a.name?.toLowerCase().includes(memberName) ||
                                     memberName.includes(a.name?.toLowerCase())
                                 );
                             }).filter(Boolean);
-                            
+
                             const teamStoryPoints = teamWorkload.reduce((sum: number, a: any) => sum + (a.storyPoints || 0), 0);
                             const skillAvg = teamMembers.length > 0 ? Math.round(teamStoryPoints / teamMembers.length) : 0;
                             const attendance = 85 + (seed * 7 % 15);

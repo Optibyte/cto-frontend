@@ -44,7 +44,7 @@ export default function DashboardPage() {
     case 'TeamLead' as any:
       return <TLDashboard />;
     case 'TEAM':
-   
+
       return <CTODashboard />;
   }
 }
