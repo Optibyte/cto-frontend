@@ -347,18 +347,7 @@ export function ProjectManagement() {
                                     className="rounded-xl"
                                 />
                             </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="progress">Progress (%)</Label>
-                                <Input
-                                    id="progress"
-                                    type="number"
-                                    min="0"
-                                    max="100"
-                                    value={formData.progress}
-                                    onChange={(e) => setFormData({ ...formData, progress: parseInt(e.target.value) || 0 })}
-                                    className="rounded-xl"
-                                />
-                            </div>
+
                         </div>
                         <div className="space-y-2">
                             <Label>Status</Label>

@@ -344,7 +344,7 @@ function getColumns(tab: TabKey): string[] {
     switch (tab) {
         case 'markets': return ['Name', 'Region Code', 'Accounts', 'Created'];
         case 'accounts': return ['Name', 'Market', 'Teams', 'Created'];
-        case 'projects': return ['Name', 'Status', 'Progress', 'Team Size', 'Created'];
+        case 'projects': return ['Name', 'Status', 'Manager', 'Team Size', 'Created'];
         case 'teams': return ['Name', 'Description', 'Project', 'Members', 'Active'];
         case 'members': return ['User', 'Email', 'Team', 'Role in Team', 'Joined'];
         case 'users': return ['Name', 'Email', 'Access Role', 'Job Role', 'Active'];
@@ -379,11 +379,8 @@ function renderRow(tab: TabKey, item: any) {
                         'bg-gray-500/10 text-gray-500 border-gray-500/20': item.status === 'COMPLETED',
                     })} variant="outline">{item.status}</Badge>
                 </td>
-                <td className="py-3">
-                    <div className="flex items-center gap-2">
-                        <div className="w-16 h-1.5 rounded-full bg-muted overflow-hidden"><div className="h-full rounded-full bg-primary" style={{ width: `${item.progress || 0}%` }} /></div>
-                        <span className="text-xs text-muted-foreground">{item.progress || 0}%</span>
-                    </div>
+                <td className="py-3 text-sm text-muted-foreground">
+                    {item.users && item.users.length > 0 ? item.users.filter((u: any) => u.role === 'PROJECT_MANAGER' || u.role === 'PROJECT' || u.role === 'CTO').map((u: any) => u.fullName).join(', ') || '—' : '—'}
                 </td>
                 <td className="py-3 text-sm text-muted-foreground">{item.teamSize || 0}</td>
                 <td className="py-3 text-xs text-muted-foreground">{formatDate(item.createdAt)}</td>
@@ -455,7 +452,19 @@ function EntityDialog({ open, onOpenChange, tab, editItem, onSave, markets, acco
         if (open) {
             setUserSearch(''); // Reset search on open
             if (editItem) {
-                setForm({ ...editItem });
+                const initialForm = { ...editItem };
+                
+                // For projects, map existing associations to userIds array for the checklist
+                if (tab === 'projects') {
+                    const ids = new Set<string>();
+                    if (editItem.userIds) editItem.userIds.forEach((id: string) => ids.add(id));
+                    if (editItem.pms) editItem.pms.forEach((m: any) => ids.add(m.userId || m.user?.id));
+                    if (editItem.teamLeads) editItem.teamLeads.forEach((m: any) => ids.add(m.userId || m.user?.id));
+                    if (editItem.users) editItem.users.forEach((u: any) => ids.add(u.id));
+                    initialForm.userIds = Array.from(ids).filter(Boolean);
+                }
+                
+                setForm(initialForm);
             } else {
                 setForm(getDefaultForm(tab));
             }
@@ -479,18 +488,17 @@ function EntityDialog({ open, onOpenChange, tab, editItem, onSave, markets, acco
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[520px] rounded-2xl">
-                <DialogHeader>
-                    <DialogTitle className="text-xl flex items-center gap-2">
-                        {isEdit ? <Pencil className="h-5 w-5 text-primary" /> : <Plus className="h-5 w-5 text-primary" />}
-                        {isEdit ? 'Edit' : 'Add'} {tabConfig.label.slice(0, -1)}
+            <DialogContent className="sm:max-w-[600px] rounded-2xl p-0 flex flex-col max-h-[90vh]">
+                <DialogHeader className="p-6 pb-2">
+                    <DialogTitle className="text-xl font-bold flex items-center gap-2">
+                        {editItem?.id ? <Pencil className="h-5 w-5 text-primary" /> : <Plus className="h-5 w-5 text-primary" />}
+                        {isEdit ? 'Edit' : 'Add'} {tabConfig.label}
                     </DialogTitle>
-                    <DialogDescription>
-                        {isEdit ? 'Update the details below.' : 'Fill in the details to add a new entry.'}
-                    </DialogDescription>
+                    <DialogDescription>Fill in the details to {isEdit ? 'update the' : 'add a new'} entry.</DialogDescription>
                 </DialogHeader>
 
-                <div className="space-y-4 pt-2">
+                <div className="flex-1 overflow-y-auto p-6 pt-2 custom-scrollbar">
+                    <div className="space-y-4">
                     {tab === 'markets' && (<>
                         <div className="space-y-2"><Label>Name *</Label><Input className="rounded-xl" value={form.name || ''} onChange={e => set('name', e.target.value)} placeholder="e.g. North America" /></div>
                         <div className="space-y-2"><Label>Region Code *</Label><Input className="rounded-xl" value={form.regionCode || ''} onChange={e => set('regionCode', e.target.value)} placeholder="e.g. NA" /></div>
@@ -508,8 +516,12 @@ function EntityDialog({ open, onOpenChange, tab, editItem, onSave, markets, acco
                         <div className="space-y-2">
                             <Label>Account Manager *</Label>
                             <Select value={form.accountManagerId || ''} onValueChange={v => set('accountManagerId', v)}>
-                                <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select user" /></SelectTrigger>
-                                <SelectContent>{users.map(u => <SelectItem key={u.id} value={u.id}>{u.fullName} ({u.email})</SelectItem>)}</SelectContent>
+                                <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select managers" /></SelectTrigger>
+                                <SelectContent>
+                                    {users.filter(u => u.role === 'ACCOUNT').map(u => (
+                                        <SelectItem key={u.id} value={u.id}>{u.fullName} ({u.email})</SelectItem>
+                                    ))}
+                                </SelectContent>
                             </Select>
                         </div>
                     </>)}
@@ -535,7 +547,45 @@ function EntityDialog({ open, onOpenChange, tab, editItem, onSave, markets, acco
                             </div>
                             <div className="space-y-2"><Label>Team Size</Label><Input type="number" className="rounded-xl" value={form.teamSize || 0} onChange={e => set('teamSize', Number(e.target.value))} /></div>
                         </div>
-                        <div className="space-y-2"><Label>Progress %</Label><Input type="number" min="0" max="100" className="rounded-xl" value={form.progress || 0} onChange={e => set('progress', Number(e.target.value))} /></div>
+                        <div className="space-y-3">
+                            <Label>Select Project Manager *</Label>
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                                <Input
+                                    className="pl-9 h-9 rounded-xl text-sm"
+                                    placeholder="Search by name or email..."
+                                    value={userSearch}
+                                    onChange={e => setUserSearch(e.target.value)}
+                                />
+                            </div>
+                            <div className="grid grid-cols-1 gap-1 max-h-[220px] overflow-y-auto p-2 rounded-xl border border-border/40 bg-muted/20">
+                                {users.filter(u => 
+                                    (u.role === 'PROJECT_MANAGER' || u.role === 'PROJECT') &&
+                                    (u.fullName.toLowerCase().includes(userSearch.toLowerCase()) || u.email.toLowerCase().includes(userSearch.toLowerCase()))
+                                ).map(u => (
+                                    <div key={u.id} className="flex items-center space-x-2 p-2 hover:bg-accent/50 rounded-lg transition-colors group">
+                                        <input
+                                            type="checkbox"
+                                            id={`pm-${u.id}`}
+                                            className="h-4 w-4 rounded border-primary"
+                                            checked={(form.userIds || []).includes(u.id)}
+                                            onChange={(e) => {
+                                                const currentIds = form.userIds || [];
+                                                if (e.target.checked) {
+                                                    set('userIds', [...currentIds, u.id]);
+                                                } else {
+                                                    set('userIds', currentIds.filter((id: string) => id !== u.id));
+                                                }
+                                            }}
+                                        />
+                                        <label htmlFor={`pm-${u.id}`} className="grid cursor-pointer flex-1">
+                                            <span className="text-sm font-medium leading-none">{u.fullName}</span>
+                                            <span className="text-[10px] text-muted-foreground line-clamp-1">{u.role} • {u.email}</span>
+                                        </label>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label className="flex items-center gap-1.5">Jira Project Key <span className="text-[10px] text-blue-400 font-normal">(e.g. BANK)</span></Label>
@@ -565,7 +615,11 @@ function EntityDialog({ open, onOpenChange, tab, editItem, onSave, markets, acco
                             <Label>Team Lead *</Label>
                             <Select value={form.teamLeadId || ''} onValueChange={v => set('teamLeadId', v)}>
                                 <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select team lead" /></SelectTrigger>
-                                <SelectContent>{users.map(u => <SelectItem key={u.id} value={u.id}>{u.fullName} ({u.role})</SelectItem>)}</SelectContent>
+                                <SelectContent>
+                                    {users.filter(u => u.role === 'TEAM_LEAD').map(u => (
+                                        <SelectItem key={u.id} value={u.id}>{u.fullName} ({u.email})</SelectItem>
+                                    ))}
+                                </SelectContent>
                             </Select>
                         </div>
                         <div className="grid grid-cols-2 gap-4">
@@ -601,13 +655,13 @@ function EntityDialog({ open, onOpenChange, tab, editItem, onSave, markets, acco
                         </div>
                         <div className="space-y-3">
                             <div className="flex items-center justify-between">
-                                <Label>Select User(s) *</Label>
+                                <Label>Select Member(s) *</Label>
                                 <Button
                                     variant="ghost"
                                     size="sm"
                                     className="h-7 text-[10px] rounded-lg"
                                     onClick={() => {
-                                        const filtered = users.filter(u => ['TEAM', 'TEAM_LEAD', 'PROJECT_MANAGER', 'PROJECT'].includes(u.role));
+                                        const filtered = users.filter(u => u.role === 'TEAM');
                                         const allSelected = filtered.every(u => (form.userIds || []).includes(u.id));
                                         if (allSelected) {
                                             set('userIds', []);
@@ -616,7 +670,7 @@ function EntityDialog({ open, onOpenChange, tab, editItem, onSave, markets, acco
                                         }
                                     }}
                                 >
-                                    {(users.filter(u => ['TEAM', 'TEAM_LEAD', 'PROJECT_MANAGER', 'PROJECT'].includes(u.role)).every(u => (form.userIds || []).includes(u.id))) ? 'Deselect All' : 'Select All'}
+                                    {(users.filter(u => u.role === 'TEAM').every(u => (form.userIds || []).includes(u.id))) ? 'Deselect All' : 'Select All'}
                                 </Button>
                             </div>
 
@@ -624,7 +678,7 @@ function EntityDialog({ open, onOpenChange, tab, editItem, onSave, markets, acco
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                                 <Input
                                     className="pl-9 h-9 rounded-xl text-sm"
-                                    placeholder="Search by name or email..."
+                                    placeholder="Search developers..."
                                     value={userSearch}
                                     onChange={e => setUserSearch(e.target.value)}
                                 />
@@ -633,7 +687,7 @@ function EntityDialog({ open, onOpenChange, tab, editItem, onSave, markets, acco
                             <div className="grid grid-cols-1 gap-1 max-h-[220px] overflow-y-auto p-2 rounded-xl border border-border/40 bg-muted/20">
                                 {(() => {
                                     const filteredUsers = users.filter(u =>
-                                        ['TEAM', 'TEAM_LEAD', 'PROJECT_MANAGER', 'PROJECT'].includes(u.role) &&
+                                        u.role === 'TEAM' &&
                                         (u.fullName.toLowerCase().includes(userSearch.toLowerCase()) ||
                                             u.email.toLowerCase().includes(userSearch.toLowerCase()))
                                     );
@@ -703,11 +757,12 @@ function EntityDialog({ open, onOpenChange, tab, editItem, onSave, markets, acco
                             </div>
                         </div>
                     </>)}
+                    </div>
                 </div>
 
-                <DialogFooter className="pt-4">
+                <DialogFooter className="p-6 pt-4 border-t border-border/40">
                     <Button variant="ghost" className="rounded-xl" onClick={() => onOpenChange(false)}>Cancel</Button>
-                    <Button className="rounded-xl gap-2 font-bold" onClick={handleSubmit} disabled={saving}>
+                    <Button className="rounded-xl gap-2 font-bold px-6" onClick={handleSubmit} disabled={saving}>
                         {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
                         {isEdit ? 'Update' : 'Add'}
                     </Button>
@@ -721,7 +776,7 @@ function getDefaultForm(tab: TabKey): Record<string, any> {
     switch (tab) {
         case 'markets': return { name: '', regionCode: '' };
         case 'accounts': return { name: '', marketId: '', accountManagerId: '' };
-        case 'projects': return { name: '', startDate: '', enddate: '', status: 'PLANNED', teamSize: 0, progress: 0, jiraProjectKey: '', jiraBoardId: '', githubRepoId: '', githubToken: '' };
+        case 'projects': return { name: '', startDate: '', enddate: '', status: 'PLANNED', teamSize: 0, userIds: [], jiraProjectKey: '', jiraBoardId: '', githubRepoId: '', githubToken: '' };
         case 'teams': return { name: '', description: '', teamLeadId: '', accountId: '', projectId: '' };
         case 'members': return { teamId: '', userIds: [], roleInTeam: 'Member' };
         case 'users': return { fullName: '', email: '', role: 'TEAM', jobRole: '', auth0Id: '', jiraAccountId: '', githubEmail: '' };
@@ -733,7 +788,8 @@ function buildPayload(tab: TabKey, form: Record<string, any>, isEdit: boolean): 
         case 'markets': return { name: form.name, regionCode: form.regionCode };
         case 'accounts': return { name: form.name, marketId: form.marketId, accountManagerId: form.accountManagerId };
         case 'projects': {
-            const p: any = { name: form.name, status: form.status, teamSize: Number(form.teamSize), progress: Number(form.progress) };
+            const p: any = { name: form.name, status: form.status, teamSize: Number(form.teamSize) };
+            if (form.userIds && form.userIds.length > 0) p.userIds = form.userIds;
             if (form.startDate) p.startDate = form.startDate;
             if (form.enddate) p.enddate = form.enddate;
             if (form.jiraProjectKey) p.jiraProjectKey = form.jiraProjectKey.trim().toUpperCase();
