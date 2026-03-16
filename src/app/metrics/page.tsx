@@ -1,9 +1,11 @@
 'use client';
 
-import { Pencil, Calculator, PlusCircle, Database } from 'lucide-react';
+import { Pencil, Calculator, PlusCircle, Database, BarChart3, Layers } from 'lucide-react';
 import { ManualMetricsTab } from '@/components/metrics/manual-metrics-tab';
+import { ManualMetricsDashboard } from '@/components/metrics/manual-metrics-dashboard';
 import { CalculatedMetricsTab } from '@/components/metrics/calculated-metrics-tab';
 import { AddMetricForm } from '@/components/metrics/add-metric-form';
+import { ProvisionMetricsTab } from '@/components/metrics/provision-metrics-tab';
 import { GlobalFilter } from '@/components/filters/global-filter';
 // import { JiraAnalyticsTab } from '@/components/metrics/jira-analytics-tab';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -32,7 +34,7 @@ export default function MetricsPage() {
             </div>
 
             {/* Tabbed Interface */}
-            <Tabs defaultValue="jira" className="space-y-8">
+            <Tabs defaultValue="analytics" className="space-y-8">
                 <div className="sticky top-0 z-10 py-4 bg-background/80 backdrop-blur-md -mx-4 px-4 overflow-x-auto no-scrollbar">
                     <TabsList className="inline-flex h-12 items-center justify-start rounded-2xl bg-muted/30 p-1.5 gap-2 border border-border/50 shadow-inner w-max min-w-full">
 
@@ -43,17 +45,22 @@ export default function MetricsPage() {
 
                         <TabsTrigger value="manual" className={TAB_TRIGGER_CLS}>
                             <Pencil className="h-4 w-4" />
-                            Manual Metrics
+                            Manual Entry
                         </TabsTrigger>
 
-                        {/* <TabsTrigger value="calculated" className={TAB_TRIGGER_CLS}>
-                            <Calculator className="h-4 w-4" />
-                            Calculated
-                        </TabsTrigger> */}
+                        <TabsTrigger value="analytics" className={TAB_TRIGGER_CLS}>
+                            <BarChart3 className="h-4 w-4" />
+                            Manual Analytics
+                        </TabsTrigger>
 
                         <TabsTrigger value="add-metric" className={TAB_TRIGGER_CLS}>
                             <PlusCircle className="h-4 w-4" />
                             Add Metrics
+                        </TabsTrigger>
+
+                        <TabsTrigger value="provision" className={TAB_TRIGGER_CLS}>
+                            <Layers className="h-4 w-4" />
+                            Provision Metrics
                         </TabsTrigger>
 
                     </TabsList>
@@ -67,12 +74,20 @@ export default function MetricsPage() {
                     <ManualMetricsTab />
                 </TabsContent>
 
+                <TabsContent value="analytics" className="mt-0">
+                    <ManualMetricsDashboard />
+                </TabsContent>
+
                 <TabsContent value="calculated" className="mt-0">
                     <CalculatedMetricsTab />
                 </TabsContent>
 
                 <TabsContent value="add-metric" className="mt-0">
                     <AddMetricForm />
+                </TabsContent>
+
+                <TabsContent value="provision" className="mt-0">
+                    <ProvisionMetricsTab />
                 </TabsContent>
             </Tabs>
         </div>

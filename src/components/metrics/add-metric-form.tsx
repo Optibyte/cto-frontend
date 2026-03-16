@@ -16,10 +16,15 @@ import { METRIC_CLASSES, UPDATE_FREQUENCIES } from '@/lib/constants';
 import { useOrgHierarchy } from '@/hooks/use-hierarchy';
 import { useMetricDefinitions, useCreateMetricDefinition, useDeleteMetricDefinition } from '@/hooks/use-metric-definitions';
 import { toast } from 'sonner';
+import { MEMBERS_WITH_METRICS } from '@/lib/mock-data/metrics-data';
+import { User } from 'lucide-react';
+import { useEmployees } from '@/hooks/use-employees';
+import { TeamMemberFull } from '@/lib/types';
 
 export function AddMetricForm() {
     const { data: hierarchy, isLoading: hierarchyLoading } = useOrgHierarchy();
     const { data: metrics = [], isLoading: metricsLoading } = useMetricDefinitions();
+    const { data: liveEmployees = [], isLoading: employeesLoading } = useEmployees();
     const createMetricMutation = useCreateMetricDefinition();
     const deleteMetricMutation = useDeleteMetricDefinition();
 
@@ -29,7 +34,6 @@ export function AddMetricForm() {
         accountId: '',
         marketName: '',
         projectId: '',
-        teamId: '',
         metricClass: '' as string,
         threshold: '',
         updateFrequency: 'weekly' as string,
@@ -56,12 +60,10 @@ export function AddMetricForm() {
     });
     const availableProjects = Array.from(projectsMap.entries()).map(([id, name]) => ({ id, name }));
 
-    const availableTeams = selectedAccountObj
-        ? selectedAccountObj.teams
-            .filter(t => !formData.projectId || t.projectId === formData.projectId)
-        : [];
+    const uniqueMembers = []; // Not used in this simplified view
 
-    // Handle account change - reset children
+    const nextId = getNextMetricId(metrics);
+
     const handleAccountChange = (accountId: string) => {
         const acc = accounts.find(a => a.id === accountId);
         setFormData({
@@ -69,11 +71,8 @@ export function AddMetricForm() {
             accountId: accountId,
             marketName: acc?.marketName || '',
             projectId: '',
-            teamId: '',
         });
     };
-
-    const nextId = getNextMetricId(metrics);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -86,11 +85,10 @@ export function AddMetricForm() {
         try {
             const selectedAccount = accounts.find(a => a.id === formData.accountId);
             const selectedProject = selectedAccount?.teams.find(t => t.projectId === formData.projectId)?.project;
-            const selectedTeam = selectedAccount?.teams.find(t => t.id === formData.teamId);
 
             const payload = {
                 name: formData.name,
-                metricType: '',
+                metricType: formData.name.toLowerCase().replace(/\s+/g, '_'),
                 metricClass: formData.metricClass,
                 threshold: parseFloat(formData.threshold) || 0,
                 updateFrequency: formData.updateFrequency,
@@ -101,14 +99,12 @@ export function AddMetricForm() {
                 marketName: formData.marketName,
                 projectId: formData.projectId,
                 projectName: selectedProject?.name || '',
-                teamId: formData.teamId,
-                teamName: selectedTeam?.name || '',
             };
 
             await createMetricMutation.mutateAsync(payload);
 
             setFormData({
-                name: '', accountId: '', marketName: '', projectId: '', teamId: '',
+                name: '', accountId: '', marketName: '', projectId: '',
                 metricClass: '', threshold: '', updateFrequency: 'weekly', rangeMin: '0', rangeMax: '100',
             });
             toast.success(`Metric "${payload.name}" created successfully`);
@@ -150,7 +146,7 @@ export function AddMetricForm() {
                                 <Layers className="h-4 w-4" />
                                 Organizational Scope
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div className="space-y-2">
                                     <Label className="text-xs font-semibold">Account *</Label>
                                     <Select value={formData.accountId} onValueChange={handleAccountChange}>
@@ -181,7 +177,7 @@ export function AddMetricForm() {
                                     <Label className="text-xs font-semibold">Project</Label>
                                     <Select
                                         value={formData.projectId}
-                                        onValueChange={(v) => setFormData({ ...formData, projectId: v, teamId: '' })}
+                                        onValueChange={(v) => setFormData({ ...formData, projectId: v })}
                                         disabled={!formData.accountId}
                                     >
                                         <SelectTrigger className="rounded-xl border-border/50">
@@ -189,21 +185,6 @@ export function AddMetricForm() {
                                         </SelectTrigger>
                                         <SelectContent className="rounded-xl">
                                             {availableProjects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label className="text-xs font-semibold">Team</Label>
-                                    <Select
-                                        value={formData.teamId}
-                                        onValueChange={(v) => setFormData({ ...formData, teamId: v })}
-                                        disabled={!formData.accountId}
-                                    >
-                                        <SelectTrigger className="rounded-xl border-border/50">
-                                            <SelectValue placeholder={formData.accountId ? "Select team" : "Select account first"} />
-                                        </SelectTrigger>
-                                        <SelectContent className="rounded-xl">
-                                            {availableTeams.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
                                         </SelectContent>
                                     </Select>
                                 </div>
@@ -325,7 +306,7 @@ export function AddMetricForm() {
                                                 </Badge>
                                             </div>
                                             <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold mt-0.5">
-                                                {(m as any).accountName || m.account} {((m as any).marketName || m.market) ? `· ${(m as any).marketName || m.market}` : ''} {((m as any).projectName || m.project) ? `· ${(m as any).projectName || m.project}` : ''} {((m as any).teamName || m.team) ? `· ${(m as any).teamName || m.team}` : ''}
+                                                {(m as any).accountName || m.account} {((m as any).marketName || m.market) ? `· ${(m as any).marketName || m.market}` : ''} {((m as any).projectName || m.project) ? `· ${(m as any).projectName || m.project}` : ''}
                                             </p>
                                         </div>
                                     </div>

@@ -9,6 +9,9 @@ import { UserPlus, Trash2, Users, Award, Briefcase, ChevronRight, Search, Pencil
 import { TeamMemberFull } from '@/lib/types';
 import { toast } from 'sonner';
 import Link from 'next/link';
+import { useTeam, useAddTeamMember, useRemoveTeamMember } from '@/hooks/use-teams';
+import { AddMemberModal } from './add-member-modal';
+import { Loader2 } from 'lucide-react';
 
 interface TeamMembersManagerProps {
     teamId: string;
@@ -40,17 +43,54 @@ const initialMockMembers: TeamMemberFull[] = [
 ];
 
 export function TeamMembersManager({ teamId, teamName, initialMembers }: TeamMembersManagerProps) {
-    const [members, setMembers] = useState<TeamMemberFull[]>(initialMembers || initialMockMembers);
+    const { data: teamData, isLoading } = useTeam(teamId);
+    const addMemberMutation = useAddTeamMember();
+    const removeMemberMutation = useRemoveTeamMember();
+    
     const [searchQuery, setSearchQuery] = useState('');
+    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
+    // Filtered members from live data
+    const membersList = teamData?.members?.map((m: any) => ({
+        id: m.userId,
+        employeeId: m.user?.employeeCode || m.user?.id?.slice(0, 8).toUpperCase() || 'EMP-N/A',
+        name: m.user?.fullName || 'Unknown',
+        role: m.roleInTeam || 'Member',
+        email: m.user?.email || '',
+        dateOfBirth: 'N/A',
+        yearsOfExperience: 0,
+        skills: [],
+        currentProject: teamData.project?.name || 'Assigned',
+        teamJoinDate: new Date(m.joinedAt).toLocaleDateString(),
+        status: 'Active'
+    })) || [];
 
-    const handleRemoveMember = (memberId: string) => {
-        const member = members.find(m => m.id === memberId);
-        setMembers(members.filter(m => m.id !== memberId));
-        if (member) toast.success(`Removed ${member.name} from roster`);
+    const handleRemoveMember = async (memberId: string) => {
+        try {
+            await removeMemberMutation.mutateAsync({ teamId, employeeIds: [memberId] });
+            toast.success('Member removed from team');
+        } catch (error) {
+            toast.error('Failed to remove member');
+        }
     };
 
-    const filteredMembers = members.filter(m =>
+    const handleAddMember = async (employee: any, role: string) => {
+        try {
+            await addMemberMutation.mutateAsync({
+                teamId,
+                userId: employee.user?.id || employee.id,
+                roleInTeam: role
+            });
+            toast.success(`${employee.user?.fullName || employee.fullName} added to team`);
+            setIsAddModalOpen(false);
+        } catch (error) {
+            toast.error('Failed to add member');
+        }
+    };
+
+    const sortedMembers = [...membersList].sort((a, b) => a.name.localeCompare(b.name));
+
+    const filteredMembers = sortedMembers.filter(m =>
         m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         m.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
         m.employeeId.toLowerCase().includes(searchQuery.toLowerCase())
@@ -84,6 +124,7 @@ export function TeamMembersManager({ teamId, teamName, initialMembers }: TeamMem
                     </div>
                   
                         <Button
+                            onClick={() => setIsAddModalOpen(true)}
                             className="rounded-xl shadow-lg transition-all h-10 px-6 gap-2 bg-primary shadow-primary/20 hover:shadow-primary/40"
                         >
                             <UserPlus className="h-4 w-4" />
@@ -99,106 +140,107 @@ export function TeamMembersManager({ teamId, teamName, initialMembers }: TeamMem
             <Card className="border-border/50 shadow-2xl bg-card/60 backdrop-blur-xl overflow-hidden group/container">
                 <CardContent className="p-0">
                     <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead>
-                                <tr className="border-b border-border/10 bg-muted/20">
-                                    <th className="text-left py-5 px-6 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground">Employee Reference</th>
-                                    <th className="text-left py-5 px-4 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground">Identity & Mission</th>
-                                    <th className="text-left py-5 px-4 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground">Capability Matrix</th>
-                                    <th className="text-left py-5 px-4 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground">Allocation</th>
-                                    <th className="text-left py-5 px-4 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground text-center">Lifecycle</th>
-                                    <th className="text-center py-5 px-6 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground">Control</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {filteredMembers.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={6} className="py-20 text-center">
-                                            <p className="text-muted-foreground font-medium">No matching talent found in roster</p>
-                                        </td>
+                        {isLoading ? (
+                            <div className="py-20 flex flex-col items-center gap-4">
+                                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                                <p className="text-sm font-medium text-muted-foreground animate-pulse">Synchronizing team roster...</p>
+                            </div>
+                        ) : (
+                            <table className="w-full">
+                                <thead>
+                                    <tr className="border-b border-border/10 bg-muted/20">
+                                        <th className="text-left py-5 px-6 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground">Employee Reference</th>
+                                        <th className="text-left py-5 px-4 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground">Identity & Mission</th>
+                                        <th className="text-left py-5 px-4 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground">Capability Matrix</th>
+                                        <th className="text-left py-5 px-4 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground">Allocation</th>
+                                        <th className="text-left py-5 px-4 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground text-center">Lifecycle</th>
+                                        <th className="text-center py-5 px-6 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground">Control</th>
                                     </tr>
-                                ) : (
-                                    filteredMembers.map((m) => (
-                                        <tr key={m.id} className="border-b border-border/5 hover:bg-primary/5 transition-all duration-300 group/row">
-                                            <td className="py-5 px-6">
-                                                <div className="flex flex-col">
-                                                    <span className="font-mono text-xs font-black text-primary mb-1 underline underline-offset-4 decoration-primary/20">{m.employeeId}</span>
-                                                    <span className="text-[10px] font-bold text-muted-foreground leading-none">JOINED {m.teamJoinDate}</span>
-                                                </div>
+                                </thead>
+                                <tbody>
+                                    {filteredMembers.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={6} className="py-20 text-center">
+                                                <p className="text-muted-foreground font-medium">No matching talent found in roster</p>
                                             </td>
-                                            <td className="py-5 px-4">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center font-bold text-primary group-hover/row:scale-110 transition-transform">
-                                                        {m.name.charAt(0)}
-                                                    </div>
+                                        </tr>
+                                    ) : (
+                                        filteredMembers.map((m) => (
+                                            <tr key={m.id} className="border-b border-border/5 hover:bg-primary/5 transition-all duration-300 group/row">
+                                                <td className="py-5 px-6">
                                                     <div className="flex flex-col">
-                                                        <span className="font-bold text-sm tracking-tight">{m.name}</span>
-                                                        <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1">
-                                                            <Briefcase className="h-3 w-3 opacity-50" />
-                                                            {m.role}
+                                                        <span className="font-mono text-xs font-black text-primary mb-1 underline underline-offset-4 decoration-primary/20">{m.employeeId}</span>
+                                                        <span className="text-[10px] font-bold text-muted-foreground leading-none">JOINED {m.teamJoinDate}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="py-5 px-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center font-bold text-primary group-hover/row:scale-110 transition-transform">
+                                                            {m.name.charAt(0)}
+                                                        </div>
+                                                        <div className="flex flex-col">
+                                                            <span className="font-bold text-sm tracking-tight">{m.name}</span>
+                                                            <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1">
+                                                                <Briefcase className="h-3 w-3 opacity-50" />
+                                                                {m.role}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="py-5 px-4">
+                                                    <div className="flex flex-col gap-2">
+                                                        <span className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1">
+                                                            <Award className="h-3 w-3" />
+                                                            {m.yearsOfExperience || 0} Yrs Exp
                                                         </span>
+                                                        <div className="flex flex-wrap gap-1 max-w-[180px]">
+                                                            {(m.skills || []).slice(0, 3).map(s => (
+                                                                <Badge key={s} variant="secondary" className="text-[9px] px-2 py-0 rounded-md font-bold bg-primary/10 border-0 text-primary">{s}</Badge>
+                                                            ))}
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            </td>
-                                            <td className="py-5 px-4">
-                                                <div className="flex flex-col gap-2">
-                                                    <span className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1">
-                                                        <Award className="h-3 w-3" />
-                                                        {m.yearsOfExperience} Yrs Exp
-                                                    </span>
-                                                    <div className="flex flex-wrap gap-1 max-w-[180px]">
-                                                        {m.skills.slice(0, 3).map(s => (
-                                                            <Badge key={s} variant="secondary" className="text-[9px] px-2 py-0 rounded-md font-bold bg-primary/10 border-0 text-primary">{s}</Badge>
-                                                        ))}
-                                                        {m.skills.length > 3 && (
-                                                            <Badge variant="outline" className="text-[9px] px-1.5 py-0 rounded-md font-bold border-border/50">+{m.skills.length - 3}</Badge>
-                                                        )}
+                                                </td>
+                                                <td className="py-5 px-4">
+                                                    <div className="flex flex-col">
+                                                        <span className="text-xs font-bold group-hover/row:text-primary transition-colors">{m.currentProject || 'Bench'}</span>
+                                                        <div className="flex items-center gap-1.5 mt-1.5">
+                                                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" />
+                                                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Product Track</span>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            </td>
-                                            <td className="py-5 px-4">
-                                                <div className="flex flex-col">
-                                                    <span className="text-xs font-bold group-hover/row:text-primary transition-colors">{m.currentProject || 'Bench'}</span>
-                                                    <div className="flex items-center gap-1.5 mt-1.5">
-                                                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" />
-                                                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Product Track</span>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="py-5 px-4 text-center">
-                                                <Badge className="rounded-xl px-2.5 py-0.5 text-[10px] font-black uppercase tracking-widest bg-emerald-500/10 text-emerald-500 border-0">
-                                                    {m.status}
-                                                </Badge>
-                                            </td>
-                                            <td className="py-5 px-6 text-center">
-                                                <div className="flex items-center justify-center gap-1 opacity-0 group-hover/row:opacity-100 transition-all">
-                                                    <Link href={`/teams/${teamId}/members/onboard?edit=${m.employeeId}`}>
+                                                </td>
+                                                <td className="py-5 px-4 text-center">
+                                                    <Badge className="rounded-xl px-2.5 py-0.5 text-[10px] font-black uppercase tracking-widest bg-emerald-500/10 text-emerald-500 border-0">
+                                                        {m.status}
+                                                    </Badge>
+                                                </td>
+                                                <td className="py-5 px-6 text-center">
+                                                    <div className="flex items-center justify-center gap-1 opacity-0 group-hover/row:opacity-100 transition-all">
                                                         <Button
                                                             variant="ghost"
                                                             size="icon"
-                                                            className="text-muted-foreground hover:text-primary hover:bg-primary/10 h-9 w-9 p-0 rounded-xl transition-all transform group-hover/row:scale-110"
+                                                            onClick={() => handleRemoveMember(m.id)}
+                                                            className="text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 h-9 w-9 p-0 rounded-xl transition-all transform group-hover/row:scale-110"
                                                         >
-                                                            <Pencil className="h-4 w-4" />
+                                                            <Trash2 className="h-4 w-4" />
                                                         </Button>
-                                                    </Link>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        onClick={() => handleRemoveMember(m.id)}
-                                                        className="text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 h-9 w-9 p-0 rounded-xl transition-all transform group-hover/row:scale-110"
-                                                    >
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </Button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        )}
                     </div>
                 </CardContent>
             </Card>
+
+            <AddMemberModal 
+                isOpen={isAddModalOpen} 
+                onClose={() => setIsAddModalOpen(false)} 
+                onAdd={handleAddMember}
+            />
 
             <div className="flex items-center justify-center pt-4">
                 <Button variant="outline" className="rounded-xl border-border/50 text-xs font-bold gap-2 text-muted-foreground hover:text-primary transition-all">

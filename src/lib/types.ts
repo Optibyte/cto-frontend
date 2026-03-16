@@ -168,6 +168,7 @@ export interface MetricDefinition {
     market: string;
     project: string;
     team: string;
+    member?: string;
     createdAt: Date;
 }
 

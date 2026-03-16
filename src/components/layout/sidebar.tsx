@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useRole } from '@/contexts/role-context';
-import { ROUTE_FEATURE_MAP, ROLE_PERMISSIONS } from '@/lib/permissions';
+import { ROUTE_FEATURE_MAP, ROLE_PERMISSIONS, canAccess } from '@/lib/permissions';
 import {
     LayoutDashboard,
     Users,
@@ -82,6 +82,11 @@ const navigationItems: NavItem[] = [
         href: '/admin',
     },
     {
+        title: 'Role Features',
+        icon: ShieldCheck,
+        href: '/role-features',
+    },
+    {
         title: 'GitHub Metrics',
         icon: Activity,
         href: '/github-metrics',
@@ -106,7 +111,7 @@ export function Sidebar() {
     const permittedItems = navigationItems.filter((item) => {
         const feature = ROUTE_FEATURE_MAP[item.href];
         if (!feature) return true;
-        return ROLE_PERMISSIONS[role]?.includes(feature);
+        return canAccess(role, feature);
     });
 
     return (

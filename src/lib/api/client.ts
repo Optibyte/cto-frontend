@@ -194,7 +194,11 @@ export const metricsAPI = {
                 method: 'DELETE',
                 headers: getHeaders()
             });
-            if (!response.ok) throw new Error('Failed to delete metric');
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error(`Delete failed with status ${response.status}: ${errorText}`);
+                throw new Error(`Failed to delete metric: ${response.status}`);
+            }
             return { data: { success: true } };
         } catch (error) {
             console.error('Metrics API Error (delete):', error);

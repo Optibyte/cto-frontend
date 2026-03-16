@@ -118,7 +118,7 @@ export const SLA_STATUSES = [
     { value: 'missed', label: 'Missed', color: 'text-red-500' },
 ] as const;
 
-export const API_BASE_URL = 'https://cto-backend-3bs8.onrender.com';
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 if (!process.env.NEXT_PUBLIC_API_URL) {
     console.warn('Warning: NEXT_PUBLIC_API_URL is not defined. Falling back to http://localhost:4000');
 }
