@@ -606,6 +606,10 @@ function EntityDialog({ open, onOpenChange, tab, editItem, onSave, markets, acco
                                 <Input type="password" className="rounded-xl font-mono" value={form.githubToken || ''} onChange={e => set('githubToken', e.target.value)} placeholder="ghp_..." />
                             </div>
                         </div>
+                        <div className="space-y-2 mt-4">
+                            <Label>License</Label>
+                            <Input className="rounded-xl" value={form.license || ''} onChange={e => set('license', e.target.value)} placeholder="e.g. MIT, Apache 2.0" />
+                        </div>
                     </>)}
 
                     {tab === 'teams' && (<>
@@ -776,7 +780,7 @@ function getDefaultForm(tab: TabKey): Record<string, any> {
     switch (tab) {
         case 'markets': return { name: '', regionCode: '' };
         case 'accounts': return { name: '', marketId: '', accountManagerId: '' };
-        case 'projects': return { name: '', startDate: '', enddate: '', status: 'PLANNED', teamSize: 0, userIds: [], jiraProjectKey: '', jiraBoardId: '', githubRepoId: '', githubToken: '' };
+        case 'projects': return { name: '', startDate: '', enddate: '', status: 'PLANNED', teamSize: 0, progress: 0, jiraProjectKey: '', jiraBoardId: '', githubRepoId: '', githubToken: '', license: '' };
         case 'teams': return { name: '', description: '', teamLeadId: '', accountId: '', projectId: '' };
         case 'members': return { teamId: '', userIds: [], roleInTeam: 'Member' };
         case 'users': return { fullName: '', email: '', role: 'TEAM', jobRole: '', auth0Id: '', jiraAccountId: '', githubEmail: '' };
