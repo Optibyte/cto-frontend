@@ -236,4 +236,8 @@ export interface ProjectFull {
     teamSize: number;
     progress: number;
     status: 'Active' | 'Completed' | 'Delayed' | 'On-Hold' | 'PLANNED';
+    license?: string;
+    isDigitalTransformation?: boolean;
+    digitalTransformationStartDate?: string;
+    digitalTransformationEndDate?: string;
 }

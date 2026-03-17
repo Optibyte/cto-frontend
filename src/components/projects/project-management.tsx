@@ -49,7 +49,11 @@ export function ProjectManagement() {
         enddate: '',
         status: 'Active' as ProjectFull['status'],
         teamSize: 0,
-        progress: 0
+        progress: 0,
+        license: '',
+        isDigitalTransformation: false,
+        digitalTransformationStartDate: '',
+        digitalTransformationEndDate: ''
     });
 
     const fetchProjects = useCallback(async () => {
@@ -77,7 +81,11 @@ export function ProjectManagement() {
             enddate: '',
             status: 'Active',
             teamSize: 0,
-            progress: 0
+            progress: 0,
+            license: '',
+            isDigitalTransformation: false,
+            digitalTransformationStartDate: '',
+            digitalTransformationEndDate: ''
         });
         setIsDialogOpen(true);
     };
@@ -90,7 +98,11 @@ export function ProjectManagement() {
             enddate: project.enddate,
             status: project.status,
             teamSize: project.teamSize,
-            progress: project.progress
+            progress: project.progress,
+            license: project.license || '',
+            isDigitalTransformation: !!project.isDigitalTransformation,
+            digitalTransformationStartDate: project.digitalTransformationStartDate || '',
+            digitalTransformationEndDate: project.digitalTransformationEndDate || ''
         });
         setIsDialogOpen(true);
     };
@@ -320,7 +332,7 @@ export function ProjectManagement() {
                                 <Input
                                     id="startDate"
                                     type="date"
-                                    value={formData.startDate}
+                                    value={formData.startDate ? formData.startDate.split('T')[0] : ''}
                                     onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
                                     className="rounded-xl"
                                 />
@@ -330,12 +342,51 @@ export function ProjectManagement() {
                                 <Input
                                     id="enddate"
                                     type="date"
-                                    value={formData.enddate}
+                                    value={formData.enddate ? formData.enddate.split('T')[0] : ''}
                                     onChange={(e) => setFormData({ ...formData, enddate: e.target.value })}
                                     className="rounded-xl"
                                 />
                             </div>
                         </div>
+
+                        <div className="flex items-center space-x-2 py-2">
+                            <input
+                                type="checkbox"
+                                id="digital-transformation-pm"
+                                className="h-4 w-4 rounded border-primary"
+                                checked={!!formData.isDigitalTransformation}
+                                onChange={(e) => setFormData({ ...formData, isDigitalTransformation: e.target.checked })}
+                            />
+                            <Label htmlFor="digital-transformation-pm" className="cursor-pointer font-medium">Digital Transformation Project</Label>
+                        </div>
+
+                        {!!formData.isDigitalTransformation && (
+                            <div className="space-y-4 p-4 rounded-2xl bg-primary/5 border border-primary/10 animate-in fade-in slide-in-from-top-2 duration-300">
+                                <p className="text-xs font-bold uppercase tracking-wider text-primary">Digital Transformation Timeline</p>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="dtStartDate">DT Start Date</Label>
+                                        <Input
+                                            id="dtStartDate"
+                                            type="date"
+                                            value={formData.digitalTransformationStartDate ? formData.digitalTransformationStartDate.split('T')[0] : ''}
+                                            onChange={(e) => setFormData({ ...formData, digitalTransformationStartDate: e.target.value })}
+                                            className="rounded-xl bg-background"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="dtEnddate">DT End Date</Label>
+                                        <Input
+                                            id="dtEnddate"
+                                            type="date"
+                                            value={formData.digitalTransformationEndDate ? formData.digitalTransformationEndDate.split('T')[0] : ''}
+                                            onChange={(e) => setFormData({ ...formData, digitalTransformationEndDate: e.target.value })}
+                                            className="rounded-xl bg-background"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label htmlFor="teamSize">Team Size</Label>
@@ -347,8 +398,8 @@ export function ProjectManagement() {
                                     className="rounded-xl"
                                 />
                             </div>
-
                         </div>
+
                         <div className="space-y-2">
                             <Label>Status</Label>
                             <Select value={formData.status} onValueChange={(val: ProjectFull['status']) => setFormData({ ...formData, status: val })}>
@@ -363,6 +414,16 @@ export function ProjectManagement() {
                                     <SelectItem value="On-Hold">On Hold</SelectItem>
                                 </SelectContent>
                             </Select>
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="license">License</Label>
+                            <Input
+                                id="license"
+                                value={formData.license}
+                                onChange={(e) => setFormData({ ...formData, license: e.target.value })}
+                                placeholder="e.g. MIT, Apache 2.0"
+                                className="rounded-xl"
+                            />
                         </div>
                         <DialogFooter className="pt-4">
                             <Button variant="outline" type="button" onClick={handleCloseDialog} className="rounded-xl" disabled={isActionLoading}>Cancel</Button>

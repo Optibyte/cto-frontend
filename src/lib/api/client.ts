@@ -315,6 +315,10 @@ const formatProjectPayload = (data: any) => {
     if (data.enddate && data.enddate.trim() !== '') payload.enddate = data.enddate;
     if (data.teamSize !== undefined) payload.teamSize = Number(data.teamSize);
     if (data.progress !== undefined) payload.progress = Number(data.progress);
+    if (data.license !== undefined) payload.license = data.license;
+    if (data.isDigitalTransformation !== undefined) payload.isDigitalTransformation = !!data.isDigitalTransformation;
+    if (data.digitalTransformationStartDate !== undefined) payload.digitalTransformationStartDate = data.digitalTransformationStartDate;
+    if (data.digitalTransformationEndDate !== undefined) payload.digitalTransformationEndDate = data.digitalTransformationEndDate;
 
     // Status mapping: Backend uses ALL CAPS PLANNED, ACTIVE, ON_HOLD, COMPLETED
     if (data.status) {

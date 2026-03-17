@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { createContext, useContext, useState, ReactNode, useEffect, useMemo } from 'react';
 import { UserRole } from '@/lib/types';
 
 interface RoleContextType {
@@ -97,4 +97,72 @@ export function useRole() {
         throw new Error('useRole must be used within a RoleProvider');
     }
     return context;
+}
+
+/**
+ * Data Fencing Hook — Derives which projects and teams the current user
+ * is allowed to see, based on their role and user record.
+ *
+ * Rules:
+ *  - CTO / ORG / MARKET / ACCOUNT  → no fence, see everything
+ *  - PROJECT_MANAGER                → only projects where user.projectId matches OR
+ *                                     user is linked to that project
+ *  - TEAM_LEAD / TEAM / MEMBER      → only the team(s) the user belongs to,
+ *                                     and the projects those teams are under
+ */
+export function useDataFence() {
+    const { role, user } = useRole();
+
+    return useMemo(() => {
+        const isAdmin = ['CTO', 'ORG', 'MARKET', 'ACCOUNT'].includes(role);
+
+        if (isAdmin) {
+            return {
+                isRestricted: false,
+                allowedProjectIds: null,   // null = all
+                allowedTeamIds: null,      // null = all
+                allowedUserId: null,
+            };
+        }
+
+        // Derive allowed IDs from user object
+        const userId = user?.id || user?.user?.id || null;
+
+        // Projects directly linked to this user
+        const linkedProjectId: string | null = user?.projectId || user?.user?.projectId || null;
+
+        // Teams directly linked to this user
+        const linkedTeamId: string | null = user?.teamId || user?.user?.teamId || null;
+        const teams: any[] = user?.teams || user?.user?.teams || [];
+        const linkedTeamIds: string[] = teams.map((t: any) => t.id || t.teamId).filter(Boolean);
+        if (linkedTeamId && !linkedTeamIds.includes(linkedTeamId)) linkedTeamIds.push(linkedTeamId);
+
+        if (role === 'PROJECT_MANAGER') {
+            const projectIds = linkedProjectId ? [linkedProjectId] : [];
+            return {
+                isRestricted: true,
+                allowedProjectIds: projectIds.length > 0 ? projectIds : null,
+                allowedTeamIds: null,   // PM can see all teams within their project
+                allowedUserId: userId,
+                fenceLabel: '🔒 Showing only your assigned project data',
+            };
+        }
+
+        if (role === 'TEAM_LEAD' || role === 'TEAM' || role === 'MEMBER') {
+            return {
+                isRestricted: true,
+                allowedProjectIds: linkedProjectId ? [linkedProjectId] : null,
+                allowedTeamIds: linkedTeamIds.length > 0 ? linkedTeamIds : null,
+                allowedUserId: userId,
+                fenceLabel: '🔒 Showing only your team data',
+            };
+        }
+
+        return {
+            isRestricted: false,
+            allowedProjectIds: null,
+            allowedTeamIds: null,
+            allowedUserId: null,
+        };
+    }, [role, user]);
 }

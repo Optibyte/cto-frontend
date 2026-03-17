@@ -48,6 +48,8 @@ import { useMetrics } from '@/hooks/use-metrics';
 import { useMetricDefinitions } from '@/hooks/use-metric-definitions';
 import { useOrgHierarchy } from '@/hooks/use-hierarchy';
 import { useEmployees } from '@/hooks/use-employees';
+import { useDataFence } from '@/contexts/role-context';
+import { Lock } from 'lucide-react';
 
 export function ManualMetricsDashboard() {
     const [selectedProjectId, setSelectedProjectId] = useState<string>('all');
@@ -58,11 +60,14 @@ export function ManualMetricsDashboard() {
     const { data: hierarchy } = useOrgHierarchy();
     const { data: employeesData = [], isLoading: employeesLoading } = useEmployees();
 
+    // Data Fence
+    const fence = useDataFence();
+
     const employees = useMemo(() => {
         return Array.isArray(employeesData) ? employeesData : (employeesData as any)?.data || [];
     }, [employeesData]);
 
-    // Derived Data: Projects & Teams
+    // Derived Data: Projects & Teams — fenced
     const projects = useMemo(() => {
         if (!hierarchy) return [];
         const projs: any[] = [];
@@ -70,13 +75,14 @@ export function ManualMetricsDashboard() {
             m.accounts?.forEach((a: any) => {
                 a.teams?.forEach((t: any) => {
                     if (t.project && !projs.find(p => p.id === t.project.id)) {
-                        projs.push(t.project);
+                        const withinFence = !fence.allowedProjectIds || fence.allowedProjectIds.includes(t.project.id);
+                        if (withinFence) projs.push(t.project);
                     }
                 });
             });
         });
         return projs;
-    }, [hierarchy]);
+    }, [hierarchy, fence.allowedProjectIds]);
 
     const teams = useMemo(() => {
         if (!hierarchy) return [];
@@ -86,12 +92,20 @@ export function ManualMetricsDashboard() {
                 allTeams = [...allTeams, ...(a.teams || [])];
             });
         });
-        
+
+        // Apply project filter
         if (selectedProjectId !== 'all') {
-            return allTeams.filter(t => t.projectId === selectedProjectId);
+            allTeams = allTeams.filter(t => t.projectId === selectedProjectId);
+        }
+        // Apply fence
+        if (fence.allowedTeamIds) {
+            allTeams = allTeams.filter(t => fence.allowedTeamIds!.includes(t.id));
+        }
+        if (fence.allowedProjectIds) {
+            allTeams = allTeams.filter(t => fence.allowedProjectIds!.includes(t.projectId));
         }
         return allTeams;
-    }, [hierarchy, selectedProjectId]);
+    }, [hierarchy, selectedProjectId, fence.allowedTeamIds, fence.allowedProjectIds]);
 
     const scopeMembers = useMemo(() => {
         const memberMap = new Map();
@@ -339,6 +353,13 @@ export function ManualMetricsDashboard() {
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            {/* Data Fence Banner */}
+            {fence.isRestricted && (
+                <div className="flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400">
+                    <Lock className="h-4 w-4 shrink-0" />
+                    <span className="text-xs font-bold">{(fence as any).fenceLabel || '🔒 Data restricted to your scope'}</span>
+                </div>
+            )}
             {/* Alerts Section (New) */}
             {performanceAlerts.length > 0 && (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

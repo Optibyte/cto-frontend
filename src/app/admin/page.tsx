@@ -532,6 +532,27 @@ function EntityDialog({ open, onOpenChange, tab, editItem, onSave, markets, acco
                             <div className="space-y-2"><Label>Start Date</Label><Input type="date" className="rounded-xl" value={form.startDate ? form.startDate.split('T')[0] : ''} onChange={e => set('startDate', e.target.value)} /></div>
                             <div className="space-y-2"><Label>End Date</Label><Input type="date" className="rounded-xl" value={form.enddate ? form.enddate.split('T')[0] : ''} onChange={e => set('enddate', e.target.value)} /></div>
                         </div>
+
+                        <div className="flex items-center space-x-2 py-2">
+                            <input
+                                type="checkbox"
+                                id="digital-transformation"
+                                className="h-4 w-4 rounded border-primary"
+                                checked={!!form.isDigitalTransformation}
+                                onChange={(e) => set('isDigitalTransformation', e.target.checked)}
+                            />
+                            <Label htmlFor="digital-transformation" className="cursor-pointer font-medium">Digital Transformation Project</Label>
+                        </div>
+
+                        {!!form.isDigitalTransformation && (
+                            <div className="space-y-4 p-4 rounded-2xl bg-primary/5 border border-primary/10 animate-in fade-in slide-in-from-top-2 duration-300">
+                                <p className="text-xs font-bold uppercase tracking-wider text-primary">Digital Transformation Timeline</p>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2"><Label>DT Start Date</Label><Input type="date" className="rounded-xl bg-background" value={form.digitalTransformationStartDate ? form.digitalTransformationStartDate.split('T')[0] : ''} onChange={e => set('digitalTransformationStartDate', e.target.value)} /></div>
+                                    <div className="space-y-2"><Label>DT End Date</Label><Input type="date" className="rounded-xl bg-background" value={form.digitalTransformationEndDate ? form.digitalTransformationEndDate.split('T')[0] : ''} onChange={e => set('digitalTransformationEndDate', e.target.value)} /></div>
+                                </div>
+                            </div>
+                        )}
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label>Status</Label>
@@ -780,7 +801,7 @@ function getDefaultForm(tab: TabKey): Record<string, any> {
     switch (tab) {
         case 'markets': return { name: '', regionCode: '' };
         case 'accounts': return { name: '', marketId: '', accountManagerId: '' };
-        case 'projects': return { name: '', startDate: '', enddate: '', status: 'PLANNED', teamSize: 0, progress: 0, jiraProjectKey: '', jiraBoardId: '', githubRepoId: '', githubToken: '', license: '' };
+        case 'projects': return { name: '', startDate: '', enddate: '', status: 'PLANNED', teamSize: 0, progress: 0, jiraProjectKey: '', jiraBoardId: '', githubRepoId: '', githubToken: '', license: '', isDigitalTransformation: false, digitalTransformationStartDate: '', digitalTransformationEndDate: '' };
         case 'teams': return { name: '', description: '', teamLeadId: '', accountId: '', projectId: '' };
         case 'members': return { teamId: '', userIds: [], roleInTeam: 'Member' };
         case 'users': return { fullName: '', email: '', role: 'TEAM', jobRole: '', auth0Id: '', jiraAccountId: '', githubEmail: '' };
@@ -800,6 +821,10 @@ function buildPayload(tab: TabKey, form: Record<string, any>, isEdit: boolean): 
             if (form.jiraBoardId) p.jiraBoardId = form.jiraBoardId.trim();
             if (form.githubRepoId) p.githubRepoId = form.githubRepoId.trim();
             if (form.githubToken) p.githubToken = form.githubToken.trim();
+            if (form.license) p.license = form.license.trim();
+            p.isDigitalTransformation = !!form.isDigitalTransformation;
+            if (form.digitalTransformationStartDate) p.digitalTransformationStartDate = form.digitalTransformationStartDate;
+            if (form.digitalTransformationEndDate) p.digitalTransformationEndDate = form.digitalTransformationEndDate;
             return p;
         }
         case 'teams': {

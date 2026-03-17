@@ -42,6 +42,7 @@ import { useProjects } from '@/hooks/use-projects';
 import { useEffect as useReactEffect, useMemo } from 'react';
 import { useBulkCreateMetrics, useTeamMetrics, useDeleteMetric } from '@/hooks/use-metrics';
 import { useMetricDefinitions, useDeleteMetricDefinition, useCreateMetricDefinition } from '@/hooks/use-metric-definitions';
+import { useDataFence } from '@/contexts/role-context';
 
 const CREATOR_ID = '33333333-3333-4333-8333-333333330001'; // Alice Johnson (Admin)
 
@@ -90,6 +91,9 @@ export function ManualMetricsTab() {
     const { data: teamMetrics = [], isLoading: metricsLoading } = useTeamMetrics(selectedTeamId);
     const { data: dbMetricDefs = [] } = useMetricDefinitions();
 
+    // Data Fence
+    const fence = useDataFence();
+
     // Mutations
     const { mutateAsync: deleteMetricDef } = useDeleteMetricDefinition();
     const { mutateAsync: createMetricDef } = useCreateMetricDefinition();
@@ -110,24 +114,30 @@ export function ManualMetricsTab() {
     const canEdit = ['ORG', 'MARKET', 'ACCOUNT', 'PROJECT'].includes(CURRENT_USER_ROLE);
 
     // Filtering logic
-    // Live projects list
-    const liveProjects = useMemo(() => fetchedProjects, [fetchedProjects]);
+    // Live projects list — fenced for PM/TL/Team roles
+    const liveProjects = useMemo(() => {
+        if (!fence.allowedProjectIds) return fetchedProjects;
+        return fetchedProjects.filter((p: any) => fence.allowedProjectIds!.includes(p.id));
+    }, [fetchedProjects, fence.allowedProjectIds]);
 
-    // Available teams based on selected project
+    // Available teams based on selected project — fenced for TL/Team roles
     const availableTeams = useMemo(() => {
         if (!hierarchy) return [];
         const teams: any[] = [];
         hierarchy.markets?.forEach((m: any) => {
             m.accounts?.forEach((a: any) => {
                 a.teams?.forEach((t: any) => {
-                    if (selectedProjectId === 'all' || t.projectId === selectedProjectId) {
+                    const matchesProject = selectedProjectId === 'all' || t.projectId === selectedProjectId;
+                    const withinFence = !fence.allowedTeamIds || fence.allowedTeamIds.includes(t.id);
+                    const withinProjectFence = !fence.allowedProjectIds || fence.allowedProjectIds.includes(t.projectId);
+                    if (matchesProject && withinFence && withinProjectFence) {
                         teams.push(t);
                     }
                 });
             });
         });
         return teams;
-    }, [hierarchy, selectedProjectId]);
+    }, [hierarchy, selectedProjectId, fence.allowedTeamIds, fence.allowedProjectIds]);
 
     // DERIVED MEMBERS STATE
     const members = useMemo(() => {
@@ -381,6 +391,13 @@ export function ManualMetricsTab() {
 
     return (
         <div className="space-y-6">
+            {/* Data Fence Banner */}
+            {fence.isRestricted && (
+                <div className="flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400">
+                    <Lock className="h-4 w-4 shrink-0" />
+                    <span className="text-xs font-bold">{(fence as any).fenceLabel || '🔒 Data restricted to your scope'}</span>
+                </div>
+            )}
             {/* Selectors Bar */}
             <div className="flex flex-wrap items-center gap-4">
                 {/* Project Selector */}

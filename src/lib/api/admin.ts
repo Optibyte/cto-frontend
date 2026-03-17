@@ -56,7 +56,7 @@ const PROJECTS_URL = `${API_BASE_URL}/api/v1/projects`;
 export const adminProjectsAPI = {
     getAll: () => apiFetch(PROJECTS_URL),
     getOne: (id: string) => apiFetch(`${PROJECTS_URL}/${id}`),
-    create: (data: { name: string; startDate?: string; enddate?: string; status?: string }) =>
+    create: (data: any) =>
         apiFetch(PROJECTS_URL, { method: 'POST', body: JSON.stringify(data) }),
     update: (id: string, data: any) =>
         apiFetch(`${PROJECTS_URL}/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
