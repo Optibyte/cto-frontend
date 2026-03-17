@@ -169,6 +169,8 @@ export interface MetricDefinition {
     project: string;
     team: string;
     member?: string;
+    formula?: string;
+    uom?: string;
     createdAt: Date;
 }
 

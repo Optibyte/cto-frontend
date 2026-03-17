@@ -9,14 +9,14 @@ import { Badge } from '@/components/ui/badge';
 import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from '@/components/ui/select';
-import { 
-    Plus, 
-    Loader2, 
-    Check, 
-    Target, 
-    Layers, 
-    Workflow, 
-    Info, 
+import {
+    Plus,
+    Loader2,
+    Check,
+    Target,
+    Layers,
+    Workflow,
+    Info,
     Search,
     ChevronRight,
     Settings2,
@@ -28,20 +28,108 @@ import {
     X
 } from 'lucide-react';
 import { useOrgHierarchy } from '@/hooks/use-hierarchy';
+import { useProjects } from '@/hooks/use-projects';
 import { useMetricDefinitions, useCreateMetricDefinition } from '@/hooks/use-metric-definitions';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { Project } from '@/lib/api/projects';
 
-const BLUEPRINT_METRICS = [
-    { id: 'bp-1', name: 'Standard Velocity', metricType: 'velocity', metricClass: 'A', threshold: 80, updateFrequency: 'weekly', description: 'Tracks iteration point completion rate' },
-    { id: 'bp-2', name: 'Code Quality Index', metricType: 'quality', metricClass: 'A', threshold: 90, updateFrequency: 'weekly', description: 'Aggregated metric from SonarQube & Peer Reviews' },
-    { id: 'bp-3', name: 'Cycle Time Threshold', metricType: 'cycle_time', metricClass: 'B', threshold: 5, updateFrequency: 'weekly', description: 'Avg. time from work start to production' },
-    { id: 'bp-4', name: 'Bug Density Control', metricType: 'bug_rate', metricClass: 'B', threshold: 2, updateFrequency: 'daily', description: 'Number of defects per KLOC' },
-    { id: 'bp-5', name: 'Deployment Frequency', metricType: 'deployment_frequency', metricClass: 'C', threshold: 1, updateFrequency: 'weekly', description: 'Successful production releases' },
+const DEFAULT_BLUEPRINTS = [
+    { 
+        id: 'bp-1', 
+        name: 'Productivity', 
+        metricType: 'productivity', 
+        metricClass: 'A', 
+        threshold: 85, 
+        updateFrequency: 'Sprint/Release', 
+        description: 'Stories Accepted / Team Capacity Hours',
+        isDefault: true 
+    },
+    { 
+        id: 'bp-2', 
+        name: 'Done to Said Ratio', 
+        metricType: 'project_management', 
+        metricClass: 'B', 
+        threshold: 90, 
+        updateFrequency: 'Sprint', 
+        description: 'Stories Delivered / Stories Planned',
+        isDefault: true 
+    },
+    { 
+        id: 'bp-3', 
+        name: 'Sprint Velocity', 
+        metricType: 'productivity', 
+        metricClass: 'A', 
+        threshold: 80, 
+        updateFrequency: 'Sprint', 
+        description: 'Total Story Points Delivered',
+        isDefault: true 
+    },
+    { 
+        id: 'bp-4', 
+        name: 'Defect Density', 
+        metricType: 'quality', 
+        metricClass: 'B', 
+        threshold: 2, 
+        updateFrequency: 'Sprint/Release', 
+        description: '(Review Comments + QA Defects) / Stories Delivered',
+        isDefault: true 
+    },
+    { 
+        id: 'bp-5', 
+        name: 'Defect Leakage', 
+        metricType: 'quality', 
+        metricClass: 'B', 
+        threshold: 5, 
+        updateFrequency: 'Sprint/Release', 
+        description: 'Client Defects / (QA Defects + Client Defects) * 100',
+        isDefault: true 
+    },
+    { 
+        id: 'bp-6', 
+        name: 'Resource Utilization', 
+        metricType: 'project_management', 
+        metricClass: 'C', 
+        threshold: 95, 
+        updateFrequency: 'Sprint/Release', 
+        description: 'Effort Spent Hours / Team Capacity Hours * 100',
+        isDefault: true 
+    },
+    { 
+        id: 'bp-7', 
+        name: 'Deployment Failure Rate', 
+        metricType: 'build_release', 
+        metricClass: 'A', 
+        threshold: 1, 
+        updateFrequency: 'Release', 
+        description: 'Deployments Failed / Total Deployments * 100',
+        isDefault: true 
+    },
+    { 
+        id: 'bp-8', 
+        name: 'Requirement Stability Index', 
+        metricType: 'project_management', 
+        metricClass: 'B', 
+        threshold: 10, 
+        updateFrequency: 'Sprint', 
+        description: '(Added + Removed + Changed Items) / Planned Items',
+        isDefault: true 
+    },
+    { 
+        id: 'bp-9', 
+        name: 'Build Success Rate', 
+        metricType: 'build_release', 
+        metricClass: 'A', 
+        threshold: 98, 
+        updateFrequency: 'Sprint/Release', 
+        description: 'Successful Builds / Total Builds * 100',
+        isDefault: true 
+    },
 ];
 
 export function ProvisionMetricsTab() {
     const { data: hierarchy, isLoading: hierarchyLoading } = useOrgHierarchy();
+    const { data: fetchedProjects = [], isLoading: projectsLoading } = useProjects();
     const { data: existingDefinitions = [] } = useMetricDefinitions();
     const createMetricMutation = useCreateMetricDefinition();
 
@@ -51,40 +139,71 @@ export function ProvisionMetricsTab() {
     const [selectedMetrics, setSelectedMetrics] = useState<string[]>([]);
     const [isProvisioning, setIsProvisioning] = useState(false);
 
-    const markets = hierarchy?.markets || [];
-    const accounts = markets.flatMap(m => (m.accounts || []).map(acc => ({ ...acc, marketName: m.name })));
-    
-    // Flatten projects for selection
-    const allProjects = useMemo(() => {
-        const projs: any[] = [];
-        accounts.forEach(acc => {
-            acc.teams.forEach(t => {
-                const project = t.project;
-                if (project && !projs.find(p => p.id === project.id)) {
-                    projs.push({
-                        ...project,
-                        accountName: acc.name,
-                        accountId: acc.id,
-                        marketName: acc.marketName
-                    });
-                }
+    // Map Project ID -> Hierarchy Metadata (Market, Account)
+    const projectMetadataMap = useMemo(() => {
+        const map = new Map<string, { accountName: string; accountId: string; marketName: string }>();
+        hierarchy?.markets.forEach(market => {
+            market.accounts.forEach(acc => {
+                acc.teams.forEach(t => {
+                    if (t.project) {
+                        map.set(t.project.id, {
+                            accountName: acc.name,
+                            accountId: acc.id,
+                            marketName: market.name
+                        });
+                    }
+                });
             });
         });
-        return projs;
-    }, [accounts]);
+        return map;
+    }, [hierarchy]);
 
-    const filteredProjects = allProjects.filter(p => 
+    // Flatten all projects from useProjects, enriched with metadata from hierarchy if found
+    const allProjects = useMemo(() => {
+        return fetchedProjects.map((p: Project) => {
+            const meta = projectMetadataMap.get(p.id) || {
+                accountName: 'Unassigned Account',
+                accountId: '',
+                marketName: 'Global'
+            };
+            return {
+                ...p,
+                ...meta
+            };
+        });
+    }, [fetchedProjects, projectMetadataMap]);
+
+    const filteredProjects = allProjects.filter(p =>
         p.name.toLowerCase().includes(projectSearchQuery.toLowerCase()) ||
         p.accountName.toLowerCase().includes(projectSearchQuery.toLowerCase())
     );
 
-    const filteredBlueprints = BLUEPRINT_METRICS.filter(m => 
+    // Combine system defaults with unique existing definitions from the database
+    const sourceMetrics = useMemo(() => {
+        const unique = new Map();
+        
+        // Add defaults first
+        DEFAULT_BLUEPRINTS.forEach(bp => unique.set(bp.name, bp));
+        
+        // Add existing definitions (database wins if names collide)
+        existingDefinitions.forEach((d: any) => {
+            if (!unique.has(d.name)) {
+                unique.set(d.name, {
+                    ...d,
+                    isDefault: false
+                });
+            }
+        });
+        return Array.from(unique.values());
+    }, [existingDefinitions]);
+
+    const filteredBlueprints = sourceMetrics.filter(m =>
         m.name.toLowerCase().includes(metricSearchQuery.toLowerCase()) ||
-        m.metricType.toLowerCase().includes(metricSearchQuery.toLowerCase())
+        (m.metricType || '').toLowerCase().includes(metricSearchQuery.toLowerCase())
     );
 
     const toggleMetric = (id: string) => {
-        setSelectedMetrics(prev => 
+        setSelectedMetrics(prev =>
             prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
         );
     };
@@ -102,19 +221,19 @@ export function ProvisionMetricsTab() {
         setIsProvisioning(true);
         try {
             const project = allProjects.find(p => p.id === selectedProjectId);
-            const metricsToProvision = BLUEPRINT_METRICS.filter(m => selectedMetrics.includes(m.id));
+            const metricsToProvision = sourceMetrics.filter(m => selectedMetrics.includes(m.id));
 
             if (!project) throw new Error('Project not found');
 
             const promises = metricsToProvision.map(m => {
                 const payload = {
-                    name: `${project.name} - ${m.name}`,
-                    metricType: m.metricType,
+                    name: m.name, // Keep original name or use project-specific? User said "show like manual metrics", maybe they want to clone/assign
+                    metricType: m.metricType || m.name.toLowerCase().replace(/\s+/g, '_'),
                     metricClass: m.metricClass,
                     threshold: m.threshold,
                     updateFrequency: m.updateFrequency,
-                    rangeMin: 0,
-                    rangeMax: 100,
+                    rangeMin: m.rangeMin || 0,
+                    rangeMax: m.rangeMax || 100,
                     accountId: project.accountId,
                     accountName: project.accountName,
                     marketName: project.marketName,
@@ -136,13 +255,28 @@ export function ProvisionMetricsTab() {
         }
     };
 
-    const classColors: Record<string, string> = {
-        A: 'text-rose-500 bg-rose-500/10 border-rose-500/20',
-        B: 'text-amber-500 bg-amber-500/10 border-amber-500/20',
-        C: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20',
+    const classColors: Record<string, any> = {
+        A: { 
+            text: 'text-rose-500', 
+            bg: 'bg-rose-500/10 border-rose-500/20',
+            glow: 'shadow-rose-500/5',
+            badge: 'bg-rose-500/15 text-rose-500 border-rose-500/30'
+        },
+        B: { 
+            text: 'text-amber-500', 
+            bg: 'bg-amber-500/10 border-amber-500/20',
+            glow: 'shadow-amber-500/5',
+            badge: 'bg-amber-500/15 text-amber-500 border-amber-500/30'
+        },
+        C: { 
+            text: 'text-emerald-500', 
+            bg: 'bg-emerald-500/10 border-emerald-500/20',
+            glow: 'shadow-emerald-500/5',
+            badge: 'bg-emerald-500/15 text-emerald-500 border-emerald-500/30'
+        },
     };
 
-    if (hierarchyLoading) {
+    if (hierarchyLoading || projectsLoading) {
         return (
             <div className="flex flex-col items-center justify-center py-20 gap-4">
                 <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -196,8 +330,8 @@ export function ProvisionMetricsTab() {
                             </div>
                             <div className="relative w-64">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                <Input 
-                                    placeholder="Search projects..." 
+                                <Input
+                                    placeholder="Search projects..."
                                     className="pl-9 rounded-xl border-border/50 bg-background/50 h-10"
                                     value={projectSearchQuery}
                                     onChange={(e) => setProjectSearchQuery(e.target.value)}
@@ -207,7 +341,7 @@ export function ProvisionMetricsTab() {
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[300px] overflow-y-auto pr-2 no-scrollbar">
                             {filteredProjects.map(project => (
-                                <div 
+                                <div
                                     key={project.id}
                                     onClick={() => setSelectedProjectId(project.id === selectedProjectId ? '' : project.id)}
                                     className={cn(
@@ -243,16 +377,16 @@ export function ProvisionMetricsTab() {
                     <div className="space-y-6">
                         <div className="flex items-center justify-between border-t border-border/10 pt-10">
                             <div className="flex items-center gap-3">
-                                <div className="p-2 rounded-xl bg-violet-500/10 text-violet-500">
-                                    <Target className="h-5 w-5" />
-                                </div>
                                 <h3 className="text-xl font-bold">2. Select Metric Blueprints</h3>
-                                <Badge variant="secondary" className="rounded-full">{selectedMetrics.length}</Badge>
+                                <Badge variant="secondary" className="rounded-full shadow-inner">{selectedMetrics.length} Selected</Badge>
                             </div>
+                            <p className="text-xs text-muted-foreground font-medium -mt-4 ml-1">
+                                Choose from standardized system templates or blueprints added from existing projects.
+                            </p>
                             <div className="relative w-64">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                <Input 
-                                    placeholder="Search blueprints..." 
+                                <Input
+                                    placeholder="Search blueprints..."
                                     className="pl-9 rounded-xl border-border/50 bg-background/50 h-10"
                                     value={metricSearchQuery}
                                     onChange={(e) => setMetricSearchQuery(e.target.value)}
@@ -260,52 +394,145 @@ export function ProvisionMetricsTab() {
                             </div>
                         </div>
 
-                        <div className="grid gap-4">
-                            {filteredBlueprints.map((m) => (
-                                <div 
-                                    key={m.id}
-                                    onClick={() => toggleMetric(m.id)}
-                                    className={cn(
-                                        "group cursor-pointer p-5 rounded-3xl border transition-all duration-300 relative overflow-hidden",
-                                        selectedMetrics.includes(m.id) 
-                                            ? "bg-primary/5 border-primary shadow-lg scale-[1.01]" 
-                                            : "bg-card/40 border-border/50 hover:border-primary/30 hover:bg-muted/30"
-                                    )}
-                                >
-                                    <div className="flex items-center justify-between relative z-10">
-                                        <div className="flex items-center gap-5">
-                                            <div className={cn(
-                                                "h-12 w-12 rounded-2xl flex items-center justify-center transition-colors",
-                                                selectedMetrics.includes(m.id) ? "bg-primary text-white" : "bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary"
-                                            )}>
-                                                {selectedMetrics.includes(m.id) ? <Check className="h-6 w-6" /> : <Settings2 className="h-6 w-6" />}
-                                            </div>
-                                            <div>
-                                                <div className="flex items-center gap-2">
-                                                    <h4 className="font-black text-lg">{m.name}</h4>
-                                                    <Badge className={cn("text-[10px] uppercase font-black rounded-lg border-0", classColors[m.metricClass])}>
-                                                        CLASS {m.metricClass}
-                                                    </Badge>
+                        <div className="space-y-10">
+                            {/* System Defaults Section */}
+                            <div className="space-y-4">
+                                <div className="flex items-center gap-2 px-2">
+                                    <Badge className="bg-primary/10 text-primary border-primary/20 font-black text-[10px] tracking-widest uppercase">System Defaults</Badge>
+                                    <div className="h-px flex-1 bg-border/30" />
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {filteredBlueprints.filter(m => m.isDefault).map((m) => {
+                                        const isSelected = selectedMetrics.includes(m.id);
+                                        const styles = classColors[m.metricClass] || classColors.C;
+                                        
+                                        return (
+                                            <div
+                                                key={m.id}
+                                                onClick={() => toggleMetric(m.id)}
+                                                className={cn(
+                                                    "group cursor-pointer p-5 rounded-[2rem] border transition-all duration-300 relative overflow-hidden",
+                                                    isSelected
+                                                        ? cn(styles.bg, "border-primary shadow-xl scale-[1.02] ring-2 ring-primary/20")
+                                                        : "bg-card/40 border-border/50 hover:border-primary/30 hover:bg-muted/30"
+                                                )}
+                                            >
+                                                <div className="flex items-start justify-between relative z-10">
+                                                    <div className="flex flex-col gap-4">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className={cn(
+                                                                "h-8 w-8 rounded-xl flex items-center justify-center transition-colors",
+                                                                isSelected ? "bg-primary text-white" : "bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary"
+                                                            )}>
+                                                                {isSelected ? <Check className="h-4 w-4" /> : <Settings2 className="h-4 w-4" />}
+                                                            </div>
+                                                            <Badge className="text-[8px] uppercase font-black rounded-lg border-0 bg-primary/20 text-primary">
+                                                                SYSTEM TEMPLATE
+                                                            </Badge>
+                                                        </div>
+                                                        
+                                                        <div>
+                                                            <h4 className="font-black text-lg leading-tight">{m.name}</h4>
+                                                            <p className="text-xs text-muted-foreground font-medium mt-1 line-clamp-1">{m.description || 'Standard platform metric'}</p>
+                                                        </div>
+
+                                                        <div className="flex items-center gap-4 mt-2">
+                                                            <div className="px-3 py-1.5 rounded-xl bg-background/40 border border-border/50">
+                                                                <p className="text-[8px] font-bold uppercase tracking-widest text-muted-foreground">Target</p>
+                                                                <p className={cn("text-sm font-black", styles.text)}>{m.threshold}%</p>
+                                                            </div>
+                                                            <div className="px-3 py-1.5 rounded-xl bg-background/40 border border-border/50">
+                                                                <p className="text-[8px] font-bold uppercase tracking-widest text-muted-foreground">Cycle</p>
+                                                                <p className="text-sm font-black capitalize">{m.updateFrequency}</p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                                <p className="text-sm text-muted-foreground font-medium mt-1">{m.description}</p>
+                                                {isSelected && (
+                                                    <div className="absolute -bottom-4 -right-4 w-24 h-24 bg-primary/10 rounded-full blur-2xl animate-pulse" />
+                                                )}
                                             </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* Custom Metrics Section */}
+                            <div className="space-y-4">
+                                <div className="flex items-center gap-2 px-2">
+                                    <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 font-black text-[10px] tracking-widest uppercase">Project Blueprints</Badge>
+                                    <div className="h-px flex-1 bg-border/30" />
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {filteredBlueprints.filter(m => !m.isDefault).map((m) => {
+                                        const isSelected = selectedMetrics.includes(m.id);
+                                        const styles = classColors[m.metricClass] || classColors.C;
+                                        
+                                        return (
+                                            <div
+                                                key={m.id}
+                                                onClick={() => toggleMetric(m.id)}
+                                                className={cn(
+                                                    "group cursor-pointer p-5 rounded-[2rem] border transition-all duration-300 relative overflow-hidden",
+                                                    isSelected
+                                                        ? cn(styles.bg, "border-primary shadow-xl scale-[1.02] ring-2 ring-primary/20")
+                                                        : "bg-card/40 border-border/50 hover:border-primary/30 hover:bg-muted/30"
+                                                )}
+                                            >
+                                                <div className="flex items-start justify-between relative z-10">
+                                                    <div className="flex flex-col gap-4">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className={cn(
+                                                                "h-8 w-8 rounded-xl flex items-center justify-center transition-colors",
+                                                                isSelected ? "bg-primary text-white" : "bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary"
+                                                            )}>
+                                                                {isSelected ? <Check className="h-4 w-4" /> : <Settings2 className="h-4 w-4" />}
+                                                            </div>
+                                                            <Badge className={cn("text-[8px] uppercase font-black rounded-lg border-0", styles.badge)}>
+                                                                CLASS {m.metricClass}
+                                                            </Badge>
+                                                        </div>
+                                                        
+                                                        <div>
+                                                            <div className="flex items-center gap-2">
+                                                                <h4 className="font-black text-lg leading-tight">{m.name}</h4>
+                                                                <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" title="Active Project Blueprint" />
+                                                            </div>
+                                                            <p className="text-xs text-muted-foreground font-medium mt-1 line-clamp-1">{m.description || 'Custom defined metric blueprint'}</p>
+                                                        </div>
+
+                                                        <div className="flex items-center gap-4 mt-2">
+                                                            <div className="px-3 py-1.5 rounded-xl bg-background/40 border border-border/50">
+                                                                <p className="text-[8px] font-bold uppercase tracking-widest text-muted-foreground">Target</p>
+                                                                <p className={cn("text-sm font-black", styles.text)}>{m.threshold}%</p>
+                                                            </div>
+                                                            <div className="px-3 py-1.5 rounded-xl bg-background/40 border border-border/50">
+                                                                <p className="text-[8px] font-bold uppercase tracking-widest text-muted-foreground">Cycle</p>
+                                                                <p className="text-sm font-black capitalize">{m.updateFrequency}</p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex flex-col items-end">
+                                                        <p className="text-[8px] font-black uppercase tracking-widest text-emerald-500/50 mb-1">Source</p>
+                                                        <Badge variant="outline" className="text-[9px] font-black rounded-md bg-emerald-500/5 border-emerald-500/20 text-emerald-500 shadow-sm shadow-emerald-500/10">
+                                                            {m.projectName?.split(' ').pop() || 'CUSTOM'}
+                                                        </Badge>
+                                                    </div>
+                                                </div>
+                                                {isSelected && (
+                                                    <div className="absolute -bottom-4 -right-4 w-24 h-24 bg-primary/10 rounded-full blur-2xl animate-pulse" />
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                    {filteredBlueprints.filter(m => !m.isDefault).length === 0 && (
+                                        <div className="col-span-full py-12 text-center border-2 border-dashed border-border/30 rounded-[2rem] bg-muted/5 opacity-50">
+                                            <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">No custom project blueprints found</p>
                                         </div>
-                                        <div className="flex items-center gap-6 pr-4">
-                                            <div className="text-right">
-                                                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Target</p>
-                                                <p className="text-lg font-black">{m.threshold}%</p>
-                                            </div>
-                                            <div className="text-right">
-                                                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Cycle</p>
-                                                <p className="text-lg font-black capitalize text-primary">{m.updateFrequency}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    {selectedMetrics.includes(m.id) && (
-                                        <div className="absolute top-0 right-0 w-24 h-24 -mr-8 -mt-8 bg-primary/10 rounded-full blur-2xl" />
                                     )}
                                 </div>
-                            ))}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -354,11 +581,11 @@ export function ProvisionMetricsTab() {
                                 ) : (
                                     <div className="max-h-[200px] overflow-y-auto space-y-2 pr-1 no-scrollbar">
                                         {selectedMetrics.map(id => {
-                                            const m = BLUEPRINT_METRICS.find(b => b.id === id);
+                                            const m = sourceMetrics.find(b => b.id === id);
                                             return (
                                                 <div key={id} className="flex items-center justify-between p-3 rounded-2xl bg-muted/30 border border-border/50 text-xs font-bold animate-in slide-in-from-right-2 duration-200">
                                                     <div className="flex items-center gap-2">
-                                                        <div className="h-1.5 w-1.5 rounded-full bg-primary" />
+                                                        <div className="h-1.5 w-1.5 rounded-full bg-primary shadow-[0_0_5px_rgba(139,92,246,0.5)]" />
                                                         {m?.name}
                                                     </div>
                                                     <button onClick={() => toggleMetric(id)} className="text-muted-foreground hover:text-rose-500">
@@ -383,7 +610,7 @@ export function ProvisionMetricsTab() {
                                     </div>
                                 </div>
 
-                                <Button 
+                                <Button
                                     className="w-full h-14 rounded-2xl bg-primary text-white shadow-xl shadow-primary/20 hover:shadow-primary/40 transition-all font-bold text-lg disabled:opacity-50 disabled:grayscale"
                                     disabled={selectedMetrics.length === 0 || !selectedProjectId || isProvisioning}
                                     onClick={handleProvision}
@@ -400,7 +627,7 @@ export function ProvisionMetricsTab() {
                                         </>
                                     )}
                                 </Button>
-                                
+
                                 <p className="text-[10px] text-muted-foreground text-center font-bold uppercase tracking-widest flex items-center justify-center gap-2">
                                     <Info className="h-3 w-3 text-primary" />
                                     This will create {selectedMetrics.length} definitions for {selectedProjectObj?.name || 'project'}

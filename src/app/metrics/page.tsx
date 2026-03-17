@@ -5,6 +5,7 @@ import { ManualMetricsTab } from '@/components/metrics/manual-metrics-tab';
 import { ManualMetricsDashboard } from '@/components/metrics/manual-metrics-dashboard';
 import { CalculatedMetricsTab } from '@/components/metrics/calculated-metrics-tab';
 import { AddMetricForm } from '@/components/metrics/add-metric-form';
+import { AddFormulaMetricForm } from '@/components/metrics/add-formula-metric-form';
 import { ProvisionMetricsTab } from '@/components/metrics/provision-metrics-tab';
 import { GlobalFilter } from '@/components/filters/global-filter';
 // import { JiraAnalyticsTab } from '@/components/metrics/jira-analytics-tab';
@@ -58,6 +59,11 @@ export default function MetricsPage() {
                             Add Metrics
                         </TabsTrigger>
 
+                        <TabsTrigger value="formula-metrics" className={TAB_TRIGGER_CLS}>
+                            <Calculator className="h-4 w-4" />
+                            Metric Formula
+                        </TabsTrigger>
+
                         <TabsTrigger value="provision" className={TAB_TRIGGER_CLS}>
                             <Layers className="h-4 w-4" />
                             Provision Metrics
@@ -76,6 +82,10 @@ export default function MetricsPage() {
 
                 <TabsContent value="analytics" className="mt-0">
                     <ManualMetricsDashboard />
+                </TabsContent>
+
+                <TabsContent value="formula-metrics" className="mt-0">
+                    <AddFormulaMetricForm />
                 </TabsContent>
 
                 <TabsContent value="calculated" className="mt-0">

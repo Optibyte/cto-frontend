@@ -14,30 +14,40 @@ import {
 import { ScrollText, Search, Filter } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatDateTime } from '@/lib/utils';
-import { METRIC_AUDIT_LOG, type MetricAuditEntry } from '@/lib/mock-data/metrics-data';
+import { useAuditLogs } from '@/hooks/use-audit';
 
 const sourceStyles: Record<string, string> = {
-    Manual: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30',
-    'Jira Sync': 'bg-[#0052CC]/10 text-[#0052CC] dark:text-blue-300 border-[#0052CC]/30',
-    'GitHub Sync': 'bg-[#24292e]/10 text-[#24292e] dark:text-gray-300 border-[#24292e]/30',
+    CREATE: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 font-bold',
+    UPDATE: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30 font-bold',
+    DELETE: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/30 font-bold',
+    EXPORT: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 font-bold',
 };
 
 export function AuditLogTab() {
     const [searchQuery, setSearchQuery] = useState('');
-    const [sourceFilter, setSourceFilter] = useState<string>('all');
+    const [actionFilter, setActionFilter] = useState<string>('all');
+    
+    // Fetch live logs
+    const { data: logs = [], isLoading } = useAuditLogs(100);
 
-    const filtered = METRIC_AUDIT_LOG.filter((entry) => {
+    const filtered = (Array.isArray(logs) ? logs : []).filter((entry: any) => {
         const matchesSearch =
             !searchQuery ||
-            entry.entity.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            entry.metric.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            entry.updatedBy.toLowerCase().includes(searchQuery.toLowerCase());
+            entry.entityType?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            entry.action?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            entry.user?.fullName?.toLowerCase().includes(searchQuery.toLowerCase());
 
-        const matchesSource =
-            sourceFilter === 'all' || entry.source === sourceFilter;
+        const matchesAction =
+            actionFilter === 'all' || entry.action === actionFilter;
 
-        return matchesSearch && matchesSource;
+        return matchesSearch && matchesAction;
     });
+
+    const formatValue = (val: any) => {
+        if (val === null || val === undefined) return '-';
+        if (typeof val === 'object') return JSON.stringify(val).substring(0, 30) + '...';
+        return String(val);
+    };
 
     return (
         <div className="space-y-4">
@@ -46,7 +56,7 @@ export function AuditLogTab() {
                 <div className="relative flex-1 min-w-[200px] max-w-sm">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
-                        placeholder="Search by entity, metric, or user..."
+                        placeholder="Search by entity, action, or user..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="pl-9 rounded-xl"
@@ -54,20 +64,21 @@ export function AuditLogTab() {
                 </div>
                 <div className="flex items-center gap-2">
                     <Filter className="h-4 w-4 text-muted-foreground" />
-                    <Select value={sourceFilter} onValueChange={setSourceFilter}>
+                    <Select value={actionFilter} onValueChange={setActionFilter}>
                         <SelectTrigger className="w-[160px] rounded-xl">
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="all">All Sources</SelectItem>
-                            <SelectItem value="Manual">Manual</SelectItem>
-                            <SelectItem value="Jira Sync">Jira Sync</SelectItem>
-                            <SelectItem value="GitHub Sync">GitHub Sync</SelectItem>
+                            <SelectItem value="all">All Actions</SelectItem>
+                            <SelectItem value="CREATE">CREATE</SelectItem>
+                            <SelectItem value="UPDATE">UPDATE</SelectItem>
+                            <SelectItem value="DELETE">DELETE</SelectItem>
+                            <SelectItem value="EXPORT">EXPORT</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
                 <Badge variant="secondary" className="rounded-full text-xs ml-auto">
-                    {filtered.length} entries
+                    {filtered.length} live entries
                 </Badge>
             </div>
 
@@ -76,79 +87,87 @@ export function AuditLogTab() {
                 <CardHeader className="pb-2">
                     <CardTitle className="flex items-center gap-2 text-base">
                         <ScrollText className="h-5 w-5" />
-                        Change Log
+                        System Audit Logs
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead>
-                                <tr className="border-b border-border/30">
-                                    <th className="pb-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Entity</th>
-                                    <th className="pb-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Metric</th>
-                                    <th className="pb-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider">Old Value</th>
-                                    <th className="pb-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider">New Value</th>
-                                    <th className="pb-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Updated By</th>
-                                    <th className="pb-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Source</th>
-                                    <th className="pb-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider">Timestamp</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {filtered.map((entry) => (
-                                    <tr
-                                        key={entry.id}
-                                        className="border-b border-border/20 last:border-0 hover:bg-accent/30 transition-colors"
-                                    >
-                                        <td className="py-3 text-sm font-semibold">{entry.entity}</td>
-                                        <td className="py-3 text-sm">
-                                            <Badge variant="outline" className="rounded-full text-[10px] px-2 border-primary/20 bg-primary/5 text-primary">
-                                                {entry.metric}
-                                            </Badge>
-                                        </td>
-                                        <td className="py-3 text-center">
-                                            <span className="inline-flex items-center justify-center min-w-[40px] px-2 py-0.5 rounded-md bg-red-500/10 text-red-600 dark:text-red-400 text-xs font-mono font-semibold">
-                                                {entry.oldValue}
-                                            </span>
-                                        </td>
-                                        <td className="py-3 text-center">
-                                            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                                                →
-                                            </span>
-                                            <span className="inline-flex items-center justify-center min-w-[40px] px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-mono font-semibold ml-1">
-                                                {entry.newValue}
-                                            </span>
-                                        </td>
-                                        <td className="py-3 text-sm text-muted-foreground">{entry.updatedBy}</td>
-                                        <td className="py-3">
-                                            <Badge
-                                                variant="outline"
-                                                className={cn(
-                                                    'rounded-full text-[10px] px-2 py-0.5',
-                                                    sourceStyles[entry.source]
-                                                )}
-                                            >
-                                                {entry.source}
-                                            </Badge>
-                                            {entry.syncBatchId && (
-                                                <p className="text-[9px] text-muted-foreground mt-0.5 font-mono">
-                                                    {entry.syncBatchId}
-                                                </p>
-                                            )}
-                                        </td>
-                                        <td className="py-3 text-right text-xs text-muted-foreground whitespace-nowrap">
-                                            {formatDateTime(entry.timestamp)}
-                                        </td>
+                    <div className="overflow-x-auto min-h-[300px]">
+                        {isLoading ? (
+                            <div className="flex items-center justify-center py-20">
+                                <span className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full" />
+                                <span className="ml-3 text-muted-foreground">Loading audit logs...</span>
+                            </div>
+                        ) : (
+                            <table className="w-full">
+                                <thead>
+                                    <tr className="border-b border-border/30">
+                                        <th className="pb-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Entity</th>
+                                        <th className="pb-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Action</th>
+                                        <th className="pb-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider">Old Value</th>
+                                        <th className="pb-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider">New Value</th>
+                                        <th className="pb-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Performed By</th>
+                                        <th className="pb-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider">Timestamp</th>
                                     </tr>
-                                ))}
-                                {filtered.length === 0 && (
-                                    <tr>
-                                        <td colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
-                                            No log entries found matching your filters.
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody>
+                                    {filtered.map((entry: any) => (
+                                        <tr
+                                            key={entry.id}
+                                            className="border-b border-border/20 last:border-0 hover:bg-accent/30 transition-colors"
+                                        >
+                                            <td className="py-3 text-sm font-semibold">
+                                                <div className="flex flex-col">
+                                                    <span>{entry.entityType}</span>
+                                                    <span className="text-[10px] text-muted-foreground font-mono opacity-50">{entry.entityId}</span>
+                                                </div>
+                                            </td>
+                                            <td className="py-3">
+                                                <Badge
+                                                    variant="outline"
+                                                    className={cn(
+                                                        'rounded-full text-[10px] px-2 py-0.5',
+                                                        sourceStyles[entry.action]
+                                                    )}
+                                                >
+                                                    {entry.action}
+                                                </Badge>
+                                            </td>
+                                            <td className="py-3 text-center max-w-[120px]">
+                                                <div className="truncate text-xs px-2 py-1 rounded bg-muted/50 font-mono opacity-60">
+                                                    {formatValue(entry.oldValue)}
+                                                </div>
+                                            </td>
+                                            <td className="py-3 text-center max-w-[120px]">
+                                                <div className="truncate text-xs px-2 py-1 rounded bg-primary/5 text-primary font-mono font-bold border border-primary/10">
+                                                    {formatValue(entry.newValue)}
+                                                </div>
+                                            </td>
+                                            <td className="py-3">
+                                                <div className="flex items-center gap-2">
+                                                    {entry.user?.avatarUrl && (
+                                                        <img src={entry.user.avatarUrl} className="h-5 w-5 rounded-full" />
+                                                    )}
+                                                    <div className="flex flex-col">
+                                                        <span className="text-sm font-medium">{entry.user?.fullName || 'System'}</span>
+                                                        <span className="text-[10px] text-muted-foreground">{entry.user?.email}</span>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="py-3 text-right text-xs text-muted-foreground whitespace-nowrap">
+                                                {formatDateTime(entry.timestamp)}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {filtered.length === 0 && (
+                                        <tr>
+                                            <td colSpan={6} className="py-12 text-center text-sm text-muted-foreground italic">
+                                                No log entries found.
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        )}
                     </div>
                 </CardContent>
             </Card>

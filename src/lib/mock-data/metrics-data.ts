@@ -180,3 +180,22 @@ export const TIME_PER_PRODUCT = [
         ]
     }
 ];
+
+export interface CustomMetricDef {
+    id: string;
+    name: string;
+    valueType: 'rating' | 'percentage' | 'integer' | 'boolean' | 'text';
+    min: number;
+    max: number;
+    category: string;
+    editableBy: string[];
+    visibleTo: string[];
+    thresholds: {
+        red: number;
+        amber: number;
+        green: number;
+    };
+    createdAt: string;
+}
+
+export const CUSTOM_METRIC_DEFINITIONS: CustomMetricDef[] = [];

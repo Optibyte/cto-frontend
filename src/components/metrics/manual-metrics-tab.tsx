@@ -38,6 +38,7 @@ import {
 import { getTeamsForProject } from '@/lib/mock-data/dashboard-filtered';
 import { useEmployees } from '@/hooks/use-employees';
 import { useOrgHierarchy } from '@/hooks/use-hierarchy';
+import { useProjects } from '@/hooks/use-projects';
 import { useEffect as useReactEffect, useMemo } from 'react';
 import { useBulkCreateMetrics, useTeamMetrics, useDeleteMetric } from '@/hooks/use-metrics';
 import { useMetricDefinitions, useDeleteMetricDefinition, useCreateMetricDefinition } from '@/hooks/use-metric-definitions';
@@ -79,33 +80,21 @@ export function ManualMetricsTab() {
     const [selectedTeamId, setSelectedTeamId] = useState<string>('');
     const [selectedMemberId, setSelectedMemberId] = useState<string>('');
     const [manualMetrics, setManualMetrics] = useState<ManualMetricDef[]>([]);
-    const [members, setMembers] = useState<MemberWithMetrics[]>([]);
     const [editingValues, setEditingValues] = useState<Record<string, number>>({});
     const [isEditing, setIsEditing] = useState(false);
+    
+    // API Hooks
     const { data: liveEmployees = [] } = useEmployees();
+    const { data: fetchedProjects = [], isLoading: projectsLoading } = useProjects();
+    const { data: hierarchy } = useOrgHierarchy();
+    const { data: teamMetrics = [], isLoading: metricsLoading } = useTeamMetrics(selectedTeamId);
+    const { data: dbMetricDefs = [] } = useMetricDefinitions();
+
+    // Mutations
     const { mutateAsync: deleteMetricDef } = useDeleteMetricDefinition();
     const { mutateAsync: createMetricDef } = useCreateMetricDefinition();
-
-    useReactEffect(() => {
-        if (liveEmployees.length > 0) {
-            setMembers(prev => {
-                const liveMembers = liveEmployees.map((emp: any) => ({
-                    id: emp.id || emp._id,
-                    name: emp.user?.fullName || emp.fullName || emp.name || 'Unknown',
-                    role: emp.role || 'Member',
-                    avatar: (emp.user?.fullName || emp.fullName || emp.name || 'U').charAt(0),
-                    team: emp.teamName || emp.team?.name || 'Unassigned',
-                    teamId: emp.teamId || emp.team?.id || '',
-                    metrics: []
-                }));
-
-                const mergedMap = new Map();
-                // Put mock data first so live data with same ID overwrites it
-                [...prev, ...liveMembers].forEach(m => mergedMap.set(m.id, m));
-                return Array.from(mergedMap.values());
-            });
-        }
-    }, [liveEmployees]);
+    const { mutateAsync: bulkCreateMetrics } = useBulkCreateMetrics();
+    const { mutateAsync: deleteMetric } = useDeleteMetric();
 
     const [isNewMetricDialogOpen, setIsNewMetricDialogOpen] = useState(false);
 
@@ -121,32 +110,75 @@ export function ManualMetricsTab() {
     const canEdit = ['ORG', 'MARKET', 'ACCOUNT', 'PROJECT'].includes(CURRENT_USER_ROLE);
 
     // Filtering logic
-    const { data: hierarchy } = useOrgHierarchy();
-    const { data: teamMetrics = [] } = useTeamMetrics(selectedTeamId);
+    // Live projects list
+    const liveProjects = useMemo(() => fetchedProjects, [fetchedProjects]);
 
-    // Sync metrics from backend
-    useReactEffect(() => {
-        if (teamMetrics.length > 0) {
-            setMembers(prev => prev.map(m => {
-                const memberMetrics = teamMetrics.filter((mt: any) => mt.userId === m.id && mt.source === 'manual');
-                if (memberMetrics.length === 0) return m;
-
-                const updatedMetrics = [...(m.metrics || [])];
-                // Reverse to process oldest first, so newest wins
-                [...memberMetrics].reverse().forEach((mm: any) => {
-                    const idx = updatedMetrics.findIndex(um => um.metricId === mm.metricType);
-                    if (idx >= 0) {
-                        updatedMetrics[idx] = { ...updatedMetrics[idx], value: mm.value, id: mm.id };
-                    } else {
-                        updatedMetrics.push({ metricId: mm.metricType, value: mm.value, id: mm.id });
+    // Available teams based on selected project
+    const availableTeams = useMemo(() => {
+        if (!hierarchy) return [];
+        const teams: any[] = [];
+        hierarchy.markets?.forEach((m: any) => {
+            m.accounts?.forEach((a: any) => {
+                a.teams?.forEach((t: any) => {
+                    if (selectedProjectId === 'all' || t.projectId === selectedProjectId) {
+                        teams.push(t);
                     }
                 });
-                return { ...m, metrics: updatedMetrics };
-            }));
-        }
-    }, [teamMetrics]);
+            });
+        });
+        return teams;
+    }, [hierarchy, selectedProjectId]);
+
+    // DERIVED MEMBERS STATE
+    const members = useMemo(() => {
+        if (!selectedTeamId) return [];
+        
+        const selectedTeam = availableTeams.find(t => t.id === selectedTeamId);
+        if (!selectedTeam || !selectedTeam.members) return [];
+
+        // 1. Map base team members
+        const teamMembers: MemberWithMetrics[] = selectedTeam.members.map((m: any) => {
+            const userId = m.userId || m.id;
+            
+            // Enrich with live employee info if available
+            const employeeInfo = liveEmployees.find((e: any) => (e.id || e._id) === userId);
+            
+            // Extract display metrics from teamMetrics
+            const memberMetricsFromServer = teamMetrics.filter((mt: any) => 
+                mt.userId === userId && mt.source === 'manual'
+            );
+
+            const displayMetrics: { metricId: string; value: number; id?: string }[] = [];
+            
+            // Latest manual metrics for this user
+            const latestMetricsMap = new Map();
+            [...memberMetricsFromServer].forEach((mm: any) => {
+                latestMetricsMap.set(mm.metricType, { value: mm.value, id: mm.id });
+            });
+
+            Array.from(latestMetricsMap.entries()).forEach(([mType, data]: [string, any]) => {
+                displayMetrics.push({ metricId: mType, value: data.value, id: data.id });
+            });
+
+            return {
+                id: userId,
+                name: employeeInfo?.user?.fullName || employeeInfo?.fullName || m.user?.fullName || m.fullName || 'Unknown',
+                role: m.roleInTeam || m.role || employeeInfo?.role || 'Member',
+                avatar: (employeeInfo?.fullName || m.fullName || 'U').charAt(0),
+                team: selectedTeam.name,
+                teamId: selectedTeam.id,
+                metrics: displayMetrics
+            };
+        });
+
+        // Deduplicate just in case
+        const uniqueMembersMap = new Map();
+        teamMembers.forEach(m => uniqueMembersMap.set(m.id, m));
+        return Array.from(uniqueMembersMap.values());
+    }, [selectedTeamId, availableTeams, liveEmployees, teamMetrics]);
+
+    const filteredMembers = members;
     
-    const { data: dbMetricDefs = [] } = useMetricDefinitions();
 
     // Sync metric definitions from backend
     useReactEffect(() => {
@@ -192,74 +224,6 @@ export function ManualMetricsTab() {
         }
     }, [dbMetricDefs, selectedProjectId, selectedTeamId, selectedMemberId]);
 
-    // Live projects list
-    const liveProjects = useMemo(() => {
-        if (!hierarchy) return [];
-        const projects: any[] = [];
-        hierarchy.markets?.forEach((m: any) => {
-            m.accounts?.forEach((a: any) => {
-                a.teams?.forEach((t: any) => {
-                    if (t.project && !projects.find(p => p.id === t.project.id)) {
-                        projects.push(t.project);
-                    }
-                });
-            });
-        });
-        return projects;
-    }, [hierarchy]);
-
-    // Available teams based on selected project
-    const availableTeams = useMemo(() => {
-        if (!hierarchy) return [];
-
-        const teams: any[] = [];
-        hierarchy.markets?.forEach((m: any) => {
-            m.accounts?.forEach((a: any) => {
-                a.teams?.forEach((t: any) => {
-                    if (selectedProjectId === 'all' || t.projectId === selectedProjectId) {
-                        teams.push(t);
-                    }
-                });
-            });
-        });
-        
-        return teams;
-    }, [hierarchy, selectedProjectId]);
-
-    // Populate members state when team changes
-    useReactEffect(() => {
-        if (selectedTeamId) {
-            const selectedTeam = availableTeams.find(t => t.id === selectedTeamId);
-            if (selectedTeam && selectedTeam.members) {
-                const teamMembers: MemberWithMetrics[] = selectedTeam.members.map((m: any) => {
-                    const userId = m.userId || m.id;
-                    return {
-                        id: userId,
-                        name: m.user?.fullName || m.fullName || 'Unknown',
-                        role: m.roleInTeam || m.role || 'Member',
-                        avatar: (m.user?.fullName || m.fullName || 'U').charAt(0),
-                        team: selectedTeam.name,
-                        teamId: selectedTeam.id,
-                        metrics: []
-                    };
-                });
-
-                // Deduplicate by member ID to prevent duplicate key errors in the UI
-                const uniqueMembersMap = new Map();
-                teamMembers.forEach(m => uniqueMembersMap.set(m.id, m));
-                setMembers(Array.from(uniqueMembersMap.values()));
-            } else {
-                setMembers([]);
-            }
-        } else {
-            setMembers([]);
-        }
-    }, [selectedTeamId, availableTeams]);
-
-    // Available members based on selected team
-    const filteredMembers = useMemo(() => {
-        return members;
-    }, [members]);
 
     const selectedMember = filteredMembers.find((m: any) => m.id === selectedMemberId);
 
@@ -276,11 +240,23 @@ export function ManualMetricsTab() {
 
     const handleStartEdit = () => {
         if (!selectedMember) return;
+        
         const values: Record<string, number> = {};
-        selectedMember.metrics.forEach((m) => {
-            values[m.metricId] = m.value;
+        
+        // 1. Initialize with all available definitions (default to min)
+        manualMetrics.forEach(def => {
+            values[def.id] = def.min;
         });
+
+        // 2. Overwrite with existing recorded values
+        selectedMember.metrics.forEach((m: any) => {
+            if (m.metricId in values) {
+                values[m.metricId] = m.value;
+            }
+        });
+
         setEditingValues(values);
+        setEditingStrings({});
         setIsEditing(true);
     };
 
@@ -293,8 +269,6 @@ export function ManualMetricsTab() {
             setEditingValues((prev) => ({ ...prev, [metricId]: num }));
         }
     };
-
-    const { mutateAsync: bulkCreateMetrics } = useBulkCreateMetrics();
 
     const handleSave = async () => {
         if (!selectedMember) return;
@@ -318,29 +292,9 @@ export function ManualMetricsTab() {
 
         try {
             if (metricsToSave.length > 0) {
+                console.log('Saving metrics:', metricsToSave);
                 await bulkCreateMetrics(metricsToSave);
             }
-
-            setMembers(prev => prev.map(m => {
-                if (m.id === selectedMemberId) {
-                    const updatedMetrics = [...(m.metrics || [])];
-                    
-                    Object.entries(editingValues).forEach(([metricId, value]) => {
-                        const def = manualMetrics.find(d => d.id === metricId);
-                        const clampedValue = def ? Math.min(Math.max(value, def.min), def.max) : value;
-                        
-                        const idx = updatedMetrics.findIndex(um => um.metricId === metricId);
-                        if (idx >= 0) {
-                            updatedMetrics[idx] = { ...updatedMetrics[idx], value: clampedValue };
-                        } else {
-                            updatedMetrics.push({ metricId, value: clampedValue });
-                        }
-                    });
-
-                    return { ...m, metrics: updatedMetrics };
-                }
-                return m;
-            }));
 
             setIsEditing(false);
             setEditingValues({});
@@ -653,7 +607,7 @@ export function ManualMetricsTab() {
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     {manualMetrics.map((def) => {
                         const memberMetric = selectedMember.metrics.find(
-                            (m) => m.metricId === def.id
+                            (m: any) => m.metricId === def.id
                         );
                         const value = getDisplayValue(def.id, memberMetric?.value ?? def.min);
                         const rag = getRAGColor(value, def.thresholds);
