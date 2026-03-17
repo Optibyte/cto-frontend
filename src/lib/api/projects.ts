@@ -51,8 +51,9 @@ export interface Project {
 }
 
 export const projectsAPI = {
-    getAll: async (): Promise<Project[]> => {
-        const { data } = await api.get('/');
+    getAll: async (userId?: string): Promise<Project[]> => {
+        const params = userId ? { userId } : {};
+        const { data } = await api.get('/', { params });
         return data;
     },
 

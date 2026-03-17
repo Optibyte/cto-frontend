@@ -12,7 +12,7 @@ import {
     Users2, Target, TrendingUp, TrendingDown, BarChart3,
     Activity, Loader2, RefreshCw, Database, Zap, ShieldCheck, Clock, Download
 } from 'lucide-react';
-import { useRole } from '@/contexts/role-context';
+import { useRole, useDataFence } from '@/contexts/role-context';
 import { adminTeamsAPI } from '@/lib/api/admin';
 import { jiraMetricsAPI } from '@/lib/api/jira-metrics';
 import { useProjects } from '@/hooks/use-projects';
@@ -68,31 +68,42 @@ const tooltipStyle = {
 
 export function TLDashboard() {
     const { role, user } = useRole();
+    const fence = useDataFence();
+    // useProjects already sends userId for TEAM_LEAD — returns only projects the TL is linked to
     const { data: liveProjects = [] } = useProjects();
     const [liveTeams, setLiveTeams] = useState<any[]>([]);
     const [liveMembers, setLiveMembers] = useState<any[]>([]);
     const [jiraData, setJiraData] = useState<any>(null);
     const [jiraLoading, setJiraLoading] = useState(true);
+    const [initialized, setInitialized] = useState(false);
 
     // Filters matching CTO/Manager
     const [projectId, setProjectId] = useState('all');
     const [teamId, setTeamId] = useState('all');
     const [memberId, setMemberId] = useState('all');
 
+    const resolvedUserId = user?.id || user?.user?.id;
+
     useEffect(() => {
         adminTeamsAPI.getAll().then((teams) => {
             const rawTeams = teams || [];
-            // TLs strictly see teams where they are a member or lead
+            // TLs STRICTLY see only teams where they are a member or lead — NO fallback to all teams
             const tlTeams = rawTeams.filter((t: any) =>
-                t.members?.some((m: any) => m.userId === user?.id || (m.user && m.user.id === user?.id)) ||
-                t.teamLeadId === user?.id ||
-                t.userId === user?.id
+                t.members?.some((m: any) => m.userId === resolvedUserId || (m.user && m.user.id === resolvedUserId)) ||
+                t.teamLeadId === resolvedUserId ||
+                t.userId === resolvedUserId
             );
-            setLiveTeams(tlTeams.length > 0 ? tlTeams : rawTeams); // fallback to all if no direct membership mapping is found locally
+            // If still empty, try fence-based team IDs as secondary check
+            const fencedTeams = tlTeams.length > 0
+                ? tlTeams
+                : (fence.allowedTeamIds
+                    ? rawTeams.filter((t: any) => fence.allowedTeamIds!.includes(t.id))
+                    : []);
+            setLiveTeams(fencedTeams);
 
             const members: any[] = [];
             const seen = new Set();
-            (tlTeams.length > 0 ? tlTeams : rawTeams).forEach((t: any) => {
+            fencedTeams.forEach((t: any) => {
                 (t.members || []).forEach((mem: any) => {
                     const uid = mem.userId || mem.user?.id;
                     if (!seen.has(uid)) {
@@ -103,7 +114,7 @@ export function TLDashboard() {
             });
             setLiveMembers(members);
         }).catch(() => setLiveTeams([]));
-    }, [user?.id]);
+    }, [resolvedUserId]);
 
     const filteredTeams = useMemo(() => {
         if (projectId !== 'all') return liveTeams.filter(t => t.projectId === projectId);
@@ -117,11 +128,38 @@ export function TLDashboard() {
         return memberId !== 'all' ? unique.filter(m => (m.userId || m.user?.id) === memberId) : unique;
     }, [liveMembers, teamId, memberId]);
 
-    // Role-based project scope limits selector
+    // Projects strictly scoped to this TL:
+    // - Server already fences via userId (useProjects sends userId for TEAM_LEAD)
+    // - Additionally cross-filter by the team projectIds from the fenced teams
     const baseProjects = useMemo(() => {
-        const teamProjectIds = new Set(liveTeams.map(t => t.projectId));
-        return (liveProjects as any[]).filter(p => teamProjectIds.has(p.id));
-    }, [liveProjects, liveTeams]);
+        const teamProjectIds = new Set(liveTeams.map((t: any) => t.projectId).filter(Boolean));
+        const serverFenced = (liveProjects as any[]);
+        // If we have team-based project IDs, use them as strict filter
+        if (teamProjectIds.size > 0) {
+            return serverFenced.filter(p => teamProjectIds.has(p.id));
+        }
+        // If fence has explicit allowedProjectIds, use those
+        if (fence.allowedProjectIds && fence.allowedProjectIds.length > 0) {
+            return serverFenced.filter(p => fence.allowedProjectIds!.includes(p.id));
+        }
+        // Otherwise return what the server returned (already fenced)
+        return serverFenced;
+    }, [liveProjects, liveTeams, fence.allowedProjectIds]);
+
+    // One-time initialization: lock to first project/team for TEAM_LEAD
+    useEffect(() => {
+        if (initialized) return;
+        if (baseProjects.length > 0) {
+            setProjectId(baseProjects[0].id);
+            setInitialized(true);
+        }
+    }, [baseProjects, initialized]);
+
+    useEffect(() => {
+        if (teamId === 'all' && filteredTeams.length > 0 && projectId !== 'all') {
+            setTeamId(filteredTeams[0].id);
+        }
+    }, [filteredTeams, projectId]);
 
     const fetchJira = useCallback(async () => {
         setJiraLoading(true);
@@ -218,10 +256,13 @@ export function TLDashboard() {
             <div className="bg-muted/30 p-3 rounded-2xl border border-border/40 grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-row items-center gap-3">
                 <Select value={projectId} onValueChange={v => { setProjectId(v); setTeamId('all'); setMemberId('all'); }}>
                     <SelectTrigger className="w-full lg:w-[160px] h-8 rounded-xl text-sm bg-background">
-                        <SelectValue placeholder="All Projects" />
+                        <SelectValue placeholder="Select Project" />
                     </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">All Projects</SelectItem>
+                    <SelectContent className="rounded-xl border-border/50">
+                        {/* TL sees ONLY their team's projects — no 'All Projects' option */}
+                        {baseProjects.length === 0 && (
+                            <SelectItem value="__none" disabled>No projects assigned</SelectItem>
+                        )}
                         {baseProjects.map((p: any) => (
                             <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                         ))}
@@ -258,7 +299,14 @@ export function TLDashboard() {
                     <DateRangeFilter />
                     <Button
                         variant="outline" size="sm"
-                        onClick={() => { setProjectId('all'); setTeamId('all'); setMemberId('all'); fetchJira(); }}
+                        onClick={() => {
+                            // Reset: go back to first allowed project (not 'all' for TL)
+                            const firstProject = baseProjects[0]?.id || 'all';
+                            setProjectId(firstProject);
+                            setTeamId('all');
+                            setMemberId('all');
+                            fetchJira();
+                        }}
                         className="h-8 rounded-xl text-xs text-muted-foreground hover:text-foreground"
                     >
                         <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Reset

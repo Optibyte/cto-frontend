@@ -42,12 +42,10 @@ import { useProjects } from '@/hooks/use-projects';
 import { useEffect as useReactEffect, useMemo } from 'react';
 import { useBulkCreateMetrics, useTeamMetrics, useDeleteMetric } from '@/hooks/use-metrics';
 import { useMetricDefinitions, useDeleteMetricDefinition, useCreateMetricDefinition } from '@/hooks/use-metric-definitions';
-import { useDataFence } from '@/contexts/role-context';
+import { useDataFence, useRole } from '@/contexts/role-context';
 
+const EMPTY_ARRAY: any[] = [];
 const CREATOR_ID = '33333333-3333-4333-8333-333333330001'; // Alice Johnson (Admin)
-
-// Current user role simulation
-const CURRENT_USER_ROLE = 'PROJECT';
 
 function getRAGColor(value: number, thresholds: { red: number; amber: number; green: number }) {
     if (value >= thresholds.green) return 'green';
@@ -84,15 +82,28 @@ export function ManualMetricsTab() {
     const [editingValues, setEditingValues] = useState<Record<string, number>>({});
     const [isEditing, setIsEditing] = useState(false);
     
+    // Auto-select initialization locks
+    const [projInitialized, setProjInitialized] = useState(false);
+    const [teamInitialized, setTeamInitialized] = useState(false);
+    
     // API Hooks
-    const { data: liveEmployees = [] } = useEmployees();
-    const { data: fetchedProjects = [], isLoading: projectsLoading } = useProjects();
+    const { data: liveEmployeesData } = useEmployees();
+    const liveEmployees = liveEmployeesData || EMPTY_ARRAY;
+    
+    const { data: fetchedProjectsData, isLoading: projectsLoading } = useProjects();
+    const fetchedProjects = fetchedProjectsData || EMPTY_ARRAY;
+    
     const { data: hierarchy } = useOrgHierarchy();
-    const { data: teamMetrics = [], isLoading: metricsLoading } = useTeamMetrics(selectedTeamId);
-    const { data: dbMetricDefs = [] } = useMetricDefinitions();
+    
+    const { data: teamMetricsData, isLoading: metricsLoading } = useTeamMetrics(selectedTeamId);
+    const teamMetrics = teamMetricsData || EMPTY_ARRAY;
+    
+    const { data: dbMetricDefsData } = useMetricDefinitions();
+    const dbMetricDefs = dbMetricDefsData || EMPTY_ARRAY;
 
-    // Data Fence
+    // Data Fence & Role
     const fence = useDataFence();
+    const { role: CURRENT_USER_ROLE } = useRole();
 
     // Mutations
     const { mutateAsync: deleteMetricDef } = useDeleteMetricDefinition();
@@ -114,11 +125,45 @@ export function ManualMetricsTab() {
     const canEdit = ['ORG', 'MARKET', 'ACCOUNT', 'PROJECT'].includes(CURRENT_USER_ROLE);
 
     // Filtering logic
+    // Resolve project IDs from team IDs via hierarchy (for TEAM_LEAD / TEAM where projectId is on the team, not user)
+    const resolvedAllowedProjectIds = useMemo(() => {
+        // If no fence or already has project IDs, use as-is
+        if (!fence.isRestricted) return null;
+        if (fence.allowedProjectIds && fence.allowedProjectIds.length > 0) return fence.allowedProjectIds;
+
+        // If only team IDs are fenced, derive their projects from hierarchy
+        if (fence.allowedTeamIds && hierarchy) {
+            const projectIds: string[] = [];
+            hierarchy.markets?.forEach((m: any) => {
+                m.accounts?.forEach((a: any) => {
+                    a.teams?.forEach((t: any) => {
+                        if (fence.allowedTeamIds!.includes(t.id) && t.projectId && !projectIds.includes(t.projectId)) {
+                            projectIds.push(t.projectId);
+                        }
+                    });
+                });
+            });
+            return projectIds.length > 0 ? projectIds : null;
+        }
+        return null;
+    }, [fence, hierarchy]);
+
     // Live projects list — fenced for PM/TL/Team roles
     const liveProjects = useMemo(() => {
-        if (!fence.allowedProjectIds) return fetchedProjects;
-        return fetchedProjects.filter((p: any) => fence.allowedProjectIds!.includes(p.id));
-    }, [fetchedProjects, fence.allowedProjectIds]);
+        if (!resolvedAllowedProjectIds) return fetchedProjects;
+        return fetchedProjects.filter((p: any) => resolvedAllowedProjectIds.includes(p.id));
+    }, [fetchedProjects, resolvedAllowedProjectIds]);
+
+    // Role-based auto-selection: Set initial project if restricted and currently 'all'
+    useReactEffect(() => {
+        if (!fence.isRestricted || liveProjects.length === 0 || projInitialized) return;
+
+        const isCurrentValid = liveProjects.some(p => p.id === selectedProjectId);
+        if (selectedProjectId === 'all' || !isCurrentValid) {
+            setSelectedProjectId(liveProjects[0].id);
+            setProjInitialized(true);
+        }
+    }, [fence.isRestricted, liveProjects, selectedProjectId, projInitialized]);
 
     // Available teams based on selected project — fenced for TL/Team roles
     const availableTeams = useMemo(() => {
@@ -128,16 +173,16 @@ export function ManualMetricsTab() {
             m.accounts?.forEach((a: any) => {
                 a.teams?.forEach((t: any) => {
                     const matchesProject = selectedProjectId === 'all' || t.projectId === selectedProjectId;
-                    const withinFence = !fence.allowedTeamIds || fence.allowedTeamIds.includes(t.id);
-                    const withinProjectFence = !fence.allowedProjectIds || fence.allowedProjectIds.includes(t.projectId);
-                    if (matchesProject && withinFence && withinProjectFence) {
+                    const withinTeamFence = !fence.allowedTeamIds || fence.allowedTeamIds.includes(t.id);
+                    const withinProjectFence = !resolvedAllowedProjectIds || resolvedAllowedProjectIds.includes(t.projectId);
+                    if (matchesProject && withinTeamFence && withinProjectFence) {
                         teams.push(t);
                     }
                 });
             });
         });
         return teams;
-    }, [hierarchy, selectedProjectId, fence.allowedTeamIds, fence.allowedProjectIds]);
+    }, [hierarchy, selectedProjectId, fence.allowedTeamIds, resolvedAllowedProjectIds]);
 
     // DERIVED MEMBERS STATE
     const members = useMemo(() => {
@@ -234,6 +279,17 @@ export function ManualMetricsTab() {
         }
     }, [dbMetricDefs, selectedProjectId, selectedTeamId, selectedMemberId]);
 
+    // Role-based auto-selection for Teams: Ensure a valid team is selected if restricted
+    useReactEffect(() => {
+        if (!fence.isRestricted || availableTeams.length === 0 || teamInitialized) return;
+
+        const isCurrentValid = availableTeams.some(t => t.id === selectedTeamId);
+        if (selectedTeamId === 'all' || selectedTeamId === '' || !isCurrentValid) {
+            setSelectedTeamId(availableTeams[0].id);
+            setTeamInitialized(true);
+        }
+    }, [fence.isRestricted, availableTeams, selectedTeamId, teamInitialized]);
+
 
     const selectedMember = filteredMembers.find((m: any) => m.id === selectedMemberId);
 
@@ -241,6 +297,7 @@ export function ManualMetricsTab() {
         setSelectedProjectId(val);
         setSelectedTeamId('');
         setSelectedMemberId('');
+        setTeamInitialized(false); // allow team to auto-select again for new project
     };
 
     const handleTeamChange = (val: string) => {
@@ -410,8 +467,8 @@ export function ManualMetricsTab() {
                         <SelectTrigger className="w-[200px] rounded-xl bg-muted/20 border-border/50">
                             <SelectValue placeholder="All Projects" />
                         </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">All Projects</SelectItem>
+                        <SelectContent className="rounded-xl border-border/50">
+                            {!fence.isRestricted && <SelectItem value="all">All Projects</SelectItem>}
                             {liveProjects.map((p) => (
                                 <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                             ))}
@@ -429,7 +486,7 @@ export function ManualMetricsTab() {
                         <SelectTrigger className="w-[180px] rounded-xl bg-muted/20 border-border/50">
                             <SelectValue placeholder="Select Team..." />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="rounded-xl border-border/50">
                             {availableTeams.map((t) => (
                                 <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
                             ))}

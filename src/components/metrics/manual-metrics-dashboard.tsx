@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -51,11 +51,17 @@ import { useEmployees } from '@/hooks/use-employees';
 import { useDataFence } from '@/contexts/role-context';
 import { Lock } from 'lucide-react';
 
+const METRICS_FILTER = { source: 'manual' };
+
 export function ManualMetricsDashboard() {
     const [selectedProjectId, setSelectedProjectId] = useState<string>('all');
     const [selectedTeamId, setSelectedTeamId] = useState<string>('all');
     
-    const { data: metrics = [], isLoading: metricsLoading } = useMetrics({ source: 'manual' });
+    // Auto-select initialization locks
+    const [projInitialized, setProjInitialized] = useState(false);
+    const [teamInitialized, setTeamInitialized] = useState(false);
+    
+    const { data: metrics = [], isLoading: metricsLoading } = useMetrics(METRICS_FILTER);
     const { data: definitions = [], isLoading: defLoading } = useMetricDefinitions();
     const { data: hierarchy } = useOrgHierarchy();
     const { data: employeesData = [], isLoading: employeesLoading } = useEmployees();
@@ -67,6 +73,27 @@ export function ManualMetricsDashboard() {
         return Array.isArray(employeesData) ? employeesData : (employeesData as any)?.data || [];
     }, [employeesData]);
 
+    // Resolve project IDs from hierarchy when user only has teamId (TEAM_LEAD / TEAM / MEMBER)
+    const resolvedAllowedProjectIds = useMemo(() => {
+        if (!fence.isRestricted) return null;
+        if (fence.allowedProjectIds && fence.allowedProjectIds.length > 0) return fence.allowedProjectIds;
+        // Derive from team IDs via hierarchy
+        if (fence.allowedTeamIds && hierarchy) {
+            const projectIds: string[] = [];
+            hierarchy.markets?.forEach((m: any) => {
+                m.accounts?.forEach((a: any) => {
+                    a.teams?.forEach((t: any) => {
+                        if (fence.allowedTeamIds!.includes(t.id) && t.projectId && !projectIds.includes(t.projectId)) {
+                            projectIds.push(t.projectId);
+                        }
+                    });
+                });
+            });
+            return projectIds.length > 0 ? projectIds : null;
+        }
+        return null;
+    }, [fence, hierarchy]);
+
     // Derived Data: Projects & Teams — fenced
     const projects = useMemo(() => {
         if (!hierarchy) return [];
@@ -74,15 +101,16 @@ export function ManualMetricsDashboard() {
         hierarchy.markets?.forEach((m: any) => {
             m.accounts?.forEach((a: any) => {
                 a.teams?.forEach((t: any) => {
-                    if (t.project && !projs.find(p => p.id === t.project.id)) {
-                        const withinFence = !fence.allowedProjectIds || fence.allowedProjectIds.includes(t.project.id);
-                        if (withinFence) projs.push(t.project);
+                    if (t.project && !projs.find((p: any) => p.id === t.project.id)) {
+                        const withinFence = !resolvedAllowedProjectIds || resolvedAllowedProjectIds.includes(t.project.id);
+                        const withinTeamFence = !fence.allowedTeamIds || fence.allowedTeamIds.includes(t.id);
+                        if (withinFence && withinTeamFence) projs.push(t.project);
                     }
                 });
             });
         });
         return projs;
-    }, [hierarchy, fence.allowedProjectIds]);
+    }, [hierarchy, resolvedAllowedProjectIds, fence.allowedTeamIds]);
 
     const teams = useMemo(() => {
         if (!hierarchy) return [];
@@ -92,20 +120,43 @@ export function ManualMetricsDashboard() {
                 allTeams = [...allTeams, ...(a.teams || [])];
             });
         });
-
         // Apply project filter
         if (selectedProjectId !== 'all') {
-            allTeams = allTeams.filter(t => t.projectId === selectedProjectId);
+            allTeams = allTeams.filter((t: any) => t.projectId === selectedProjectId);
         }
-        // Apply fence
+        // Apply fence by team IDs
         if (fence.allowedTeamIds) {
-            allTeams = allTeams.filter(t => fence.allowedTeamIds!.includes(t.id));
+            allTeams = allTeams.filter((t: any) => fence.allowedTeamIds!.includes(t.id));
         }
-        if (fence.allowedProjectIds) {
-            allTeams = allTeams.filter(t => fence.allowedProjectIds!.includes(t.projectId));
+        // Apply fence by resolved project IDs
+        if (resolvedAllowedProjectIds) {
+            allTeams = allTeams.filter((t: any) => resolvedAllowedProjectIds.includes(t.projectId));
         }
         return allTeams;
-    }, [hierarchy, selectedProjectId, fence.allowedTeamIds, fence.allowedProjectIds]);
+    }, [hierarchy, selectedProjectId, fence.allowedTeamIds, resolvedAllowedProjectIds]);
+
+    // Role-based auto-selection for Dashboard: Set initial project/team if restricted
+    useEffect(() => {
+        if (!fence.isRestricted) return;
+
+        // Auto-select project
+        if (projects.length > 0 && !projInitialized) {
+            const isProjectValid = projects.some(p => p.id === selectedProjectId);
+            if (selectedProjectId === 'all' || !isProjectValid) {
+                setSelectedProjectId(projects[0].id);
+                setProjInitialized(true);
+            }
+        }
+
+        // Auto-select team
+        if (teams.length > 0 && !teamInitialized) {
+            const isTeamValid = teams.some(t => t.id === selectedTeamId);
+            if (selectedTeamId === 'all' || !isTeamValid) {
+                setSelectedTeamId(teams[0].id);
+                setTeamInitialized(true);
+            }
+        }
+    }, [fence.isRestricted, projects, teams, selectedProjectId, selectedTeamId, projInitialized, teamInitialized]);
 
     const scopeMembers = useMemo(() => {
         const memberMap = new Map();
@@ -416,6 +467,7 @@ export function ManualMetricsDashboard() {
                         <Select value={selectedProjectId} onValueChange={(val) => {
                             setSelectedProjectId(val);
                             setSelectedTeamId('all');
+                            setTeamInitialized(false); // Enable auto-selection for the new project
                         }}>
                             <SelectTrigger className="w-[180px] rounded-xl bg-background/50 border-border/50 h-10">
                                 <SelectValue placeholder="All Projects" />
@@ -458,7 +510,7 @@ export function ManualMetricsDashboard() {
                 />
                 <StatCard 
                     title="Active Teams" 
-                    value={new Set(filteredMetrics.map(m => m.teamId)).size} 
+                    value={new Set(filteredMetrics.map((m: any) => m.teamId)).size} 
                     icon={<Users2 className="h-5 w-5" />} 
                     description="Teams with manual input"
                 />

@@ -10,6 +10,7 @@ export function useMetricDefinitions() {
             const { data } = await metricDefinitionsAPI.getAll();
             return data;
         },
+        retry: 1,
     });
 }
 

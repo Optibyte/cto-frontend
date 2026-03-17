@@ -10,6 +10,7 @@ export function useMetrics(filters?: any) {
             const { data } = await metricsAPI.getAll(filters);
             return data;
         },
+        retry: 1,
     });
 }
 

@@ -338,7 +338,9 @@ const formatProjectPayload = (data: any) => {
 export const projectsAPI = {
     getAll: async () => {
         try {
-            const response = await fetch(PROJECTS_API_URL);
+            const response = await fetch(PROJECTS_API_URL, {
+                headers: getHeaders()
+            });
             if (!response.ok) throw new Error('Failed to fetch projects');
             const data = await response.json();
             return { data: Array.isArray(data) ? data : (data.data || []) };
@@ -397,6 +399,7 @@ export const projectsAPI = {
         try {
             const response = await fetch(`${PROJECTS_API_URL}/${id}`, {
                 method: 'DELETE',
+                headers: getHeaders(),
             });
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
@@ -415,7 +418,9 @@ export const projectsAPI = {
 export const employeesAPI = {
     getAll: async () => {
         try {
-            const response = await fetch(EMPLOYEES_API_URL);
+            const response = await fetch(EMPLOYEES_API_URL, {
+                headers: getHeaders()
+            });
             if (!response.ok) throw new Error('Failed to fetch employees');
             const data = await response.json();
             // Handle both { data: [...] } and [...] formats
@@ -471,6 +476,7 @@ export const employeesAPI = {
             console.log(`Deleting employee at URL: ${url}`);
             const response = await fetch(url, {
                 method: 'DELETE',
+                headers: getHeaders(),
             });
 
             if (!response.ok) {
@@ -496,7 +502,9 @@ export const employeesAPI = {
 export const teamLeadersAPI = {
     getAll: async () => {
         try {
-            const response = await fetch(TEAM_LEADERS_API_URL);
+            const response = await fetch(TEAM_LEADERS_API_URL, {
+                headers: getHeaders()
+            });
             if (!response.ok) throw new Error('Failed to fetch team leaders');
             const data = await response.json();
             return { data: Array.isArray(data) ? data : (data.data || []) };
@@ -547,6 +555,7 @@ export const teamLeadersAPI = {
         try {
             const response = await fetch(`${TEAM_LEADERS_API_URL}/${id}`, {
                 method: 'DELETE',
+                headers: getHeaders(),
             });
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
@@ -563,7 +572,9 @@ export const teamLeadersAPI = {
 export const managersAPI = {
     getAll: async () => {
         try {
-            const response = await fetch(MANAGERS_API_URL);
+            const response = await fetch(MANAGERS_API_URL, {
+                headers: getHeaders()
+            });
             if (!response.ok) throw new Error('Failed to fetch managers');
             const data = await response.json();
             return { data: Array.isArray(data) ? data : (data.data || []) };
@@ -614,6 +625,7 @@ export const managersAPI = {
         try {
             const response = await fetch(`${MANAGERS_API_URL}/${id}`, {
                 method: 'DELETE',
+                headers: getHeaders(),
             });
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));

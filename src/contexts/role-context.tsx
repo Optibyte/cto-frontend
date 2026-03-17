@@ -105,8 +105,7 @@ export function useRole() {
  *
  * Rules:
  *  - CTO / ORG / MARKET / ACCOUNT  → no fence, see everything
- *  - PROJECT_MANAGER                → only projects where user.projectId matches OR
- *                                     user is linked to that project
+ *  - PROJECT_MANAGER                → only projects where user is linked
  *  - TEAM_LEAD / TEAM / MEMBER      → only the team(s) the user belongs to,
  *                                     and the projects those teams are under
  */
@@ -125,36 +124,57 @@ export function useDataFence() {
             };
         }
 
-        // Derive allowed IDs from user object
-        const userId = user?.id || user?.user?.id || null;
+        // Unwrap nested user object if backend returns { user: {...}, token: ... }
+        const u = user?.user ?? user;
+        const userId: string | null = u?.id || null;
 
-        // Projects directly linked to this user
-        const linkedProjectId: string | null = user?.projectId || user?.user?.projectId || null;
+        // Direct projectId on the user record
+        const directProjectId: string | null = u?.projectId || null;
 
-        // Teams directly linked to this user
-        const linkedTeamId: string | null = user?.teamId || user?.user?.teamId || null;
-        const teams: any[] = user?.teams || user?.user?.teams || [];
-        const linkedTeamIds: string[] = teams.map((t: any) => t.id || t.teamId).filter(Boolean);
-        if (linkedTeamId && !linkedTeamIds.includes(linkedTeamId)) linkedTeamIds.push(linkedTeamId);
+        // Teams the user belongs to — include members, direct teams, and teams led (for TLs)
+        const rawTeams: any[] = [...(u?.teams || []), ...(u?.teamMembers || []), ...(u?.teamsLed || [])];
+        const singleTeamId: string | null = u?.teamId || null;
+
+        // Build a set of team IDs
+        const linkedTeamIds: string[] = Array.from(new Set(
+            rawTeams
+                .map((t: any) => t.id || t.teamId || t.team?.id)
+                .filter(Boolean)
+        ));
+        if (singleTeamId && !linkedTeamIds.includes(singleTeamId)) {
+            linkedTeamIds.push(singleTeamId);
+        }
+
+        // Build a set of project IDs from:
+        // 1. Direct u.projectId
+        // 2. Each team's .projectId field
+        const linkedProjectIds: string[] = [];
+        if (directProjectId) linkedProjectIds.push(directProjectId);
+        rawTeams.forEach((t: any) => {
+            const pid = t.projectId || t.project?.id || t.team?.projectId;
+            if (pid && !linkedProjectIds.includes(pid)) linkedProjectIds.push(pid);
+        });
 
         if (role === 'PROJECT_MANAGER') {
-            const projectIds = linkedProjectId ? [linkedProjectId] : [];
             return {
                 isRestricted: true,
-                allowedProjectIds: projectIds.length > 0 ? projectIds : null,
-                allowedTeamIds: null,   // PM can see all teams within their project
+                allowedProjectIds: linkedProjectIds.length > 0 ? linkedProjectIds : null,
+                allowedTeamIds: null,   // PM can see all teams within their project(s)
                 allowedUserId: userId,
-                fenceLabel: '🔒 Showing only your assigned project data',
+                fenceLabel: `🔒 Showing only your assigned project${linkedProjectIds.length > 1 ? 's' : ''}`,
             };
         }
 
         if (role === 'TEAM_LEAD' || role === 'TEAM' || role === 'MEMBER') {
             return {
                 isRestricted: true,
-                allowedProjectIds: linkedProjectId ? [linkedProjectId] : null,
+                // Fence projects to what their teams are under
+                allowedProjectIds: linkedProjectIds.length > 0 ? linkedProjectIds : null,
                 allowedTeamIds: linkedTeamIds.length > 0 ? linkedTeamIds : null,
                 allowedUserId: userId,
-                fenceLabel: '🔒 Showing only your team data',
+                fenceLabel: role === 'TEAM_LEAD'
+                    ? '🔒 Showing only your team\'s project data'
+                    : '🔒 Showing only your team data',
             };
         }
 
