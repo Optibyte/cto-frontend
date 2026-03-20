@@ -194,7 +194,7 @@ export function TeamMembersManager({ teamId, teamName, initialMembers }: TeamMem
                                                             {m.yearsOfExperience || 0} Yrs Exp
                                                         </span>
                                                         <div className="flex flex-wrap gap-1 max-w-[180px]">
-                                                            {(m.skills || []).slice(0, 3).map(s => (
+                                                            {(m.skills || []).slice(0, 3).map((s: string) => (
                                                                 <Badge key={s} variant="secondary" className="text-[9px] px-2 py-0 rounded-md font-bold bg-primary/10 border-0 text-primary">{s}</Badge>
                                                             ))}
                                                         </div>

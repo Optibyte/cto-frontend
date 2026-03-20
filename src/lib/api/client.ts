@@ -204,6 +204,34 @@ export const metricsAPI = {
             console.error('Metrics API Error (delete):', error);
             throw error;
         }
+    },
+    getBaseline: async () => {
+        try {
+            const response = await fetch(`${METRICS_API_URL}/baseline`, {
+                headers: getHeaders()
+            });
+            if (!response.ok) throw new Error('Failed to fetch baseline configuration');
+            const data = await response.json();
+            return { data };
+        } catch (error) {
+            console.error('Metrics API Error (getBaseline):', error);
+            throw error;
+        }
+    },
+    updateBaseline: async (config: any) => {
+        try {
+            const response = await fetch(`${METRICS_API_URL}/baseline`, {
+                method: 'POST',
+                headers: getHeaders(),
+                body: JSON.stringify(config)
+            });
+            if (!response.ok) throw new Error('Failed to update baseline configuration');
+            const data = await response.json();
+            return { data };
+        } catch (error) {
+            console.error('Metrics API Error (updateBaseline):', error);
+            throw error;
+        }
     }
 };
 

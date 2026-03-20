@@ -5,11 +5,9 @@ import { Badge } from '@/components/ui/badge';
 import { Lock, Github, RefreshCw, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatDateTime } from '@/lib/utils';
-import {
-    GITHUB_METRICS,
-    JIRA_METRICS,
-    type IntegrationMetricData,
-} from '@/lib/mock-data/metrics-data';
+type IntegrationMetricData = any;
+const GITHUB_METRICS: any[] = [];
+const JIRA_METRICS: any[] = [];
 
 // Jira icon placeholder
 function JiraIcon({ className }: { className?: string }) {

@@ -102,7 +102,7 @@ export function AddFormulaMetricForm() {
         }
     };
 
-    const formulaMetrics = metrics.filter((m: MetricDefinition) => m.formula || m.updateFrequency === 'computed');
+    const formulaMetrics = metrics.filter((m: MetricDefinition) => m.formula || (m.updateFrequency as string) === 'computed');
 
     return (
         <div className="space-y-8 max-w-5xl mx-auto">
@@ -270,7 +270,7 @@ export function AddFormulaMetricForm() {
                             No formula metrics defined yet.
                         </div>
                     ) : (
-                        formulaMetrics.map((m) => (
+                        formulaMetrics.map((m: MetricDefinition) => (
                             <Card key={m.id} className="border-border/40 bg-card/30 hover:border-violet-500/30 transition-all group overflow-hidden">
                                 <CardContent className="p-4 py-3 flex items-center justify-between">
                                     <div className="flex items-center gap-3">

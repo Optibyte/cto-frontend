@@ -10,6 +10,9 @@ import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from '@/components/ui/select';
 import {
+    Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger
+} from '@/components/ui/dialog';
+import {
     Tabs, TabsList, TabsTrigger
 } from '@/components/ui/tabs';
 import {
@@ -41,13 +44,15 @@ import {
     TrendingUp,
     TrendingDown,
     Minus,
-    Activity
+    Activity,
+    Pencil,
+    Save
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Project } from '@/lib/api/projects';
 
 // ─── Sprint Input Data ──────────────────────────────────────────────────────
-const SPRINT_DATA = {
+const DEFAULT_SPRINT_DATA = {
     stories_planned: 20,
     stories_delivered: 18,
     stories_added: 3,
@@ -328,8 +333,9 @@ const UOM_GROUPS = [
 ] as const;
 
 import { useOrgHierarchy } from '@/hooks/use-hierarchy';
-import { useProjects } from '@/hooks/use-projects';
+import { useProjects, useUpdateProject } from '@/hooks/use-projects';
 import { useMetricDefinitions, useCreateMetricDefinition } from '@/hooks/use-metric-definitions';
+import { useGlobalBaseline, useUpdateGlobalBaseline } from '@/hooks/use-metrics';
 import { useDataFence } from '@/contexts/role-context';
 import { toast } from 'sonner';
 
@@ -342,6 +348,10 @@ export function ProvisionMetricsTab() {
     const { data: existingDefinitionsData } = useMetricDefinitions();
     const existingDefinitions = existingDefinitionsData || EMPTY_ARRAY;
     const createMetricMutation = useCreateMetricDefinition();
+    
+    const { data: globalBaseline, isLoading: baselineLoading } = useGlobalBaseline();
+    const saveBaselineMutation = useUpdateGlobalBaseline();
+    const updateProjectMutation = useUpdateProject();
 
     // Data Fence — useProjects() already passes userId for restricted roles to the backend.
     // resolvedAllowedProjectIds is an extra frontend safety net for hybrid cases.
@@ -371,7 +381,9 @@ export function ProvisionMetricsTab() {
 
     const [sprintCategoryFilter, setSprintCategoryFilter] = useState<string>('all');
 
-    const computedMetrics = useMemo(() => computeMetrics(SPRINT_DATA), []);
+    const [sprintData, setSprintData] = useState<typeof DEFAULT_SPRINT_DATA>(DEFAULT_SPRINT_DATA);
+
+    const computedMetrics = useMemo(() => computeMetrics(sprintData), [sprintData]);
 
     // Map Project ID -> Hierarchy Metadata (Market, Account)
     const projectMetadataMap = useMemo(() => {
@@ -447,6 +459,25 @@ export function ProvisionMetricsTab() {
         }
     }, [fence.isRestricted, allProjects, selectedProjectId, projInitialized]);
 
+    // sync sprintData with global baseline from DB - merge with defaults to ensure all 26 fields exist
+    useEffect(() => {
+        if (globalBaseline) {
+            setSprintData(prev => ({
+                ...prev,
+                ...globalBaseline
+            }));
+        }
+    }, [globalBaseline]);
+
+    const handleSaveGlobalBaseline = async () => {
+        try {
+            await saveBaselineMutation.mutateAsync(sprintData);
+            toast.success("Baseline configuration saved globally");
+        } catch (error) {
+            toast.error("Failed to save baseline configuration");
+        }
+    };
+
 
     const toggleMetric = (id: string) => {
         setSelectedMetrics(prev =>
@@ -490,6 +521,7 @@ export function ProvisionMetricsTab() {
                     marketName: project.marketName,
                     projectId: project.id,
                     projectName: project.name,
+                    parameters: sprintData,
                 };
                 return createMetricMutation.mutateAsync(payload);
             });
@@ -679,6 +711,49 @@ export function ProvisionMetricsTab() {
                                 </div>
                             </div>
                             <div className="flex items-center gap-4">
+                                {step2Tab === 'sprint' && (
+                                    <Dialog>
+                                        <DialogTrigger asChild>
+                                            <Button variant="outline" size="sm" className="h-8 rounded-lg gap-2 text-[10px] font-bold uppercase tracking-wider border-primary/20 hover:bg-primary/5">
+                                                <Pencil className="h-3 w-3" />
+                                                Edit Raw Data
+                                            </Button>
+                                        </DialogTrigger>
+                                        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto rounded-[2rem]">
+                                            <DialogHeader className="mb-4">
+                                                <DialogTitle className="text-2xl font-black">Raw Sprint Data</DialogTitle>
+                                                <DialogDescription className="font-medium">
+                                                    Manually insert values to recalculate baseline metrics.
+                                                </DialogDescription>
+                                            </DialogHeader>
+                                            <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+                                                {Object.entries(sprintData).map(([key, value]) => (
+                                                    <div key={key} className="space-y-2">
+                                                        <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground opacity-80 whitespace-nowrap overflow-hidden text-ellipsis block">
+                                                            {key.replace(/_/g, ' ')}
+                                                        </Label>
+                                                        <Input
+                                                            type="number"
+                                                            value={value}
+                                                            onChange={(e) => setSprintData(prev => ({ ...prev, [key]: Number(e.target.value) }))}
+                                                            className="h-10 rounded-xl bg-background/50 border-border/50 font-black tabular-nums"
+                                                        />
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            <div className="flex justify-end pt-6 border-t border-border/10 mt-6">
+                                                <DialogTrigger asChild>
+                                                    <Button 
+                                                        onClick={handleSaveGlobalBaseline}
+                                                        className="rounded-xl gap-2 h-10 px-8 bg-primary text-white font-bold"
+                                                    >
+                                                        Apply & Save to DB
+                                                    </Button>
+                                                </DialogTrigger>
+                                            </div>
+                                        </DialogContent>
+                                    </Dialog>
+                                )}
                                 <Badge variant="secondary" className="rounded-full shadow-inner">{selectedMetrics.length} Selected</Badge>
                                 {step2Tab === 'sprint' ? (
                                     <Select value={sprintCategoryFilter} onValueChange={setSprintCategoryFilter}>
@@ -830,7 +905,7 @@ export function ProvisionMetricsTab() {
                                                     const StatusIcon = st.icon;
                                                     
                                                     const barPct = group.key === 'hours'
-                                                        ? Math.min(100, (m.value / (m.id === 'effort_spent' ? SPRINT_DATA.employee_capacity_hours : SPRINT_DATA.employee_capacity_hours)) * 100)
+                                                        ? Math.min(100, (m.value / sprintData.employee_capacity_hours) * 100)
                                                         : group.key === 'percentage'
                                                             ? Math.min(100, m.value)
                                                             : Math.min(100, (m.value / (m.threshold * 1.5)) * 100);

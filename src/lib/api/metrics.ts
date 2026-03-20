@@ -1,4 +1,4 @@
-import axios from './client';
+import axios from 'axios';
 
 export interface MetricEntry {
     time: string;

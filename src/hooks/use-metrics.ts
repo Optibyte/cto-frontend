@@ -88,3 +88,24 @@ export function useDeleteMetric() {
         },
     });
 }
+
+export function useGlobalBaseline() {
+    return useQuery({
+        queryKey: ['metrics', 'baseline'],
+        queryFn: async () => {
+            const { data } = await metricsAPI.getBaseline();
+            return data;
+        },
+    });
+}
+
+export function useUpdateGlobalBaseline() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (config: any) => metricsAPI.updateBaseline(config),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['metrics', 'baseline'] });
+        },
+    });
+}
