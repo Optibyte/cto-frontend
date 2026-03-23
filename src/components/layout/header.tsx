@@ -74,16 +74,6 @@ export function Header() {
                                     <div className="flex flex-col gap-1">
                                         <span className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-bold leading-none">Logged in as</span>
                                         <span className="text-sm font-bold truncate leading-none mt-1">{displayEmail}</span>
-                                        {displayId && (
-                                            <span className="text-[10px] text-primary font-mono mt-1 font-bold bg-primary/10 px-1.5 py-0.5 rounded-sm w-fit" title="Tracking/Employee ID">
-                                                TRK: {displayId}
-                                            </span>
-                                        )}
-                                        {user?.id && (
-                                            <span className="text-[9px] text-muted-foreground font-mono mt-1 bg-muted/50 px-1.5 py-0.5 rounded-sm w-fit" title="System UUID">
-                                                ID: {user?.id?.slice(0, 8)}...
-                                            </span>
-                                        )}
                                         <div className="flex items-center gap-1.5 mt-1.5">
                                             <span className={`h-1.5 w-1.5 rounded-full ${currentRole.color}`} />
                                             <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{currentRole.label} ROLE</span>

@@ -19,6 +19,9 @@ async function apiFetch(url: string, options?: RequestInit) {
     }
     if (response.status === 204) return { success: true };
     const data = await response.json();
+    if (data && data.total !== undefined && Array.isArray(data.data)) {
+        return data; // Return full pagination object
+    }
     return Array.isArray(data) ? data : (data.data || data);
 }
 
@@ -26,7 +29,7 @@ async function apiFetch(url: string, options?: RequestInit) {
 const MARKETS_URL = `${API_BASE_URL}/api/v1/markets`;
 
 export const marketsAPI = {
-    getAll: () => apiFetch(MARKETS_URL),
+    getAll: (page?: number, limit?: number) => apiFetch(page && limit ? `${MARKETS_URL}?page=${page}&limit=${limit}` : MARKETS_URL),
     getOne: (id: string) => apiFetch(`${MARKETS_URL}/${id}`),
     create: (data: { name: string; regionCode: string }) =>
         apiFetch(MARKETS_URL, { method: 'POST', body: JSON.stringify(data) }),
@@ -40,7 +43,7 @@ export const marketsAPI = {
 const ACCOUNTS_URL = `${API_BASE_URL}/api/v1/accounts`;
 
 export const adminAccountsAPI = {
-    getAll: () => apiFetch(ACCOUNTS_URL),
+    getAll: (page?: number, limit?: number) => apiFetch(page && limit ? `${ACCOUNTS_URL}?page=${page}&limit=${limit}` : ACCOUNTS_URL),
     getOne: (id: string) => apiFetch(`${ACCOUNTS_URL}/${id}`),
     create: (data: { name: string; marketId: string; accountManagerId: string }) =>
         apiFetch(ACCOUNTS_URL, { method: 'POST', body: JSON.stringify(data) }),
@@ -54,7 +57,7 @@ export const adminAccountsAPI = {
 const PROJECTS_URL = `${API_BASE_URL}/api/v1/projects`;
 
 export const adminProjectsAPI = {
-    getAll: () => apiFetch(PROJECTS_URL),
+    getAll: (page?: number, limit?: number) => apiFetch(page && limit ? `${PROJECTS_URL}?page=${page}&limit=${limit}` : PROJECTS_URL),
     getOne: (id: string) => apiFetch(`${PROJECTS_URL}/${id}`),
     create: (data: any) =>
         apiFetch(PROJECTS_URL, { method: 'POST', body: JSON.stringify(data) }),
@@ -68,7 +71,7 @@ export const adminProjectsAPI = {
 const TEAMS_URL = `${API_BASE_URL}/api/v1/teams`;
 
 export const adminTeamsAPI = {
-    getAll: () => apiFetch(TEAMS_URL),
+    getAll: (page?: number, limit?: number) => apiFetch(page && limit ? `${TEAMS_URL}?page=${page}&limit=${limit}` : TEAMS_URL),
     getOne: (id: string) => apiFetch(`${TEAMS_URL}/${id}`),
     create: (data: any) =>
         apiFetch(TEAMS_URL, { method: 'POST', body: JSON.stringify(data) }),
@@ -116,7 +119,7 @@ export const adminTeamMembersAPI = {
 const USERS_URL = `${API_BASE_URL}/api/v1/users`;
 
 export const adminUsersAPI = {
-    getAll: () => apiFetch(USERS_URL),
+    getAll: (page?: number, limit?: number) => apiFetch(page && limit ? `${USERS_URL}?page=${page}&limit=${limit}` : USERS_URL),
     getOne: (id: string) => apiFetch(`${USERS_URL}/${id}`),
     create: (data: any) =>
         apiFetch(USERS_URL, { method: 'POST', body: JSON.stringify(data) }),

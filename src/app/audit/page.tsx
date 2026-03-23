@@ -100,17 +100,7 @@ export default function AuditPage() {
                             </div>
                         </div>
                         <div className="flex items-center gap-4">
-                            <div className="hidden lg:flex flex-col items-end px-4 border-r border-border/50">
-                                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest leading-none mb-1">Active Performer</span>
-                                <div className="flex flex-col items-end">
-                                    <span className="text-[10px] font-mono text-primary font-bold bg-primary/5 px-2 py-0.5 rounded border border-primary/20">
-                                        ID: {currentUser?.user?.id || logs[0]?.userId || 'Tracking Ready'}
-                                    </span>
-                                    <span className="text-[10px] text-muted-foreground mt-1 font-medium">
-                                        {currentUser?.user?.email || 'Guest User'}
-                                    </span>
-                                </div>
-                            </div>
+
                             <div className="relative w-full md:w-64">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                 <Input

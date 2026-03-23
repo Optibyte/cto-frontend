@@ -73,6 +73,8 @@ export default function AdminPage() {
     // ── Pagination ────────────────────────────────────────────
     const PAGE_SIZE = 10;
     const [currentPage, setCurrentPage] = useState(1);
+    const [totalServerItems, setTotalServerItems] = useState<number>(0);
+    const [isServerPaginated, setIsServerPaginated] = useState<boolean>(false);
 
     // Linked data for dropdowns
     const [markets, setMarkets] = useState<any[]>([]);
@@ -81,30 +83,36 @@ export default function AdminPage() {
     const [users, setUsers] = useState<any[]>([]);
     const [teams, setTeams] = useState<any[]>([]);
 
-    const fetchData = useCallback(async () => {
+    const fetchData = useCallback(async (page: number, tab: TabKey) => {
         setLoading(true);
         try {
-            const apiMap: Record<TabKey, () => Promise<any>> = {
+            const apiMap: Record<TabKey, (page?: number, limit?: number) => Promise<any>> = {
                 markets: marketsAPI.getAll,
                 accounts: adminAccountsAPI.getAll,
                 projects: adminProjectsAPI.getAll,
                 teams: adminTeamsAPI.getAll,
-                members: adminTeamMembersAPI.getAll,
+                members: adminTeamMembersAPI.getAll as any,
                 users: adminUsersAPI.getAll,
             };
-            const result = await apiMap[activeTab]();
-            setData(Array.isArray(result) ? result : []);
-            setCurrentPage(1);
-            setTableSearch('');
+            const result = await apiMap[tab](page, PAGE_SIZE);
+            if (result && result.total !== undefined) {
+                setData(result.data || []);
+                setTotalServerItems(result.total);
+                setIsServerPaginated(true);
+            } else {
+                const arr = Array.isArray(result) ? result : [];
+                setData(arr);
+                setTotalServerItems(arr.length);
+                setIsServerPaginated(false);
+            }
         } catch (err: any) {
-            toast.error(`Failed to load ${activeTab}: ${err.message}`);
+            toast.error(`Failed to load ${tab}: ${err.message}`);
             setData([]);
-            setCurrentPage(1);
-            setTableSearch('');
+            setTotalServerItems(0);
         } finally {
             setLoading(false);
         }
-    }, [activeTab]);
+    }, []);
 
     // Load linked data for dropdowns
     const fetchLinkedData = useCallback(async () => {
@@ -124,9 +132,11 @@ export default function AdminPage() {
         } catch { }
     }, []);
 
-    useEffect(() => { fetchData(); }, [fetchData]);
     useEffect(() => { fetchLinkedData(); }, [fetchLinkedData]);
-    useEffect(() => { setCurrentPage(1); setTableSearch(''); }, [activeTab]);
+
+    useEffect(() => {
+        fetchData(currentPage, activeTab);
+    }, [currentPage, activeTab, fetchData]);
 
     // Search filter
     const filteredData = useMemo(() => {
@@ -142,11 +152,13 @@ export default function AdminPage() {
     }, [data, tableSearch]);
 
     // Pagination derived values (based on filtered data)
-    const totalPages = Math.max(1, Math.ceil(filteredData.length / PAGE_SIZE));
-    const pagedData = useMemo(
-        () => filteredData.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
-        [filteredData, currentPage]
-    );
+    const totalItemsToUse = isServerPaginated && !tableSearch.trim() ? totalServerItems : filteredData.length;
+    const totalPages = Math.max(1, Math.ceil(totalItemsToUse / PAGE_SIZE));
+    
+    const pagedData = useMemo(() => {
+        if (isServerPaginated && !tableSearch.trim()) return filteredData;
+        return filteredData.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+    }, [filteredData, currentPage, isServerPaginated, tableSearch]);
 
     // Reset to page 1 when search changes
     useEffect(() => { setCurrentPage(1); }, [tableSearch]);
@@ -174,7 +186,7 @@ export default function AdminPage() {
             }
             toast.success(`Deleted successfully`);
             setDeleteConfirm(null);
-            fetchData();
+            fetchData(currentPage, activeTab);
             fetchLinkedData();
         } catch (err: any) {
             toast.error(`Delete failed: ${err.message}`);
@@ -212,7 +224,7 @@ export default function AdminPage() {
                 toast.success(`Added successfully`);
             }
             setDialogOpen(false);
-            fetchData();
+            fetchData(currentPage, activeTab);
             fetchLinkedData();
         } catch (err: any) {
             toast.error(`Save failed: ${err.message}`);
@@ -247,7 +259,13 @@ export default function AdminPage() {
                     return (
                         <button
                             key={tab.key}
-                            onClick={() => setActiveTab(tab.key)}
+                            onClick={() => {
+                                if (activeTab !== tab.key) {
+                                    setActiveTab(tab.key);
+                                    setCurrentPage(1);
+                                    setTableSearch('');
+                                }
+                            }}
                             className={cn(
                                 'flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 flex-1 min-w-[140px] justify-center',
                                 isActive
@@ -257,9 +275,6 @@ export default function AdminPage() {
                         >
                             <Icon className="h-4 w-4" />
                             {tab.label}
-                            <Badge variant="outline" className={cn('ml-1 text-[10px] px-1.5 rounded-full', isActive && 'border-primary-foreground/30 text-primary-foreground')}>
-                                {activeTab === tab.key ? data.length : '—'}
-                            </Badge>
                         </button>
                     );
                 })}
@@ -271,9 +286,11 @@ export default function AdminPage() {
                     <CardTitle className="flex items-center gap-2 text-base shrink-0">
                         {(() => { const Icon = tabConfig.icon; return <Icon className={cn('h-5 w-5', tabConfig.color)} />; })()}
                         {tabConfig.label}
-                        <span className="text-muted-foreground font-normal text-sm">
-                            ({tableSearch ? `${filteredData.length} of ${data.length}` : data.length})
-                        </span>
+                        {!loading && (
+                            <span className="text-muted-foreground font-normal text-sm">
+                                ({tableSearch ? `${filteredData.length} of ${totalItemsToUse}` : totalItemsToUse})
+                            </span>
+                        )}
                     </CardTitle>
                     <div className="flex items-center gap-2 flex-1 min-w-[200px]">
                         <div className="relative flex-1">
@@ -293,7 +310,7 @@ export default function AdminPage() {
                                 </button>
                             )}
                         </div>
-                        <Button variant="ghost" size="sm" className="rounded-xl gap-2 shrink-0" onClick={fetchData}>
+                        <Button variant="ghost" size="sm" className="rounded-xl gap-2 shrink-0" onClick={() => fetchData(currentPage, activeTab)}>
                             <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} /> Refresh
                         </Button>
                     </div>
@@ -366,7 +383,7 @@ export default function AdminPage() {
                         {totalPages > 1 && (
                             <div className="flex items-center justify-between pt-4 mt-2 border-t border-border/20">
                                 <p className="text-xs text-muted-foreground">
-                                    Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filteredData.length)} of {filteredData.length}{tableSearch && ` (filtered)`}
+                                    Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, totalItemsToUse)} of {totalItemsToUse}{tableSearch && ` (filtered)`}
                                 </p>
                                 <div className="flex items-center gap-2">
                                     <Button
