@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/dialog';
 import {
     Building2, Globe2, Briefcase, FolderKanban, Users2, UserPlus,
-    Plus, Pencil, Trash2, Loader2, RefreshCw, ChevronRight, X, Search, CheckSquare, Square
+    Plus, Pencil, Trash2, Loader2, RefreshCw, ChevronRight, ChevronLeft, X, Search, CheckSquare, Square
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -67,6 +67,13 @@ export default function AdminPage() {
     const [editItem, setEditItem] = useState<any>(null);
     const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
+    // ── Search ────────────────────────────────────────────────
+    const [tableSearch, setTableSearch] = useState('');
+
+    // ── Pagination ────────────────────────────────────────────
+    const PAGE_SIZE = 10;
+    const [currentPage, setCurrentPage] = useState(1);
+
     // Linked data for dropdowns
     const [markets, setMarkets] = useState<any[]>([]);
     const [accounts, setAccounts] = useState<any[]>([]);
@@ -87,9 +94,13 @@ export default function AdminPage() {
             };
             const result = await apiMap[activeTab]();
             setData(Array.isArray(result) ? result : []);
+            setCurrentPage(1);
+            setTableSearch('');
         } catch (err: any) {
             toast.error(`Failed to load ${activeTab}: ${err.message}`);
             setData([]);
+            setCurrentPage(1);
+            setTableSearch('');
         } finally {
             setLoading(false);
         }
@@ -115,6 +126,30 @@ export default function AdminPage() {
 
     useEffect(() => { fetchData(); }, [fetchData]);
     useEffect(() => { fetchLinkedData(); }, [fetchLinkedData]);
+    useEffect(() => { setCurrentPage(1); setTableSearch(''); }, [activeTab]);
+
+    // Search filter
+    const filteredData = useMemo(() => {
+        const q = tableSearch.trim().toLowerCase();
+        if (!q) return data;
+        return data.filter(item =>
+            Object.values(item).some(v =>
+                v !== null && v !== undefined &&
+                typeof v !== 'object' &&
+                String(v).toLowerCase().includes(q)
+            )
+        );
+    }, [data, tableSearch]);
+
+    // Pagination derived values (based on filtered data)
+    const totalPages = Math.max(1, Math.ceil(filteredData.length / PAGE_SIZE));
+    const pagedData = useMemo(
+        () => filteredData.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
+        [filteredData, currentPage]
+    );
+
+    // Reset to page 1 when search changes
+    useEffect(() => { setCurrentPage(1); }, [tableSearch]);
 
     const handleCreate = (initialData: any = null) => { setEditItem(initialData); setDialogOpen(true); };
     const handleEdit = (item: any) => { setEditItem(item); setDialogOpen(true); };
@@ -232,19 +267,47 @@ export default function AdminPage() {
 
             {/* Data Table */}
             <Card className="rounded-2xl border-border/30 shadow-xl">
-                <CardHeader className="flex flex-row items-center justify-between pb-4">
-                    <CardTitle className="flex items-center gap-2 text-base">
+                <CardHeader className="flex flex-row items-center justify-between gap-4 pb-4 flex-wrap">
+                    <CardTitle className="flex items-center gap-2 text-base shrink-0">
                         {(() => { const Icon = tabConfig.icon; return <Icon className={cn('h-5 w-5', tabConfig.color)} />; })()}
-                        {tabConfig.label} ({data.length})
+                        {tabConfig.label}
+                        <span className="text-muted-foreground font-normal text-sm">
+                            ({tableSearch ? `${filteredData.length} of ${data.length}` : data.length})
+                        </span>
                     </CardTitle>
-                    <Button variant="ghost" size="sm" className="rounded-xl gap-2" onClick={fetchData}>
-                        <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} /> Refresh
-                    </Button>
+                    <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+                        <div className="relative flex-1">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                            <Input
+                                className="pl-9 h-9 rounded-xl text-sm w-full"
+                                placeholder={`Search ${tabConfig.label.toLowerCase()}...`}
+                                value={tableSearch}
+                                onChange={e => setTableSearch(e.target.value)}
+                            />
+                            {tableSearch && (
+                                <button
+                                    onClick={() => setTableSearch('')}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                                >
+                                    <X className="h-3.5 w-3.5" />
+                                </button>
+                            )}
+                        </div>
+                        <Button variant="ghost" size="sm" className="rounded-xl gap-2 shrink-0" onClick={fetchData}>
+                            <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} /> Refresh
+                        </Button>
+                    </div>
                 </CardHeader>
                 <CardContent>
                     {loading ? (
                         <div className="flex items-center justify-center py-16">
                             <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                        </div>
+                    ) : filteredData.length === 0 ? (
+                        <div className="text-center py-16 text-muted-foreground">
+                            <Search className="h-10 w-10 mx-auto mb-3 opacity-20" />
+                            <p className="font-medium">No results for &ldquo;{tableSearch}&rdquo;</p>
+                            <p className="text-sm mt-1">Try a different search term or <button className="text-primary underline" onClick={() => setTableSearch('')}>clear search</button></p>
                         </div>
                     ) : data.length === 0 ? (
                         <div className="text-center py-16 text-muted-foreground">
@@ -255,6 +318,7 @@ export default function AdminPage() {
                             <p className="text-sm mt-1">Click &quot;Add&quot; to add your first {tabConfig.label.slice(0, -1).toLowerCase()}</p>
                         </div>
                     ) : (
+                        <>
                         <div className="overflow-x-auto">
                             <table className="w-full">
                                 <thead>
@@ -266,7 +330,7 @@ export default function AdminPage() {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {data.map(item => (
+                                    {pagedData.map(item => (
                                         <tr key={item.id} className="border-b border-border/20 last:border-0 hover:bg-accent/30 group transition-colors">
                                             {renderRow(activeTab, item)}
                                             <td className="py-3 text-right pr-2">
@@ -297,6 +361,39 @@ export default function AdminPage() {
                                 </tbody>
                             </table>
                         </div>
+
+                        {/* Pagination Bar */}
+                        {totalPages > 1 && (
+                            <div className="flex items-center justify-between pt-4 mt-2 border-t border-border/20">
+                                <p className="text-xs text-muted-foreground">
+                                    Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filteredData.length)} of {filteredData.length}{tableSearch && ` (filtered)`}
+                                </p>
+                                <div className="flex items-center gap-2">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-8 rounded-lg gap-1 text-xs"
+                                        disabled={currentPage === 1}
+                                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                    >
+                                        <ChevronLeft className="h-3.5 w-3.5" /> Prev
+                                    </Button>
+                                    <span className="text-xs font-medium text-muted-foreground px-1">
+                                        Page {currentPage} / {totalPages}
+                                    </span>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-8 rounded-lg gap-1 text-xs"
+                                        disabled={currentPage === totalPages}
+                                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                    >
+                                        Next <ChevronRight className="h-3.5 w-3.5" />
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
+                        </>
                     )}
                 </CardContent>
             </Card>

@@ -28,10 +28,8 @@ import {
 } from '@/redux/slices/dashboardSlice';
 import { useOrgHierarchy } from '@/hooks/use-hierarchy';
 import { useProjects } from '@/hooks/use-projects';
-import {
-    getMembersForTeam,
-} from '@/lib/mock-data/dashboard-filtered';
-import { marketsAPI, adminAccountsAPI, adminProjectsAPI, adminTeamsAPI } from '@/lib/api/admin';
+import { marketsAPI, adminAccountsAPI, adminProjectsAPI, adminTeamsAPI, adminTeamMembersAPI } from '@/lib/api/admin';
+import { jiraMetricsAPI } from '@/lib/api/jira-metrics';
 import { useEffect } from 'react';
 import { useRole } from '@/contexts/role-context';
 
@@ -77,6 +75,7 @@ export function GlobalFilter() {
     const [dynamicAccounts, setDynamicAccounts] = useState<any[]>([]);
     const [dynamicProjects, setDynamicProjects] = useState<any[]>([]);
     const [dynamicTeams, setDynamicTeams] = useState<any[]>([]);
+    const [dynamicMembers, setDynamicMembers] = useState<any[]>([]);
 
     useEffect(() => {
         if (!open) return;
@@ -96,13 +95,44 @@ export function GlobalFilter() {
                 console.error("Failed to fetch dropdowns:", e);
             }
         }
+        async function fetchMembers() {
+            try {
+                // Fetch from admin team members
+                const adminMembers = await adminTeamMembersAPI.getAll().catch(() => []);
+                const memberMap = new Map<string, { id: string; name: string }>();
+                (adminMembers || []).forEach((m: any) => {
+                    const uid = m.userId;
+                    const name = m.userName || m.userEmail || '';
+                    if (uid && name && name !== '—') memberMap.set(uid, { id: uid, name });
+                });
+                // Also load Jira members
+                const jiraRes = await jiraMetricsAPI.getDynamicFilters().catch(() => null);
+                if (jiraRes?.status === 'success') {
+                    (jiraRes.members || []).forEach((m: any) => {
+                        if (m.id && !memberMap.has(m.id)) memberMap.set(m.id, { id: m.id, name: m.name });
+                    });
+                }
+                setDynamicMembers(Array.from(memberMap.values()));
+            } catch (e) {
+                console.error("Failed to fetch members:", e);
+            }
+        }
         fetchDropdowns();
+        fetchMembers();
     }, [open]);
 
     const accounts = [...hierarchyAccounts, ...dynamicAccounts.filter(a => selectedMarket === 'all' || a.marketId === selectedMarket)];
     const projects = [...hierarchyProjects, ...(selectedAccount === 'all' ? dynamicProjects : dynamicProjects.filter(p => !p.accountId || p.accountId === selectedAccount))];
     const teams = [...hierarchyTeams, ...(selectedProject === 'all' ? dynamicTeams : dynamicTeams.filter(t => !t.projectId || t.projectId === selectedProject))];
-    const members = getMembersForTeam(selectedTeam);
+    // Deduplicate all lists to prevent duplicate SelectItem keys
+    const deduped = <T extends { id: string }>(arr: T[]): T[] => {
+        const seen = new Set<string>();
+        return arr.filter(item => item.id && !seen.has(item.id) && seen.add(item.id));
+    };
+    const accountsDeduped = deduped(accounts);
+    const projectsDeduped = deduped(projects);
+    const teamsDeduped = deduped(teams);
+    const members = deduped(dynamicMembers);
 
     const handleApply = () => {
         dispatch(setIsFiltering(true));
@@ -164,10 +194,7 @@ export function GlobalFilter() {
                                 </SelectTrigger>
                                 <SelectContent className="rounded-xl border-border/50 shadow-xl">
                                     <SelectItem value="all">All Markets</SelectItem>
-                                    {markets.map((m: any) => (
-                                        <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
-                                    ))}
-                                    {dynamicMarkets.map((m: any) => (
+                                    {[...dynamicMarkets, ...markets.filter((m: any) => !dynamicMarkets.find((dm: any) => dm.id === m.id))].map((m: any) => (
                                         <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
                                     ))}
                                 </SelectContent>
@@ -190,7 +217,7 @@ export function GlobalFilter() {
                                 </SelectTrigger>
                                 <SelectContent className="rounded-xl border-border/50 shadow-xl">
                                     <SelectItem value="all">All Accounts</SelectItem>
-                                    {accounts.map((a) => (
+                                    {accountsDeduped.map((a) => (
                                         <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
                                     ))}
                                 </SelectContent>
@@ -213,7 +240,7 @@ export function GlobalFilter() {
                                 </SelectTrigger>
                                 <SelectContent className="rounded-xl border-border/50 shadow-xl">
                                     <SelectItem value="all">All Projects</SelectItem>
-                                    {projects.map((p) => (
+                                    {projectsDeduped.map((p) => (
                                         <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                                     ))}
                                 </SelectContent>
@@ -236,7 +263,7 @@ export function GlobalFilter() {
                                 </SelectTrigger>
                                 <SelectContent className="rounded-xl border-border/50 shadow-xl">
                                     <SelectItem value="all">All Teams</SelectItem>
-                                    {teams.map((t) => (
+                                    {teamsDeduped.map((t) => (
                                         <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
                                     ))}
                                 </SelectContent>

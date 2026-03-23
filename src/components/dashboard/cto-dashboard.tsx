@@ -19,7 +19,7 @@ import {
 import { cn } from '@/lib/utils';
 import { jiraMetricsAPI } from '@/lib/api/jira-metrics';
 import { useRole } from '@/contexts/role-context';
-import { marketsAPI, adminAccountsAPI, adminProjectsAPI, adminTeamsAPI } from '@/lib/api/admin';
+import { marketsAPI, adminAccountsAPI, adminProjectsAPI, adminTeamsAPI, adminTeamMembersAPI } from '@/lib/api/admin';
 import { useAppSelector } from '@/redux/store';
 import { DateRangeFilter } from '@/components/filters/date-range-filter';
 import { useOrgHierarchy } from '@/hooks/use-hierarchy';
@@ -155,6 +155,7 @@ export function CTODashboard() {
     const [jiraProjects, setJiraProjects] = useState<any[]>([]);
     const [jiraTeams, setJiraTeams] = useState<any[]>([]);
     const [jiraMembers, setJiraMembers] = useState<any[]>([]);
+    const [adminMembers, setAdminMembers] = useState<any[]>([]);
 
     const { data: hierarchy } = useOrgHierarchy();
     const { data: allProjects = [] } = useProjects();
@@ -220,8 +221,23 @@ export function CTODashboard() {
             }
         }
 
+        async function fetchAdminMembers() {
+            try {
+                const members = await adminTeamMembersAPI.getAll();
+                setAdminMembers(
+                    members.map((m: any) => ({
+                        id: m.userId,
+                        name: m.userName || m.userEmail || `Member`,
+                    }))
+                );
+            } catch (e) {
+                console.error("Failed to fetch admin members:", e);
+            }
+        }
+
         fetchDropdowns();
         fetchJiraFilters();
+        fetchAdminMembers();
     }, []);
 
     const fetchAll = useCallback(async () => {
@@ -320,19 +336,45 @@ export function CTODashboard() {
     const filteredDynamicProjects = accountId === 'all' ? dynamicProjects : dynamicProjects.filter(p => !p.accountId || p.accountId === accountId);
     const filteredDynamicTeams = projectId === 'all' ? dynamicTeams : dynamicTeams.filter(t => !t.projectId || t.projectId === projectId);
 
-    // Merge CTO admin projects with dynamic Jira projects (unique by id)
-    const combinedProjects = [...filteredDynamicProjects];
+    // Deduplicate markets (hierarchy + dynamic)
+    const allMarketsDeduped = [
+        ...markets,
+        ...dynamicMarkets.filter(dm => !markets.find((m: any) => m.id === dm.id)),
+    ];
+
+    // Deduplicate accounts (hierarchy + dynamic)
+    const allAccountsDeduped = [
+        ...accounts,
+        ...filteredDynamicAccounts.filter(da => !accounts.find((a: any) => a.id === da.id)),
+    ];
+
+    // Merge & deduplicate projects: hierarchy filteredProjects + dynamic + Jira
+    const allProjectsDeduped = [...filteredProjects];
+    filteredDynamicProjects.forEach(p => {
+        if (!allProjectsDeduped.find(ep => ep.id === p.id)) allProjectsDeduped.push(p);
+    });
     jiraProjects.forEach(jp => {
-        if (!combinedProjects.find(p => p.id === jp.id || p.jiraProjectKey === jp.id)) {
-            combinedProjects.push(jp);
+        if (!allProjectsDeduped.find(p => p.id === jp.id || (p as any).jiraProjectKey === jp.id)) {
+            allProjectsDeduped.push(jp);
         }
     });
 
-    // Merge CTO admin teams with dynamic Jira teams (sprints)
-    const combinedTeams = [...filteredDynamicTeams];
+    // Merge & deduplicate teams: hierarchy + dynamic + Jira
+    const allTeamsDeduped = [...filteredTeams];
+    filteredDynamicTeams.forEach(t => {
+        if (!allTeamsDeduped.find(et => et.id === t.id)) allTeamsDeduped.push(t);
+    });
     jiraTeams.forEach(jt => {
-        if (!combinedTeams.find(t => t.id === jt.id || t.name === jt.name)) {
-            combinedTeams.push(jt);
+        if (!allTeamsDeduped.find(t => t.id === jt.id || t.name === jt.name)) {
+            allTeamsDeduped.push(jt);
+        }
+    });
+
+    // Deduplicate members: combine jira members + admin members
+    const allMembersDeduped = [...jiraMembers];
+    adminMembers.forEach(am => {
+        if (!allMembersDeduped.find(m => m.id === am.id) && am.id && am.name && am.name !== '—') {
+            allMembersDeduped.push(am);
         }
     });
 
@@ -357,8 +399,7 @@ export function CTODashboard() {
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">All Markets</SelectItem>
-                                {markets.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
-                                {dynamicMarkets.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+                                {allMarketsDeduped.map((m: any) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
                             </SelectContent>
                         </Select>
                     )}
@@ -369,8 +410,7 @@ export function CTODashboard() {
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">All Accounts</SelectItem>
-                                {accounts.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
-                                {filteredDynamicAccounts.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                                {allAccountsDeduped.map((a: any) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
                             </SelectContent>
                         </Select>
                     )}
@@ -381,8 +421,7 @@ export function CTODashboard() {
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">All Projects</SelectItem>
-                                {filteredProjects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                                {combinedProjects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                                {allProjectsDeduped.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                             </SelectContent>
                         </Select>
                     )}
@@ -393,8 +432,7 @@ export function CTODashboard() {
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">All Teams</SelectItem>
-                                {filteredTeams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-                                {combinedTeams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                                {allTeamsDeduped.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
                             </SelectContent>
                         </Select>
                     )}
@@ -405,7 +443,7 @@ export function CTODashboard() {
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">All Members</SelectItem>
-                                {jiraMembers.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+                                {allMembersDeduped.map((m: any) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
                             </SelectContent>
                         </Select>
                     )}
