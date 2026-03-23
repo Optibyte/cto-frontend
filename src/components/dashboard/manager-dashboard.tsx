@@ -293,14 +293,27 @@ export function ManagerDashboard() {
                     </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="all">All Members</SelectItem>
-                        {membersToShow.slice(0, 50).map(m => (
-                            <SelectItem key={m.id} value={m.userId || m.id}>
-                                {m.user?.fullName || m.userName || m.userId}
-                            </SelectItem>
-                        ))}
-                        {jiraMembers.map(m => (
-                            <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
-                        ))}
+                        {(() => {
+                            // Deduplicate: merge liveMembers + jiraMembers by userId
+                            const seen = new Set<string>();
+                            const combined: { id: string; name: string }[] = [];
+                            membersToShow.slice(0, 50).forEach(m => {
+                                const uid = m.userId || m.id;
+                                if (uid && !seen.has(uid)) {
+                                    seen.add(uid);
+                                    combined.push({ id: uid, name: m.user?.fullName || m.userName || uid });
+                                }
+                            });
+                            jiraMembers.forEach(m => {
+                                if (m.id && !seen.has(m.id)) {
+                                    seen.add(m.id);
+                                    combined.push({ id: m.id, name: m.name });
+                                }
+                            });
+                            return combined.map(m => (
+                                <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                            ));
+                        })()}
                     </SelectContent>
                 </Select>
 
