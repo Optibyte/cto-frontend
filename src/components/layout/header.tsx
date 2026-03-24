@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Bell, Search, User, ChevronDown, Shield, Briefcase, Users, Check, Globe, Landmark, Lock, ShieldCheck } from 'lucide-react';
+import { Bell, Search, User, ChevronDown, Shield, Briefcase, Users, Check, Globe, Landmark, Lock, ShieldCheck, RefreshCw } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -56,6 +56,15 @@ export function Header() {
             <div className="flex items-center gap-2">
                 {mounted ? (
                     <>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => window.dispatchEvent(new Event('reset-filters'))}
+                            className="h-9 rounded-xl text-xs text-muted-foreground hover:text-foreground hidden md:flex border-border/50 hover:bg-primary/5 mr-1"
+                        >
+                            <RefreshCw className="h-4 w-4 mr-1.5" />
+                            Reset All
+                        </Button>
                         <ThemeToggle />
                         <Button variant="ghost" size="icon" className="relative hover:bg-primary/10 transition-colors rounded-xl">
                             <Bell className="h-5 w-5" />
