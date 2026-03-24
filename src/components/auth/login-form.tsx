@@ -3,15 +3,27 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Mail, ArrowRight, Lock } from 'lucide-react';
+import { Mail, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { useRole } from '@/contexts/role-context';
 import { UserRole } from '@/lib/types';
 import { authAPI } from '@/lib/api/auth';
+
+const LogoGraphic = () => (
+    <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-24 h-24 mb-6">
+        <rect x="12" y="12" width="16" height="16" rx="4" stroke="#8B5CF6" strokeWidth="3"/>
+        <rect x="36" y="12" width="16" height="16" rx="4" stroke="#06B6D4" strokeWidth="3"/>
+        <rect x="12" y="36" width="16" height="16" rx="4" stroke="#8B5CF6" strokeWidth="3"/>
+        <rect x="36" y="36" width="16" height="16" rx="4" stroke="#06B6D4" strokeWidth="3"/>
+        <path d="M28 20 L36 20" stroke="#06B6D4" strokeWidth="3" strokeLinecap="round"/>
+        <path d="M20 28 L20 36" stroke="#8B5CF6" strokeWidth="3" strokeLinecap="round"/>
+        <path d="M28 44 L36 44" stroke="#8B5CF6" strokeWidth="3" strokeLinecap="round"/>
+        <path d="M44 28 L44 36" stroke="#06B6D4" strokeWidth="3" strokeLinecap="round"/>
+    </svg>
+);
 
 export function LoginForm() {
     const router = useRouter();
@@ -48,37 +60,45 @@ export function LoginForm() {
     };
 
     return (
-        <Card className="w-full max-w-md border-white/10 shadow-2xl bg-black/40 backdrop-blur-2xl text-white">
-            <CardHeader className="space-y-1 text-center pb-8">
-                <div className="flex justify-center mb-6">
-                    <div className="p-4 bg-primary/20 rounded-2xl ring-1 ring-primary/40">
-                        <Lock className="h-7 w-7 text-primary" />
+        <div className="w-full max-w-[900px] flex flex-col md:flex-row overflow-hidden rounded-3xl border border-white/5 bg-[#0a0a0b] text-white my-8 mx-4">
+            
+            {/* Logo / Branding Card (Left Pane) */}
+            <div className="w-full md:w-1/2 flex flex-col items-center justify-center p-12 md:p-16 bg-gradient-to-b from-[#161225] to-[#0a0a0b] relative border-r border-white/5">
+                <div className="relative z-10 flex flex-col items-center justify-center h-full">
+                    <LogoGraphic />
+                    <div className="text-center space-y-4">
+                        <h1 className="text-[28px] font-bold tracking-tight text-[#f8fafc]">CTO Platform</h1>
+                        <p className="text-[15px] text-[#94a3b8] font-medium">Performance Intelligence</p>
                     </div>
                 </div>
-                <CardTitle className="text-3xl font-bold tracking-tight text-white">Welcome back</CardTitle>
-                <CardDescription className="text-slate-400 text-base">
-                    Enter your email to access your dashboard
-                </CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-6">
-                <form onSubmit={handleSubmit} className="space-y-5">
-                    <div className="space-y-2">
-                        <Label htmlFor="email" className="text-sm font-medium text-slate-200">Email address</Label>
+            </div>
+
+            {/* Login Form Card (Right Pane) */}
+            <div className="w-full md:w-1/2 p-10 md:p-14 flex flex-col justify-center bg-[#0a0a0b]">
+                <div className="space-y-2 mb-10 text-left">
+                    <h2 className="text-3xl font-bold tracking-tight text-white mb-3">Welcome back</h2>
+                    <p className="text-[15px] text-[#94a3b8]">Enter your email to access your dashboard</p>
+                </div>
+                
+                <form onSubmit={handleSubmit} className="space-y-6">
+                    <div className="space-y-3">
+                        <Label htmlFor="email" className="text-[13px] font-semibold text-[#f8fafc]">Email address</Label>
                         <div className="relative group">
-                            <Mail className="absolute left-3.5 top-3.5 h-4 w-4 text-slate-500 group-focus-within:text-primary transition-colors" />
+                            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-[18px] w-[18px] text-[#a78bfa]" />
                             <Input
                                 id="email"
                                 type="email"
                                 placeholder="name@example.com"
-                                className="pl-11 h-12 bg-white/5 border-white/10 rounded-xl focus:bg-white/10 focus-visible:ring-primary/40 text-white placeholder:text-slate-600"
+                                className="pl-12 h-14 bg-[#eeebff] border-2 border-[#8b5cf6] rounded-xl text-[#0f172a] placeholder:text-[#94a3b8] focus-visible:ring-0 focus-visible:ring-offset-0 focus:border-[#7c3aed] text-[15px] font-medium transition-colors"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 required
                             />
                         </div>
                     </div>
+                    
                     <Button
-                        className="w-full rounded-xl h-12 mt-4 text-lg font-bold bg-primary hover:bg-primary/90 shadow-[0_0_20px_rgba(139,92,246,0.3)] hover:shadow-[0_0_25px_rgba(139,92,246,0.5)] transition-all duration-300"
+                        className="w-full rounded-xl h-14 mt-4 text-[15px] font-semibold bg-[#8b5cf6] hover:bg-[#7c3aed] text-white transition-colors"
                         type="submit"
                         disabled={isLoading}
                     >
@@ -88,25 +108,27 @@ export function LoginForm() {
                                 <span>Signing in...</span>
                             </div>
                         ) : (
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 justify-center w-full">
                                 <span>Sign In</span>
-                                <ArrowRight className="h-4 w-4" />
+                                <ArrowRight className="h-[18px] w-[18px]" />
                             </div>
                         )}
                     </Button>
                 </form>
-            </CardContent>
-            <CardFooter className="flex flex-col items-center gap-4 border-t border-white/5 pt-8 mt-2">
-                <div className="flex items-center gap-2 text-sm text-slate-400">
-                    <span>Don&apos;t have an account?</span>
-                    <Link
-                        href="/signup"
-                        className="font-bold text-primary hover:text-primary/80 transition-colors"
-                    >
-                        Sign up now
-                    </Link>
+                
+                <div className="flex flex-col items-center gap-4 pt-10 mt-6">
+                    <div className="flex items-center gap-2 text-[14px] text-[#94a3b8]">
+                        <span>Don't have an account?</span>
+                        <Link
+                            href="/signup"
+                            className="font-semibold text-[#a78bfa] hover:text-[#c4b5fd] transition-colors"
+                        >
+                            Sign up now
+                        </Link>
+                    </div>
                 </div>
-            </CardFooter>
-        </Card>
+            </div>
+        </div>
     );
 }
+

@@ -151,6 +151,18 @@ export function CTODashboard() {
     const [teamId, setTeamId] = useState('all');
     const [memberId, setMemberId] = useState('all');
 
+    useEffect(() => {
+        const handleReset = () => {
+            setMarketId('all');
+            setAccountId('all');
+            setProjectId('all');
+            setTeamId('all');
+            setMemberId('all');
+        };
+        window.addEventListener('reset-filters', handleReset);
+        return () => window.removeEventListener('reset-filters', handleReset);
+    }, []);
+
     // Jira Dynamic Data (directly from webhooks)
     const [jiraProjects, setJiraProjects] = useState<any[]>([]);
     const [jiraTeams, setJiraTeams] = useState<any[]>([]);
@@ -449,17 +461,6 @@ export function CTODashboard() {
                     )}
                     <div className="col-span-full lg:ml-auto flex items-center justify-between sm:justify-end gap-2">
                         <DateRangeFilter />
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                                setMarketId('all'); setAccountId('all'); setProjectId('all'); setTeamId('all'); setMemberId('all');
-                            }}
-                            className="h-8 rounded-xl text-xs text-muted-foreground hover:text-foreground"
-                        >
-                            <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
-                            Reset All
-                        </Button>
                     </div>
                 </div>
             </div>
