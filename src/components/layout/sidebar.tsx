@@ -55,11 +55,6 @@ const navigationItems: NavItem[] = [
     },
 
     {
-        title: 'Reports',
-        icon: FileText,
-        href: '/reports',
-    },
-    {
         title: 'Integrations',
         icon: Puzzle,
         href: '/integrations',
@@ -76,6 +71,12 @@ const navigationItems: NavItem[] = [
         title: 'Admin Console',
         icon: Settings2,
         href: '/admin',
+    },
+    
+    {
+        title: 'Reports',
+        icon: FileText,
+        href: '/reports',
     },
     {
         title: 'Role Features',
