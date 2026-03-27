@@ -34,6 +34,7 @@ import { toast } from 'sonner';
 import {
     type MemberWithMetrics,
     type ManualMetricDef,
+    PREDEFINED_MANUAL_METRICS,
 } from '@/lib/mock-data/metrics-data';
 import { getTeamsForProject } from '@/lib/mock-data/dashboard-filtered';
 import { useEmployees } from '@/hooks/use-employees';
@@ -206,10 +207,12 @@ export function ManualMetricsTab() {
 
             const displayMetrics: { metricId: string; value: number; id?: string }[] = [];
             
-            // Latest manual metrics for this user
+            // Latest manual metrics for this user (they are sorted desc, so we want the first one for each type)
             const latestMetricsMap = new Map();
-            [...memberMetricsFromServer].forEach((mm: any) => {
-                latestMetricsMap.set(mm.metricType, { value: mm.value, id: mm.id });
+            memberMetricsFromServer.forEach((mm: any) => {
+                if (!latestMetricsMap.has(mm.metricType)) {
+                    latestMetricsMap.set(mm.metricType, { value: mm.value, id: mm.id });
+                }
             });
 
             Array.from(latestMetricsMap.entries()).forEach(([mType, data]: [string, any]) => {
@@ -238,47 +241,53 @@ export function ManualMetricsTab() {
 
     // Sync metric definitions from backend
     useReactEffect(() => {
-        if (dbMetricDefs.length > 0) {
-            const mappedDefs: ManualMetricDef[] = dbMetricDefs.map((d: any) => ({
-                id: d.metricType,
-                name: d.name,
-                type: d.metricType === 'velocity' ? 'points' : 
-                      d.metricType === 'quality' ? 'percentage' : 
-                      ((d.rangeMax || 0) <= 5 ? 'rating' : 'integer'),
-                min: d.rangeMin || 0,
-                max: d.rangeMax || 100,
-                thresholds: { 
-                    red: (d.threshold || 0) * 0.8, 
-                    amber: (d.threshold || 0) * 0.9, 
-                    green: (d.threshold || 0) 
-                },
-                dbId: d.id,
-                projectId: d.projectId,
-                teamId: d.teamId,
-                memberId: d.memberId,
-                metricClass: d.metricClass,
-                updateFrequency: d.updateFrequency,
-            }));
-
-            // Filter definitions based on selected context
-            const filtered = mappedDefs.filter(d => {
-                // If a definition is tied to a specific project, it must match
-                if (d.projectId && d.projectId !== 'all' && d.projectId !== selectedProjectId) return false;
-                
-                // If a definition is tied to a specific team, it must match
-                if (d.teamId && d.teamId !== 'all' && d.teamId !== selectedTeamId) return false;
-                
-                // If a definition is tied to a specific member, it must match
-                if (d.memberId && d.memberId !== 'all' && d.memberId !== selectedMemberId) return false;
-                
-                return true;
+        // We want to show:
+        // 1. The 19 standard blueprints (as defaults/placeholders)
+        // 2. Any other metrics specifically provisioned to the current project/team in the DB
+        
+        // Map everything in DB relevant to current project/team
+        const dbRelevant = dbMetricDefs
+            .filter((dbDef: any) => {
+                const matchesProject = !selectedProjectId || selectedProjectId === 'all' || dbDef.projectId === selectedProjectId;
+                const matchesTeam = !selectedTeamId || dbDef.teamId === selectedTeamId;
+                return matchesProject && matchesTeam;
+            })
+            .map((dbDef: any) => {
+                const standard = PREDEFINED_MANUAL_METRICS.find(s => s.id === dbDef.metricType);
+                return {
+                    id: dbDef.metricType || dbDef.id,
+                    name: dbDef.name,
+                    min: dbDef.rangeMin ?? (standard?.min || 0),
+                    max: dbDef.rangeMax ?? (standard?.max || 100),
+                    thresholds: {
+                        red: (dbDef.threshold || 0) * 0.8,
+                        amber: (dbDef.threshold || 0) * 0.9,
+                        green: (dbDef.threshold || 0)
+                    },
+                    dbId: dbDef.id,
+                    metricClass: dbDef.metricClass || standard?.metricClass || 'B',
+                    updateFrequency: dbDef.updateFrequency || standard?.updateFrequency || 'Sprint',
+                    projectId: dbDef.projectId,
+                    teamId: dbDef.teamId,
+                    memberId: dbDef.memberId,
+                    description: dbDef.description || standard?.description || '',
+                    type: standard?.type || 'rating' as const
+                };
             });
 
-            setManualMetrics(filtered);
-        } else {
-            setManualMetrics([]);
-        }
-    }, [dbMetricDefs, selectedProjectId, selectedTeamId, selectedMemberId]);
+        // Collect IDs of provisioned items
+        const provisionedIds = new Set(dbRelevant.map((d: any) => d.id));
+
+        // Add standard metrics that aren't already represented in DB (as the 19 fallbacks)
+        const finalMetrics = [...dbRelevant];
+        PREDEFINED_MANUAL_METRICS.forEach((standard: any) => {
+            if (!provisionedIds.has(standard.id)) {
+                finalMetrics.push(standard);
+            }
+        });
+
+        setManualMetrics(finalMetrics);
+    }, [dbMetricDefs, selectedProjectId, selectedTeamId]);
 
     // Role-based auto-selection for Teams: Ensure a valid team is selected if restricted
     useReactEffect(() => {
@@ -331,36 +340,57 @@ export function ManualMetricsTab() {
     const [editingStrings, setEditingStrings] = useState<Record<string, string>>({});
 
     const handleValueChange = (metricId: string, newVal: string) => {
-        setEditingStrings(prev => ({ ...prev, [metricId]: newVal }));
+        // Only allow numbers and decimal point
+        if (newVal !== '' && !/^-?\d*\.?\d*$/.test(newVal)) return;
+
+        const def = manualMetrics.find(d => d.id === metricId);
         const num = Number(newVal);
-        if (!isNaN(num) && newVal !== '') {
+
+        if (!isNaN(num) && newVal !== '' && def) {
+            // Range check
+            if (num > def.max) {
+                toast.error(`${def.name} cannot exceed ${def.max}`);
+                return;
+            }
+            if (num < def.min && newVal.length > 3) { // Allow typing small numbers starting with 0. etc
+                // Just clamp on save for min, but warn
+            }
             setEditingValues((prev) => ({ ...prev, [metricId]: num }));
         }
+        
+        setEditingStrings(prev => ({ ...prev, [metricId]: newVal }));
     };
 
     const handleSave = async () => {
         if (!selectedMember) return;
 
-        const metricsToSave = Object.entries(editingValues).map(([metricId, value]) => {
-            const def = manualMetrics.find(d => d.id === metricId);
-            const clampedValue = def ? Math.min(Math.max(value, def.min), def.max) : value;
-            
-            const team = availableTeams.find(t => t.id === (selectedMember.teamId || selectedTeamId));
-            const projectId = selectedProjectId !== 'all' ? selectedProjectId : (team?.projectId || '');
-            
-            return {
-                time: new Date().toISOString(),
-                teamId: selectedMember.teamId || '',
-                projectId: projectId,
-                userId: selectedMember.id,
-                metricType: metricId,
-                value: clampedValue,
-                unit: def?.type === 'percentage' ? '%' : def?.type === 'integer' ? 'qty' : 'pts',
-                source: 'manual' as const,
-                createdBy: currentUserId,
-                metadata: { manual: true, name: def?.name }
-            };
-        });
+        const metricsToSave = Object.entries(editingValues)
+            .filter(([_, value]) => value !== undefined && value !== null && !isNaN(value))
+            .map(([metricId, value]) => {
+                const def = manualMetrics.find(d => d.id === metricId);
+                const clampedValue = def ? Math.min(Math.max(value, def.min), def.max) : value;
+                
+                const team = availableTeams.find(t => t.id === (selectedMember.teamId || selectedTeamId));
+                // Explicitly prioritize project ID from team if available, fallback to selectedProjectId
+                const projectId = team?.projectId || (selectedProjectId !== 'all' ? selectedProjectId : '');
+                
+                return {
+                    time: new Date().toISOString(),
+                    teamId: selectedMember.teamId || team?.id || null,
+                    projectId: projectId || null,
+                    userId: selectedMember.id,
+                    metricType: metricId,
+                    value: clampedValue,
+                    unit: def?.type === 'percentage' ? '%' : def?.type === 'integer' ? 'qty' : 'pts',
+                    source: 'manual' as const,
+                    createdBy: currentUserId,
+                    metadata: { 
+                        manual: true, 
+                        name: def?.name,
+                        enteredByRole: CURRENT_USER_ROLE
+                    }
+                };
+            });
 
         try {
             if (metricsToSave.length > 0) {
@@ -537,125 +567,7 @@ export function ManualMetricsTab() {
                                 Update Metrics
                             </Button>
 
-                            <Dialog open={isNewMetricDialogOpen} onOpenChange={setIsNewMetricDialogOpen}>
-                                <DialogTrigger asChild>
-                                    <Button variant="outline" className="rounded-xl gap-2 h-10 px-5 border-primary/20 hover:bg-primary/5 hover:text-primary transition-all">
-                                        <PlusCircle className="h-4 w-4" />
-                                        New Metric
-                                    </Button>
-                                </DialogTrigger>
-                                <DialogContent className="sm:max-w-[500px] rounded-3xl border-primary/20 backdrop-blur-xl">
-                                    <DialogHeader>
-                                        <DialogTitle className="text-2xl font-bold">Define Manual Metric</DialogTitle>
-                                        <DialogDescription>
-                                            Create a new metric definition for manual entry.
-                                        </DialogDescription>
-                                    </DialogHeader>
-                                    <div className="grid gap-4 py-4">
-                                        <div className="space-y-2">
-                                            <Label htmlFor="metric-name">Metric Name</Label>
-                                            <Input
-                                                id="metric-name"
-                                                placeholder="e.g. Code Quality"
-                                                className="rounded-xl h-10"
-                                                value={newMetricDef.name}
-                                                onChange={(e) => setNewMetricDef(prev => ({ ...prev, name: e.target.value }))}
-                                            />
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="space-y-2">
-                                                <Label>Type</Label>
-                                                <Select
-                                                    value={newMetricDef.type}
-                                                    onValueChange={(v) => setNewMetricDef(prev => ({ ...prev, type: v as any }))}
-                                                >
-                                                    <SelectTrigger className="rounded-xl h-10">
-                                                        <SelectValue />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="rating">Rating</SelectItem>
-                                                        <SelectItem value="percentage">Percentage</SelectItem>
-                                                        <SelectItem value="integer">Integer / Count</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-                                            <div className="space-y-2">
-                                                <Label>Range (Min – Max)</Label>
-                                                <div className="flex items-center gap-2">
-                                                    <Input
-                                                        type="number"
-                                                        className="rounded-xl h-10"
-                                                        value={newMetricDef.min}
-                                                        onChange={(e) => setNewMetricDef(prev => ({ ...prev, min: Number(e.target.value) }))}
-                                                    />
-                                                    <span className="text-muted-foreground">—</span>
-                                                    <Input
-                                                        type="number"
-                                                        className="rounded-xl h-10"
-                                                        value={newMetricDef.max}
-                                                        onChange={(e) => setNewMetricDef(prev => ({ ...prev, max: Number(e.target.value) }))}
-                                                    />
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className="space-y-3">
-                                            <Label>Thresholds (RAG)</Label>
-                                            <div className="grid grid-cols-3 gap-3">
-                                                <div className="space-y-1">
-                                                    <div className="flex items-center gap-1.5 text-[10px] font-bold text-red-500 uppercase">
-                                                        <div className="w-1.5 h-1.5 rounded-full bg-red-500" />
-                                                        Red
-                                                    </div>
-                                                    <Input
-                                                        type="number"
-                                                        className="rounded-xl h-10 border-red-500/20"
-                                                        value={newMetricDef.thresholds.red}
-                                                        onChange={(e) => setNewMetricDef(prev => ({
-                                                            ...prev,
-                                                            thresholds: { ...prev.thresholds, red: Number(e.target.value) }
-                                                        }))}
-                                                    />
-                                                </div>
-                                                <div className="space-y-1">
-                                                    <div className="flex items-center gap-1.5 text-[10px] font-bold text-amber-500 uppercase">
-                                                        <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                                                        Amber
-                                                    </div>
-                                                    <Input
-                                                        type="number"
-                                                        className="rounded-xl h-10 border-amber-500/20"
-                                                        value={newMetricDef.thresholds.amber}
-                                                        onChange={(e) => setNewMetricDef(prev => ({
-                                                            ...prev,
-                                                            thresholds: { ...prev.thresholds, amber: Number(e.target.value) }
-                                                        }))}
-                                                    />
-                                                </div>
-                                                <div className="space-y-1">
-                                                    <div className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-500 uppercase">
-                                                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                                                        Green
-                                                    </div>
-                                                    <Input
-                                                        type="number"
-                                                        className="rounded-xl h-10 border-emerald-500/20"
-                                                        value={newMetricDef.thresholds.green}
-                                                        onChange={(e) => setNewMetricDef(prev => ({
-                                                            ...prev,
-                                                            thresholds: { ...prev.thresholds, green: Number(e.target.value) }
-                                                        }))}
-                                                    />
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <DialogFooter>
-                                        <Button className="w-full rounded-2xl h-12 font-bold" onClick={handleCreateMetricDef}>
-                                            Create Metric Definition
-                                        </Button>
-                                    </DialogFooter>
-                                </DialogContent>
-                            </Dialog>
+                        {/* Removed New Metric button as per request to only show 19 standard metrics */}
                         </>
                     )}
 
@@ -745,31 +657,21 @@ export function ManualMetricsTab() {
                                             {rag === 'green' ? '● Good' : rag === 'amber' ? '● Fair' : '● Needs Improvement'}
                                         </Badge>
                                         
-                                        {canEdit && def.dbId && (
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-7 w-7 rounded-full text-muted-foreground hover:text-red-500 hover:bg-red-500/10 -mt-1 -mr-2"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleDeleteMetric(def);
-                                                }}
-                                            >
-                                                <Trash2 className="h-3.5 w-3.5" />
-                                            </Button>
-                                        )}
+                                        {/* Removed Delete button as per request to show only standard metrics */}
                                     </div>
 
                                     {isEditing && canEdit ? (
                                         <div className="space-y-2">
                                             <Input
-                                                type="text"
-                                                inputMode="decimal"
+                                                type="number"
+                                                min={def.min}
+                                                max={def.max}
+                                                step="any"
                                                 value={editingStrings[def.id] ?? String(value)}
                                                 onChange={(e) =>
                                                     handleValueChange(def.id, e.target.value)
                                                 }
-                                                className="rounded-xl text-2xl font-bold h-14 text-center"
+                                                className="rounded-xl text-2xl font-bold h-14 text-center appearance-none"
                                             />
                                             <p className="text-[10px] text-center text-muted-foreground">
                                                 Min: {def.min} · Max: {def.max}

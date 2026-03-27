@@ -9,9 +9,10 @@ import { Badge } from '@/components/ui/badge';
 import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from '@/components/ui/select';
-import { Plus, Loader2, Check, Target, Layers, Workflow, Info } from 'lucide-react';
+import { Plus, Loader2, Check, Target, Layers, Workflow, Info, Building2 } from 'lucide-react';
 import { MetricDefinition } from '@/lib/types';
 import { getNextMetricId } from '@/lib/mock-data/learning-metrics';
+import { useMemo } from 'react';
 import { METRIC_CLASSES, UPDATE_FREQUENCIES } from '@/lib/constants';
 import { useOrgHierarchy } from '@/hooks/use-hierarchy';
 import { useMetricDefinitions, useCreateMetricDefinition, useDeleteMetricDefinition } from '@/hooks/use-metric-definitions';
@@ -41,50 +42,55 @@ export function AddMetricForm() {
         rangeMax: '100',
     });
 
-    // Extract available entities from hierarchy
-    const markets = hierarchy?.markets || [];
-    const accounts = markets.flatMap(m => (m.accounts || []).map(acc => ({ ...acc, marketName: m.name })));
+    // Simplified Project mapping — extract all unique projects from hierarchy
+    const availableProjects = useMemo(() => {
+        const projectsMap = new Map();
+        hierarchy?.markets.forEach(m => {
+            m.accounts?.forEach(acc => {
+                acc.teams?.forEach(t => {
+                    if (t.project) {
+                        projectsMap.set(t.project.id, {
+                            id: t.project.id,
+                            name: t.project.name,
+                            accountId: acc.id,
+                            accountName: acc.name,
+                            marketName: m.name
+                        });
+                    }
+                });
+            });
+        });
+        return Array.from(projectsMap.values());
+    }, [hierarchy]);
 
-    // Filtered lists based on selection
-    const selectedAccountObj = accounts.find(a => a.id === formData.accountId);
-
-    const availableMarkets = selectedAccountObj ? [selectedAccountObj.marketName] : [];
-
-    // Projects are extracted from teams within the selected account
-    // We group by project ID/Name to unique list
-    const projectsMap = new Map();
-    selectedAccountObj?.teams.forEach(t => {
-        if (t.project) {
-            projectsMap.set(t.project.id, t.project.name);
+    const handleProjectChange = (projectId: string) => {
+        const project = availableProjects.find(p => p.id === projectId);
+        if (project) {
+            setFormData({
+                ...formData,
+                projectId: project.id,
+                accountId: project.accountId,
+                marketName: project.marketName,
+            });
         }
-    });
-    const availableProjects = Array.from(projectsMap.entries()).map(([id, name]) => ({ id, name }));
+    };
 
     const uniqueMembers = []; // Not used in this simplified view
 
     const nextId = getNextMetricId(metrics);
 
-    const handleAccountChange = (accountId: string) => {
-        const acc = accounts.find(a => a.id === accountId);
-        setFormData({
-            ...formData,
-            accountId: accountId,
-            marketName: acc?.marketName || '',
-            projectId: '',
-        });
-    };
+
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!formData.name || !formData.accountId || !formData.metricClass) {
+        if (!formData.name || !formData.projectId || !formData.metricClass) {
             toast.error('Please fill in all required fields');
             return;
         }
 
         setIsSubmitting(true);
         try {
-            const selectedAccount = accounts.find(a => a.id === formData.accountId);
-            const selectedProject = selectedAccount?.teams.find(t => t.projectId === formData.projectId)?.project;
+            const project = availableProjects.find(p => p.id === formData.projectId);
 
             const payload = {
                 name: formData.name,
@@ -95,10 +101,10 @@ export function AddMetricForm() {
                 rangeMin: parseFloat(formData.rangeMin) || 0,
                 rangeMax: parseFloat(formData.rangeMax) || 100,
                 accountId: formData.accountId,
-                accountName: selectedAccount?.name || '',
+                accountName: project?.accountName || '',
                 marketName: formData.marketName,
                 projectId: formData.projectId,
-                projectName: selectedProject?.name || '',
+                projectName: project?.name || '',
             };
 
             await createMetricMutation.mutateAsync(payload);
@@ -146,47 +152,35 @@ export function AddMetricForm() {
                                 <Layers className="h-4 w-4" />
                                 Organizational Scope
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="grid grid-cols-1 gap-4">
                                 <div className="space-y-2">
-                                    <Label className="text-xs font-semibold">Account *</Label>
-                                    <Select value={formData.accountId} onValueChange={handleAccountChange}>
-                                        <SelectTrigger className="rounded-xl border-border/50 focus:ring-primary/20">
-                                            <SelectValue placeholder={hierarchyLoading ? "Loading..." : "Select account"} />
-                                        </SelectTrigger>
-                                        <SelectContent className="rounded-xl">
-                                            {accounts.map((a) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label className="text-xs font-semibold">Market</Label>
-                                    <Select
-                                        value={formData.marketName}
-                                        onValueChange={(v) => setFormData({ ...formData, marketName: v })}
-                                        disabled={!formData.accountId}
+                                    <Label className="text-xs font-semibold uppercase tracking-wider opacity-60">Target Project *</Label>
+                                    <Select 
+                                        value={formData.projectId} 
+                                        onValueChange={handleProjectChange}
                                     >
-                                        <SelectTrigger className="rounded-xl border-border/50">
-                                            <SelectValue placeholder={formData.accountId ? "Select market" : "Select account first"} />
+                                        <SelectTrigger className="h-12 rounded-xl border-border/50 bg-background/50 backdrop-blur-sm focus:ring-primary/20 transition-all">
+                                            <SelectValue placeholder={hierarchyLoading ? "Loading system hierarchy..." : "Select target project"} />
                                         </SelectTrigger>
-                                        <SelectContent className="rounded-xl">
-                                            {availableMarkets.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                                        <SelectContent className="rounded-xl border-border/50 bg-card/95 backdrop-blur-xl max-h-[300px]">
+                                            {availableProjects.map((p) => (
+                                                <SelectItem key={p.id} value={p.id}>
+                                                    <div className="flex flex-col py-0.5">
+                                                        <span className="font-black text-sm">{p.name}</span>
+                                                        <span className="text-[9px] uppercase tracking-tighter text-muted-foreground font-bold">
+                                                            {p.marketName} · {p.accountName}
+                                                        </span>
+                                                    </div>
+                                                </SelectItem>
+                                            ))}
                                         </SelectContent>
                                     </Select>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label className="text-xs font-semibold">Project</Label>
-                                    <Select
-                                        value={formData.projectId}
-                                        onValueChange={(v) => setFormData({ ...formData, projectId: v })}
-                                        disabled={!formData.accountId}
-                                    >
-                                        <SelectTrigger className="rounded-xl border-border/50">
-                                            <SelectValue placeholder={formData.accountId ? "Select project" : "Select account first"} />
-                                        </SelectTrigger>
-                                        <SelectContent className="rounded-xl">
-                                            {availableProjects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                                        </SelectContent>
-                                    </Select>
+                                    {formData.projectId && (
+                                        <p className="text-[10px] text-primary/70 font-bold px-2 flex items-center gap-1.5 animate-in fade-in slide-in-from-left-2 lg:duration-500">
+                                            <Building2 className="h-2.5 w-2.5" />
+                                            Associated with {availableProjects.find(p => p.id === formData.projectId)?.accountName}
+                                        </p>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -291,7 +285,16 @@ export function AddMetricForm() {
                             <p className="text-sm text-muted-foreground">No metrics created yet. Use the form above to get started.</p>
                         </div>
                     ) : (
-                        metrics.map((m: MetricDefinition) => (
+                        (() => {
+                            const items = metrics.filter((m: any) => !formData.projectId || m.projectId === formData.projectId);
+                            const seen = new Set();
+                            return items.filter((m: any) => {
+                                const id = m.metricType || m.id;
+                                if (seen.has(id)) return false;
+                                seen.add(id);
+                                return true;
+                            });
+                        })().map((m: MetricDefinition) => (
                             <Card key={m.id} className="border-border/40 bg-card/30 backdrop-blur-sm hover:border-primary/30 transition-all group">
                                 <CardContent className="p-4 flex items-center justify-between">
                                     <div className="flex items-center gap-4">

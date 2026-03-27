@@ -141,14 +141,12 @@ export function GlobalFilter() {
     };
 
     const handleReset = () => {
-        dispatch(setSelectedMarket('all'));
+        dispatch(setSelectedProject('all'));
         // Cascading resets are handled in the slice
     };
 
     // Role-based visibility logic (hierarchical)
-    const showMarket = role === 'ORG';
-    const showAccount = role === 'ORG' || role === 'MARKET';
-    const showProject = role === 'ORG' || role === 'MARKET' || role === 'ACCOUNT';
+    const showProject = true; // Project is the new top-level entry point
     const showTeam = role === 'ORG' || role === 'MARKET' || role === 'ACCOUNT' || role === 'PROJECT';
     const showMember = true; // Everyone can filter members in their scope
 
@@ -179,51 +177,7 @@ export function GlobalFilter() {
                 </div>
 
                 <div className="p-6 space-y-6">
-                    {/* Market Filter */}
-                    {showMarket && (
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                                <Globe className="h-3 w-3" /> Select Market
-                            </label>
-                            <Select
-                                value={selectedMarket}
-                                onValueChange={(v) => dispatch(setSelectedMarket(v))}
-                            >
-                                <SelectTrigger className="rounded-xl border-border/50 bg-card/50 focus:ring-primary/20">
-                                    <SelectValue placeholder="All Markets" />
-                                </SelectTrigger>
-                                <SelectContent className="rounded-xl border-border/50 shadow-xl">
-                                    <SelectItem value="all">All Markets</SelectItem>
-                                    {[...dynamicMarkets, ...markets.filter((m: any) => !dynamicMarkets.find((dm: any) => dm.id === m.id))].map((m: any) => (
-                                        <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    )}
 
-                    {/* Account Filter */}
-                    {showAccount && (
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                                <Landmark className="h-3 w-3" /> Select Account
-                            </label>
-                            <Select
-                                value={selectedAccount}
-                                onValueChange={(v) => dispatch(setSelectedAccount(v))}
-                            >
-                                <SelectTrigger className="rounded-xl border-border/50 bg-card/50 focus:ring-primary/20">
-                                    <SelectValue placeholder="All Accounts" />
-                                </SelectTrigger>
-                                <SelectContent className="rounded-xl border-border/50 shadow-xl">
-                                    <SelectItem value="all">All Accounts</SelectItem>
-                                    {accountsDeduped.map((a) => (
-                                        <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    )}
 
                     {/* Project Filter */}
                     {showProject && (

@@ -46,7 +46,9 @@ import {
     Minus,
     Activity,
     Pencil,
-    Save
+    Save,
+    LayoutGrid,
+    Users,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Project } from '@/lib/api/projects';
@@ -542,8 +544,7 @@ export function ProvisionMetricsTab() {
     }, [fetchedProjects, projectMetadataMap, resolvedAllowedProjectIds]);
 
     const filteredProjects = allProjects.filter((p: any) =>
-        p.name.toLowerCase().includes(projectSearchQuery.toLowerCase()) ||
-        p.accountName.toLowerCase().includes(projectSearchQuery.toLowerCase())
+        p.name.toLowerCase().includes(projectSearchQuery.toLowerCase())
     );
 
     const selectedProjectObj = allProjects.find(p => p.id === selectedProjectId);
@@ -662,6 +663,8 @@ export function ProvisionMetricsTab() {
                     marketName: project.marketName,
                     projectId: project.id,
                     projectName: project.name,
+                    teamId: targetTeamId || undefined,
+                    teamName: projectTeams.find((t: any) => t.id === targetTeamId)?.name || '',
                     parameters: finalParameters,
                 };
                 return createMetricMutation.mutateAsync(payload);
@@ -702,13 +705,16 @@ export function ProvisionMetricsTab() {
 
     const filteredInventory = useMemo(() => {
         return existingDefinitions.filter((item: any) => {
-            const matchesProject = inventoryProjectFilter === 'all' || item.projectId === inventoryProjectFilter;
-            const matchesAccount = inventoryAccountFilter === 'all' || item.accountName === inventoryAccountFilter;
+            // Filter by selected project and team from Step 1
+            const matchesSelectedProject = !selectedProjectId || item.projectId === selectedProjectId;
+            const matchesSelectedTeam = !targetTeamId || item.teamId === targetTeamId;
+            
             const matchesSearch = item.name.toLowerCase().includes(inventorySearchQuery.toLowerCase()) || 
                                  item.metricType.toLowerCase().includes(inventorySearchQuery.toLowerCase());
-            return matchesProject && matchesAccount && matchesSearch;
+            
+            return matchesSelectedProject && matchesSelectedTeam && matchesSearch;
         });
-    }, [existingDefinitions, inventoryProjectFilter, inventoryAccountFilter, inventorySearchQuery]);
+    }, [existingDefinitions, selectedProjectId, targetTeamId, inventorySearchQuery]);
 
     const uniqueInventoryAccounts = useMemo(() => {
         const accounts = new Set<string>();
@@ -788,22 +794,7 @@ export function ProvisionMetricsTab() {
                                 )}
                             </div>
                             
-                            <div className="flex bg-muted/50 p-1.5 rounded-2xl border border-border/10">
-                                <button
-                                    onClick={() => setInputMode('project')}
-                                    className={cn(
-                                        "px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-                                        inputMode === 'project' ? "bg-background text-primary shadow-lg" : "text-muted-foreground hover:text-foreground"
-                                    )}
-                                >Project</button>
-                                <button
-                                    onClick={() => setInputMode('member')}
-                                    className={cn(
-                                        "px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-                                        inputMode === 'member' ? "bg-background text-primary shadow-lg" : "text-muted-foreground hover:text-foreground"
-                                    )}
-                                >Team/Member</button>
-                            </div>
+                            {/* Removed Project/Member toggle as per request to only support project-level provisioning */}
 
                             <div className="relative w-64">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -817,61 +808,52 @@ export function ProvisionMetricsTab() {
                         </div>
 
 
-                        {inputMode === 'member' && selectedProjectId && (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 rounded-3xl border border-primary/20 bg-primary/5 animate-in fade-in slide-in-from-top-4 duration-500">
-                                <div className="space-y-4">
-                                    <div className="flex items-center gap-2">
-                                        <div className="h-2 w-2 rounded-full bg-primary" />
-                                        <h4 className="text-xs font-black uppercase tracking-widest text-primary">Team Context</h4>
-                                    </div>
-                                    <Select value={targetTeamId} onValueChange={setTargetTeamId}>
-                                        <SelectTrigger className="h-12 rounded-2xl bg-background/50 border-border/50 font-bold">
-                                            <SelectValue placeholder="Select Target Team" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {filteredTeams.map((t: any) => (
-                                                <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <Button 
-                                        variant="outline" 
-                                        className="w-full rounded-2xl border-primary/20 h-11 text-[10px] font-black uppercase tracking-widest gap-2 bg-background/50"
-                                        onClick={handleAggregateTeam}
-                                        disabled={!targetTeamId}
-                                    >
-                                        <Activity className="h-4 w-4" />
-                                        Aggregate Team Data
-                                    </Button>
+                        {/* Step 1b: Target Team Selection — appears after project selection */}
+                        {selectedProjectId && (
+                            <div className="p-6 rounded-3xl border border-primary/20 bg-primary/5 animate-in fade-in slide-in-from-top-4 duration-500 space-y-4">
+                                <div className="flex items-center gap-2">
+                                    <div className="h-2 w-2 rounded-full bg-primary" />
+                                    <h4 className="text-xs font-black uppercase tracking-widest text-primary">2. Select Target Team (Optional)</h4>
                                 </div>
-
-                                <div className="space-y-4">
-                                    <div className="flex items-center gap-2">
-                                        <div className="h-2 w-2 rounded-full bg-cyan-500" />
-                                        <h4 className="text-xs font-black uppercase tracking-widest text-cyan-500">Member Drill-down</h4>
-                                    </div>
-                                    <Select value={selectedMemberId} onValueChange={setSelectedMemberId}>
-                                        <SelectTrigger className="h-12 rounded-2xl bg-background/50 border-border/50 font-bold">
-                                            <SelectValue placeholder="Select Individual Member" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {projectMembers.map((m: any) => (
-                                                <SelectItem key={m.id} value={m.id}>{m.fullName}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <Button 
-                                        variant="outline" 
-                                        className="w-full rounded-2xl border-cyan-500/20 h-11 text-[10px] font-black uppercase tracking-widest gap-2 bg-background/50"
-                                        onClick={handleAggregateMembers}
-                                        disabled={Object.keys(memberSprintData).length === 0}
+                                <div className="flex flex-wrap gap-3">
+                                    <div
+                                        onClick={() => setTargetTeamId('')}
+                                        className={cn(
+                                            "px-4 py-2.5 rounded-xl border-2 transition-all cursor-pointer text-xs font-bold flex items-center gap-2",
+                                            !targetTeamId
+                                                ? "bg-primary text-white border-primary shadow-md"
+                                                : "bg-background border-border/50 hover:border-primary/30"
+                                        )}
                                     >
-                                        <Layers className="h-4 w-4" />
-                                        Aggregate All Members
-                                    </Button>
+                                        <LayoutGrid className="h-3.5 w-3.5" />
+                                        All Teams (Project-Wide)
+                                    </div>
+                                    {filteredTeams.map((team: any) => (
+                                        <div
+                                            key={team.id}
+                                            onClick={() => setTargetTeamId(team.id)}
+                                            className={cn(
+                                                "px-4 py-2.5 rounded-xl border-2 transition-all cursor-pointer text-xs font-bold flex items-center gap-2",
+                                                targetTeamId === team.id
+                                                    ? "bg-primary text-white border-primary shadow-md"
+                                                    : "bg-background border-border/50 hover:border-primary/30"
+                                            )}
+                                        >
+                                            <Users className="h-3.5 w-3.5" />
+                                            {team.name}
+                                        </div>
+                                    ))}
                                 </div>
+                                
+                                {targetTeamId && (
+                                    <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400">
+                                        <Info className="h-3.5 w-3.5" />
+                                        <span className="text-[10px] font-bold">Metrics will be provisioned exclusively for team: <b>{filteredTeams.find((t: any) => t.id === targetTeamId)?.name}</b></span>
+                                    </div>
+                                )}
                             </div>
                         )}
+
                         {inputMode === 'project' && (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[300px] overflow-y-auto pr-2 no-scrollbar">
                                 {filteredProjects.map(project => (
@@ -1049,151 +1031,112 @@ export function ProvisionMetricsTab() {
 
                         <div className="space-y-8">
                             {step2Tab === 'sprint' ? (
-                                UOM_GROUPS
-                                    .filter(g => sprintCategoryFilter === 'all' || g.key === sprintCategoryFilter)
-                                    .map(group => {
-                                        const metrics = computedMetrics[group.key];
-                                    const GroupIcon = group.icon;
-                                    return (
-                                        <div key={group.key} className="space-y-4">
-                                            {/* Group header */}
-                                            <div className="flex items-center gap-2">
-                                                <div className={cn('p-1.5 rounded-lg border', group.bg)}>
-                                                    <GroupIcon className={cn('h-3.5 w-3.5', group.color)} />
-                                                </div>
-                                                <span className={cn('text-xs font-black uppercase tracking-widest', group.color)}>
-                                                    {group.label}
-                                                </span>
-                                                <div className="h-px flex-1 bg-border/20" />
-                                                <span className="text-[10px] text-muted-foreground font-bold">{metrics.length} metrics</span>
-                                            </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                                    {(Object.values(computedMetrics).flat() as any[])
+                                        .filter((m, index, self) => 
+                                            self.findIndex(t => t.id === m.id) === index && // deduplicate
+                                            (sprintCategoryFilter === 'all' || 
+                                             (computedMetrics[sprintCategoryFilter as keyof typeof computedMetrics] as any[]).some(cm => cm.id === m.id))
+                                        )
+                                        .map((m: any) => {
+                                            const isSelected = selectedMetrics.includes(m.id);
 
-                                            {/* Metric cards grid */}
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                                                {metrics.map((m: any) => {
-                                                    const isSelected = selectedMetrics.includes(m.id);
-                                                    const status = getStatus(m);
-                                                    const st = STATUS_STYLES[status];
-                                                    const StatusIcon = st.icon;
-                                                    
-                                                    const barPct = group.key === 'hours'
-                                                        ? Math.min(100, (m.value / (sprintData.team_capacity_hours || 1)) * 100)
-                                                        : group.key === 'percentage'
-                                                            ? Math.min(100, m.value)
-                                                            : Math.min(100, (m.value / (m.threshold * 1.5 || 1)) * 100);
-
-                                                    return (
-                                                        <div
-                                                            key={m.id}
-                                                            onClick={() => toggleMetric(m.id)}
-                                                            className={cn(
-                                                                'relative p-5 rounded-[2rem] border transition-all duration-300 group cursor-pointer overflow-hidden',
-                                                                isSelected
-                                                                    ? 'bg-primary/10 border-primary shadow-xl scale-[1.02] ring-2 ring-primary/10'
-                                                                    : 'bg-card/40 border-border/50 hover:border-primary/30 hover:bg-muted/30'
-                                                            )}
-                                                        >
-                                                            {/* Selection indicator */}
-                                                            {isSelected && (
-                                                                <div className="absolute top-0 right-0 p-3">
-                                                                    <CheckCircle2 className="h-4 w-4 text-primary" />
-                                                                </div>
-                                                            )}
-
-                                                            {/* Header */}
-                                                            <div className="flex items-start justify-between mb-4">
-                                                                <div className="flex flex-col gap-1">
-                                                                    <p className="text-sm font-black leading-tight max-w-[140px]">{m.name}</p>
-                                                                    <p className="text-[10px] text-muted-foreground font-medium line-clamp-1">{m.description}</p>
-                                                                </div>
-                                                            </div>
-
-                                                            {/* Value & Status */}
-                                                            <div className="flex items-center justify-between mb-3">
-                                                                <div className="flex items-baseline gap-1.5">
-                                                                    <span className={cn('text-3xl font-black tabular-nums', {
-                                                                        'text-emerald-500': status === 'good',
-                                                                        'text-amber-500': status === 'warn',
-                                                                        'text-rose-500': status === 'poor',
-                                                                    })}>{isNaN(m.value) ? '0' : m.value}</span>
-                                                                    <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">{m.unit}</span>
-                                                                </div>
-                                                                <div className={cn('flex items-center gap-1 px-2.5 py-1 rounded-full border text-[9px] font-black uppercase', st.badge)}>
-                                                                    <StatusIcon className="h-2.5 w-2.5" />
-                                                                    {status}
-                                                                </div>
-                                                            </div>
-
-                                                            {/* Progress bar */}
-                                                            <div className="h-1.5 rounded-full bg-muted/40 overflow-hidden mb-3">
-                                                                <div
-                                                                    className={cn('h-full rounded-full transition-all duration-700', st.barColor)}
-                                                                    style={{ width: `${barPct}%` }}
-                                                                />
-                                                            </div>
-
-                                                            {/* Target label */}
-                                                            <div className="flex items-center justify-between">
-                                                                <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-tight">{m.targetLabel}</p>
-                                                                <span className="text-[10px] text-primary font-mono font-bold opacity-0 group-hover:opacity-100 transition-opacity">ƒ formula</span>
-                                                            </div>
-
-                                                            {/* Formula Tooltip */}
-                                                            <div className="absolute inset-x-0 bottom-0 bg-primary/20 backdrop-blur-md px-4 py-2.5 text-[10px] text-primary-foreground font-medium opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-full group-hover:translate-y-0 border-t border-primary/20">
-                                                                <div className="flex items-center gap-2">
-                                                                    <span className="font-black text-xs">ƒ</span>
-                                                                    <code className="text-[9px]">{m.formula}</code>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
-                                    );
-                                })
-                            ) : (
-                                <div className="space-y-6">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                        {[...existingDefinitions, ...sessionCustomMetrics].map((d: any) => {
-                                            const isSelected = selectedMetrics.includes(d.id);
                                             return (
                                                 <div
-                                                    key={d.id}
-                                                    onClick={() => toggleMetric(d.id)}
+                                                    key={m.id}
+                                                    onClick={() => toggleMetric(m.id)}
                                                     className={cn(
-                                                        'relative p-6 rounded-[2rem] border transition-all duration-300 cursor-pointer group',
+                                                        'relative p-5 rounded-[2rem] border transition-all duration-300 group cursor-pointer overflow-hidden min-h-[140px] flex flex-col justify-between',
                                                         isSelected
-                                                            ? 'bg-primary/10 border-primary shadow-lg scale-[1.02]'
-                                                            : 'bg-card/40 border-border/50 hover:border-primary/30'
+                                                            ? 'bg-primary/10 border-primary shadow-xl scale-[1.02] ring-2 ring-primary/10'
+                                                            : 'bg-card/40 border-border/50 hover:border-primary/30 hover:bg-muted/30'
                                                     )}
                                                 >
-                                                    <div className="flex items-center justify-between mb-4">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="h-8 w-8 rounded-lg bg-primary/5 flex items-center justify-center">
-                                                                <Settings2 className="h-4 w-4 text-primary" />
-                                                            </div>
-                                                            <p className="text-sm font-black">{d.name}</p>
+                                                    {/* Selection indicator */}
+                                                    {isSelected && (
+                                                        <div className="absolute top-0 right-0 p-3">
+                                                            <CheckCircle2 className="h-4 w-4 text-primary" />
                                                         </div>
-                                                        {isSelected && <CheckCircle2 className="h-4 w-4 text-primary" />}
-                                                    </div>
-                                                    <div className="flex items-center gap-4 text-[10px] text-muted-foreground font-bold uppercase tracking-widest">
-                                                        <span>{d.updateFrequency || 'Sprint'}</span>
-                                                        <span>·</span>
-                                                        <span>Goal: {d.threshold} {d.unit || ''}</span>
-                                                    </div>
-                                                    {d.isCustom && (
-                                                        <Badge className="absolute bottom-4 right-4 bg-primary/20 text-primary border-primary/20 text-[8px] uppercase">New Session Entry</Badge>
                                                     )}
+
+                                                    {/* Metric Info */}
+                                                    <div className="space-y-1 pr-6 flex-1">
+                                                        <p className="text-sm font-black leading-tight group-hover:text-primary transition-colors">{m.name}</p>
+                                                        <p className="text-[10px] text-muted-foreground font-medium line-clamp-3 leading-relaxed">{m.description}</p>
+                                                    </div>
+
+                                                    {/* Blueprint Indicator */}
+                                                    <div className="flex items-center justify-between mt-4">
+                                                        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-primary/5 border border-primary/10">
+                                                            <div className="h-1 w-1 rounded-full bg-primary animate-pulse" />
+                                                            <span className="text-[8px] font-black text-primary uppercase tracking-widest">Blueprint</span>
+                                                        </div>
+                                                        <Workflow className="h-3 w-3 text-primary opacity-20 group-hover:opacity-100 transition-opacity" />
+                                                    </div>
+
+                                                    {/* Formula Overlay on Hover */}
+                                                    <div className="absolute inset-x-0 bottom-0 bg-primary/20 backdrop-blur-md px-4 py-3 text-[10px] text-primary-foreground font-medium opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-full group-hover:translate-y-0 border-t border-primary/20 flex items-center gap-2">
+                                                        <span className="font-black text-xs">ƒ</span>
+                                                        <code className="text-[9px] font-bold truncate">{m.formula}</code>
+                                                    </div>
                                                 </div>
                                             );
                                         })}
-                                        {[...existingDefinitions, ...sessionCustomMetrics].length === 0 && (
-                                            <div className="col-span-full py-12 text-center border border-dashed border-border/50 rounded-[2.5rem] bg-muted/5">
-                                                <p className="text-sm text-muted-foreground font-medium italic">No existing definitions found in library</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {(() => {
+                                        const items = [...existingDefinitions, ...sessionCustomMetrics]
+                                            .filter((d: any) => !selectedProjectId || d.projectId === selectedProjectId);
+                                        
+                                        // Deduplicate by metricType or identifier
+                                        const seen = new Set();
+                                        return items.filter((d: any) => {
+                                            const id = d.metricType || d.id;
+                                            if (seen.has(id)) return false;
+                                            seen.add(id);
+                                            return true;
+                                        });
+                                    })().map((d: any) => {
+                                        const isSelected = selectedMetrics.includes(d.id);
+                                        return (
+                                            <div
+                                                key={d.id}
+                                                onClick={() => toggleMetric(d.id)}
+                                                className={cn(
+                                                    'relative p-6 rounded-[2rem] border transition-all duration-300 cursor-pointer group',
+                                                    isSelected
+                                                        ? 'bg-primary/10 border-primary shadow-lg scale-[1.02]'
+                                                        : 'bg-card/40 border-border/50 hover:border-primary/30'
+                                                )}
+                                            >
+                                                <div className="flex items-center justify-between mb-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="h-8 w-8 rounded-lg bg-primary/5 flex items-center justify-center">
+                                                            <Settings2 className="h-4 w-4 text-primary" />
+                                                        </div>
+                                                        <p className="text-sm font-black">{d.name}</p>
+                                                    </div>
+                                                    {isSelected && <CheckCircle2 className="h-4 w-4 text-primary" />}
+                                                </div>
+                                                <div className="flex items-center gap-4 text-[10px] text-muted-foreground font-bold uppercase tracking-widest">
+                                                    <span>{d.updateFrequency || 'Sprint'}</span>
+                                                    <span>·</span>
+                                                    <span>Goal: {d.threshold} {d.unit || ''}</span>
+                                                </div>
+                                                {d.isCustom && (
+                                                    <Badge className="absolute bottom-4 right-4 bg-primary/20 text-primary border-primary/20 text-[8px] uppercase">New Session Entry</Badge>
+                                                )}
                                             </div>
-                                        )}
-                                    </div>
+                                        );
+                                    })}
+                                    {[...existingDefinitions, ...sessionCustomMetrics].filter((d: any) => !selectedProjectId || d.projectId === selectedProjectId).length === 0 && (
+                                        <div className="col-span-full py-12 text-center border border-dashed border-border/50 rounded-[2.5rem] bg-muted/5">
+                                            <p className="text-sm text-muted-foreground font-medium italic">No existing definitions found for the selected project scope</p>
+                                        </div>
+                                    )}
+                                </div>
                                 </div>
                             )}
                         </div>
@@ -1223,28 +1166,8 @@ export function ProvisionMetricsTab() {
                                         onChange={(e) => setInventorySearchQuery(e.target.value)}
                                     />
                                 </div>
-                                <Select value={inventoryAccountFilter} onValueChange={setInventoryAccountFilter}>
-                                    <SelectTrigger className="h-9 w-40 rounded-xl border-border/50 bg-background/50 text-[11px] font-bold">
-                                        <SelectValue placeholder="All Accounts" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">All Accounts</SelectItem>
-                                        {uniqueInventoryAccounts.map(acc => (
-                                            <SelectItem key={acc} value={acc}>{acc}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                <Select value={inventoryProjectFilter} onValueChange={setInventoryProjectFilter}>
-                                    <SelectTrigger className="h-9 w-48 rounded-xl border-border/50 bg-background/50 text-[11px] font-bold">
-                                        <SelectValue placeholder="All Projects" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">All Projects</SelectItem>
-                                        {uniqueInventoryProjects.map(([id, name]) => (
-                                            <SelectItem key={id} value={id}>{name}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+
+
                                 <Badge variant="outline" className="rounded-full bg-muted/30 border-border/50 font-mono text-[10px] h-9 px-3">
                                     {filteredInventory.length} Match
                                 </Badge>
@@ -1280,7 +1203,9 @@ export function ProvisionMetricsTab() {
                                             <TableCell>
                                                 <div className="flex flex-col">
                                                     <span className="text-[11px] font-bold text-foreground/80">{d.projectName || 'Global'}</span>
-                                                    <span className="text-[9px] text-muted-foreground uppercase font-black tracking-widest">{d.accountName || 'All Accounts'}</span>
+                                                    {d.teamName && (
+                                                        <span className="text-[9px] text-primary/70 uppercase font-black tracking-widest leading-none mt-0.5">Team: {d.teamName}</span>
+                                                    )}
                                                 </div>
                                             </TableCell>
                                             <TableCell className="text-center">

@@ -8,7 +8,6 @@ import { CalculatedMetricsTab } from '@/components/metrics/calculated-metrics-ta
 import { AddMetricForm } from '@/components/metrics/add-metric-form';
 import { AddFormulaMetricForm } from '@/components/metrics/add-formula-metric-form';
 import { ProvisionMetricsTab } from '@/components/metrics/provision-metrics-tab';
-import { MemberSprintDataTab } from '@/components/metrics/member-sprint-data-tab';
 import { DTMonitoringDashboard } from '@/components/metrics/dt-monitoring-dashboard';
 import { GlobalFilter } from '@/components/filters/global-filter';
 // import { JiraAnalyticsTab } from '@/components/metrics/jira-analytics-tab';
@@ -58,10 +57,7 @@ export default function MetricsPage() {
 
                        
 
-                        <TabsTrigger value="member-sprint" className={TAB_TRIGGER_CLS}>
-                            <Users className="h-4 w-4" />
-                            Member Sprint Data
-                        </TabsTrigger>
+
 
                         <TabsTrigger value="add-metric" className={TAB_TRIGGER_CLS}>
                             <PlusCircle className="h-4 w-4" />
@@ -117,9 +113,7 @@ export default function MetricsPage() {
                     <ProvisionMetricsTab />
                 </TabsContent>
 
-                <TabsContent value="member-sprint" className="mt-0">
-                    <MemberSprintDataTab />
-                </TabsContent>
+
 
                 <TabsContent value="dt-monitoring" className="mt-0">
                     <DTMonitoringDashboard />

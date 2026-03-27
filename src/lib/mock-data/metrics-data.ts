@@ -21,59 +21,175 @@ export interface ManualMetricDef {
 
 export const PREDEFINED_MANUAL_METRICS: ManualMetricDef[] = [
     {
-        id: 'mm-1',
-        name: 'Communication',
-        type: 'rating',
-        min: 1,
-        max: 5,
-        description: 'Quality of communication',
-        thresholds: { red: 2, amber: 3, green: 4 },
-        metricClass: 'B',
-        updateFrequency: 'weekly',
+        id: 'stories_planned',
+        name: 'Stories Planned',
+        type: 'integer',
+        min: 0,
+        max: 500,
+        description: 'Total number of stories planned for the sprint',
+        thresholds: { red: 5, amber: 10, green: 15 },
     },
     {
-        id: 'mm-2',
-        name: 'Learning Level',
-        type: 'rating',
-        min: 1,
-        max: 5,
-        description: 'Skill improvement over time',
-        thresholds: { red: 2, amber: 3, green: 4 },
-        metricClass: 'B',
-        updateFrequency: 'weekly',
+        id: 'stories_delivered',
+        name: 'Stories Delivered',
+        type: 'integer',
+        min: 0,
+        max: 500,
+        description: 'Total number of stories delivered in the sprint',
+        thresholds: { red: 5, amber: 10, green: 15 },
     },
     {
-        id: 'mm-3',
-        name: 'Client Interaction',
-        type: 'rating',
-        min: 1,
-        max: 10,
-        description: 'Client-facing effectiveness',
-        thresholds: { red: 4, amber: 6, green: 7 },
-        metricClass: 'A',
-        updateFrequency: 'monthly',
+        id: 'stories_added',
+        name: 'Stories Added',
+        type: 'integer',
+        min: 0,
+        max: 100,
+        description: 'Stories added to the sprint after it started',
+        thresholds: { red: 10, amber: 5, green: 2 }, // Lower is better
     },
     {
-        id: 'mm-4',
-        name: 'Initiative',
-        type: 'rating',
-        min: 1,
-        max: 5,
-        description: 'Proactive behavior',
-        thresholds: { red: 2, amber: 3, green: 4 },
-        metricClass: 'C',
-        updateFrequency: 'weekly',
+        id: 'stories_removed',
+        name: 'Stories Removed',
+        type: 'integer',
+        min: 0,
+        max: 100,
+        description: 'Stories removed from the sprint after it started',
+        thresholds: { red: 10, amber: 5, green: 2 }, // Lower is better
     },
     {
-        id: 'mm-5',
-        name: 'Documentation Quality',
+        id: 'stories_changed',
+        name: 'Stories Changed',
+        type: 'integer',
+        min: 0,
+        max: 100,
+        description: 'Stories whose scope changed during the sprint',
+        thresholds: { red: 10, amber: 5, green: 2 }, // Lower is better
+    },
+    {
+        id: 'stories_accepted_by_po',
+        name: 'Stories Accepted by PO',
+        type: 'integer',
+        min: 0,
+        max: 500,
+        description: 'Stories formally accepted by the Product Owner',
+        thresholds: { red: 5, amber: 10, green: 15 },
+    },
+    {
+        id: 'employee_capacity_hours',
+        name: 'Employee Capacity Hours',
+        type: 'integer',
+        min: 0,
+        max: 2000,
+        description: 'Total available capacity in hours for the team member',
+        thresholds: { red: 100, amber: 140, green: 160 },
+    },
+    {
+        id: 'effort_spent_hours',
+        name: 'Effort Spent Hours',
+        type: 'integer',
+        min: 0,
+        max: 2000,
+        description: 'Total effort spent in hours by the team member',
+        thresholds: { red: 100, amber: 140, green: 160 },
+    },
+    {
+        id: 'qa_defects',
+        name: 'QA Defects',
+        type: 'integer',
+        min: 0,
+        max: 200,
+        description: 'Defects found during QA phase',
+        thresholds: { red: 10, amber: 5, green: 1 }, // Lower is better
+    },
+    {
+        id: 'client_defects',
+        name: 'Client Defects',
+        type: 'integer',
+        min: 0,
+        max: 100,
+        description: 'Defects reported by the client (UAT/Prod)',
+        thresholds: { red: 5, amber: 2, green: 0 }, // Lower is better
+    },
+    {
+        id: 'defects_rejected',
+        name: 'Defects Rejected',
+        type: 'integer',
+        min: 0,
+        max: 100,
+        description: 'Number of reported defects that were rejected as "Not a Bug"',
+        thresholds: { red: 10, amber: 5, green: 2 }, // Lower is better
+    },
+    {
+        id: 'defects_reopened',
+        name: 'Defects Reopened',
+        type: 'integer',
+        min: 0,
+        max: 100,
+        description: 'Number of defects that were reopened after being marked fixed',
+        thresholds: { red: 5, amber: 2, green: 0 }, // Lower is better
+    },
+    {
+        id: 'review_comments',
+        name: 'Review Comments',
+        type: 'integer',
+        min: 0,
+        max: 500,
+        description: 'Total number of comments received during code reviews',
+        thresholds: { red: 30, amber: 20, green: 10 }, // Lower is better
+    },
+    {
+        id: 'test_cases_created',
+        name: 'Test Cases Created',
+        type: 'integer',
+        min: 0,
+        max: 500,
+        description: 'New test cases created during the cycle',
+        thresholds: { red: 5, amber: 10, green: 20 },
+    },
+    {
+        id: 'automation_test_cases_created',
+        name: 'Automation Test Cases Created',
+        type: 'integer',
+        min: 0,
+        max: 200,
+        description: 'New automation test cases created',
+        thresholds: { red: 2, amber: 5, green: 10 },
+    },
+    {
+        id: 'test_cases_planned',
+        name: 'Test Cases Planned',
+        type: 'integer',
+        min: 0,
+        max: 500,
+        description: 'Total test cases planned for execution',
+        thresholds: { red: 5, amber: 10, green: 20 },
+    },
+    {
+        id: 'test_cases_executed',
+        name: 'Test Cases Executed',
+        type: 'integer',
+        min: 0,
+        max: 500,
+        description: 'Total test cases executed',
+        thresholds: { red: 5, amber: 10, green: 20 },
+    },
+    {
+        id: 'static_code_violations',
+        name: 'Static Code Violations',
+        type: 'integer',
+        min: 0,
+        max: 1000,
+        description: 'Issues found by static code analysis tools',
+        thresholds: { red: 50, amber: 20, green: 0 }, // Lower is better
+    },
+    {
+        id: 'unit_test_coverage',
+        name: 'Unit Test Coverage',
         type: 'percentage',
         min: 0,
         max: 100,
-        description: 'Standard of technical documentation',
+        description: 'Percentage of code covered by unit tests',
         thresholds: { red: 60, amber: 75, green: 85 },
-        metricClass: 'B',
-        updateFrequency: 'monthly',
     },
 ];
 
@@ -117,6 +233,92 @@ export interface MemberWithMetrics {
     teamId?: string;
     metrics: MemberMetricValue[];
 }
+
+// ── Calculated Metric Formulas ───────────────────────
+export interface CalculatedMetricFormula {
+    id: string;
+    name: string;
+    category: string;
+    uom: string;
+    formula: string;
+    indicator: 'Higher is better' | 'Lower is better';
+    calculate: (values: Record<string, number>, teamSize: number) => number;
+}
+
+export const CALCULATED_METRIC_FORMULAS: CalculatedMetricFormula[] = [
+    {
+        id: 'productivity',
+        name: 'Productivity',
+        category: 'Productivity',
+        uom: 'Productivity',
+        formula: 'stories_accepted_by_po / employee_capacity_hours',
+        indicator: 'Higher is better',
+        calculate: (v) => (v.stories_accepted_by_po || 0) / (v.employee_capacity_hours || 1),
+    },
+    {
+        id: 'done_to_said',
+        name: 'Done to Said Ratio',
+        category: 'Project Management',
+        uom: 'Ratio',
+        formula: 'stories_delivered / stories_planned',
+        indicator: 'Higher is better',
+        calculate: (v) => (v.stories_delivered || 0) / (v.stories_planned || 1),
+    },
+    {
+        id: 'sprint_velocity',
+        name: 'Sprint Velocity',
+        category: 'Productivity',
+        uom: 'Story Points',
+        formula: 'stories_delivered',
+        indicator: 'Higher is better',
+        calculate: (v) => v.stories_delivered || 0,
+    },
+    {
+        id: 'velocity_per_person',
+        name: 'Sprint Velocity per Person',
+        category: 'Productivity',
+        uom: 'Story Points per Person',
+        formula: 'stories_delivered / team_size',
+        indicator: 'Higher is better',
+        calculate: (v, size) => (v.stories_delivered || 0) / (size || 1),
+    },
+    {
+        id: 'defect_density',
+        name: 'Defect Density (Story Point)',
+        category: 'Quality',
+        uom: 'Defects per Story Point',
+        formula: '(review_comments + qa_defects) / stories_delivered',
+        indicator: 'Lower is better',
+        calculate: (v) => ((v.review_comments || 0) + (v.qa_defects || 0)) / (v.stories_delivered || 1),
+    },
+    {
+        id: 'defect_leakage',
+        name: 'Defect Leakage to Client',
+        category: 'Quality',
+        uom: 'Percentage',
+        formula: 'client_defects / (qa_defects + client_defects) * 100',
+        indicator: 'Lower is better',
+        calculate: (v) => ((v.client_defects || 0) / ((v.qa_defects || 0) + (v.client_defects || 0) || 1)) * 100,
+    },
+    {
+        id: 'resource_utilization',
+        name: 'Resource Utilization',
+        category: 'Project Management',
+        uom: 'Percentage',
+        formula: 'effort_spent_hours / employee_capacity_hours * 100',
+        indicator: 'Higher is better',
+        calculate: (v) => ((v.effort_spent_hours || 0) / (v.employee_capacity_hours || 1)) * 100,
+    },
+    {
+        id: 'requirement_stability',
+        name: 'Requirement Stability Index',
+        category: 'Project Management',
+        uom: 'Percentage',
+        formula: '(stories_added + stories_removed + stories_changed) / stories_planned * 100',
+        indicator: 'Lower is better',
+        calculate: (v) => (((v.stories_added || 0) + (v.stories_removed || 0) + (v.stories_changed || 0)) / (v.stories_planned || 1)) * 100,
+    },
+];
 
 export const CALCULATED_METRICS = [
     {
