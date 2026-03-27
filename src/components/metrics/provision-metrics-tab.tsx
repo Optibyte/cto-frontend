@@ -52,51 +52,53 @@ import { cn } from '@/lib/utils';
 import { Project } from '@/lib/api/projects';
 
 // ─── Sprint Input Data ──────────────────────────────────────────────────────
-const DEFAULT_SPRINT_DATA = {
-    stories_planned: 20,
-    stories_delivered: 18,
-    stories_added: 3,
-    stories_removed: 1,
-    stories_changed: 2,
-    stories_accepted_by_po: 17,
-    employee_capacity_hours: 160,
-    effort_spent_hours: 148,
-    qa_defects: 5,
-    client_defects: 2,
-    defects_rejected: 1,
-    defects_reopened: 1,
-    review_comments: 12,
-    test_cases_created: 25,
-    automation_test_cases_created: 10,
-    test_cases_planned: 30,
-    test_cases_executed: 28,
-    static_code_violations: 4,
-    unit_test_coverage: 82,
-    deployments_total: 12,
-    deployments_failed: 1,
-    builds_total: 45,
-    builds_failed: 2,
-    mttr_hours: 4.5,
-    doc_coverage_percentage: 65,
-    review_cycle_hrs: 18.5
+const SPRINT_DATA = {
+    stories_planned: 0,
+    stories_delivered: 0,
+    stories_added: 0,
+    stories_removed: 0,
+    stories_changed: 0,
+    stories_accepted_by_po: 0,
+    team_capacity_hours: 0,
+    effort_spent_hours: 0,
+    qa_defects: 0,
+    client_defects: 0,
+    defects_rejected: 0,
+    defects_reopened: 0,
+    review_comments: 0,
+    test_cases_created: 0,
+    automation_test_cases_created: 0,
+    test_cases_planned: 0,
+    test_cases_executed: 0,
+    static_code_violations: 0,
+    unit_test_coverage: 0,
+    deployments_total: 0,
+    deployments_failed: 0,
+    builds_total: 0,
+    builds_failed: 0,
+    mttr_hours: 0,
+    doc_coverage_percentage: 0,
+    review_cycle_hrs: 0,
+    team_members: 0
 };
 
 // ─── Metric Calculations ────────────────────────────────────────────────────
 function computeMetrics(d: typeof SPRINT_DATA) {
-    const productivity         = +(d.stories_accepted_by_po / d.employee_capacity_hours).toFixed(3);
-    const doneToSaidRatio      = +((d.stories_delivered / d.stories_planned) * 100).toFixed(2);
-    const sprintVelocity       = d.stories_delivered; // story points delivered (raw value)
-    const defectDensity        = +((d.review_comments + d.qa_defects) / d.stories_delivered).toFixed(3);
-    const defectLeakage        = +((d.client_defects / (d.qa_defects + d.client_defects)) * 100).toFixed(2);
-    const resourceUtilization  = +((d.effort_spent_hours / d.employee_capacity_hours) * 100).toFixed(2);
-    const reqStabilityIndex    = +((d.stories_added + d.stories_removed + d.stories_changed) / d.stories_planned * 100).toFixed(2);
-    const testExecutionRate    = +((d.test_cases_executed / d.test_cases_planned) * 100).toFixed(2);
+    const productivity         = +(d.stories_accepted_by_po / (d.team_capacity_hours || 1)).toFixed(3);
+    const doneToSaidRatio      = +((d.stories_delivered / (d.stories_planned || 1)) * 100).toFixed(1);
+    const sprintVelocity       = d.stories_delivered;
+    const velocityPerMember    = +(d.stories_delivered / (d.team_members || 1)).toFixed(2);
+    const defectDensity        = +((d.review_comments + d.qa_defects) / (d.stories_delivered || 1)).toFixed(3);
+    const defectLeakage        = +((d.client_defects / ((d.qa_defects + d.client_defects) || 1)) * 100).toFixed(2);
+    const resourceUtilization  = +((d.effort_spent_hours / (d.team_capacity_hours || 1)) * 100).toFixed(1);
+    const reqStabilityIndex    = +(((d.stories_added + d.stories_removed + d.stories_changed) / (d.stories_planned || 1)) * 100).toFixed(1);
+    const testExecutionRate    = +((d.test_cases_executed / (d.test_cases_planned || 1)) * 100).toFixed(1);
     const unitTestCoverage     = d.unit_test_coverage;
-    const automationCoverage   = +((d.automation_test_cases_created / d.test_cases_created) * 100).toFixed(2);
+    const automationCoverage   = +((d.automation_test_cases_created / (d.test_cases_created || 1)) * 100).toFixed(1);
 
     const deployFrequency    = d.deployments_total;
-    const changeFailureRate  = +((d.deployments_failed / d.deployments_total) * 100).toFixed(2);
-    const buildSuccessRate   = +(((d.builds_total - d.builds_failed) / d.builds_total) * 100).toFixed(2);
+    const changeFailureRate  = +((d.deployments_failed / (d.deployments_total || 1)) * 100).toFixed(2);
+    const buildSuccessRate   = +(((d.builds_total - d.builds_failed) / (d.builds_total || 1)) * 100).toFixed(2);
     const mttrValue          = d.mttr_hours;
     const docCoverage        = d.doc_coverage_percentage;
     const reviewCycle        = d.review_cycle_hrs;
@@ -108,8 +110,8 @@ function computeMetrics(d: typeof SPRINT_DATA) {
                 name: 'Effort Spent',
                 value: d.effort_spent_hours,
                 unit: 'hrs',
-                target: d.employee_capacity_hours,
-                targetLabel: `Target: ${d.employee_capacity_hours} hrs`,
+                target: d.team_capacity_hours,
+                targetLabel: `Target: ${d.team_capacity_hours} hrs`,
                 formula: 'effort_spent_hours',
                 higherIsBetter: true,
                 threshold: 140,
@@ -118,11 +120,11 @@ function computeMetrics(d: typeof SPRINT_DATA) {
             {
                 id: 'capacity_used',
                 name: 'Capacity Used',
-                value: d.employee_capacity_hours - d.effort_spent_hours,
+                value: d.team_capacity_hours - d.effort_spent_hours,
                 unit: 'hrs remaining',
                 target: 0,
-                targetLabel: `Spent: ${d.effort_spent_hours} of ${d.employee_capacity_hours} hrs`,
-                formula: 'employee_capacity_hours − effort_spent_hours',
+                targetLabel: `Spent: ${d.effort_spent_hours} of ${d.team_capacity_hours} hrs`,
+                formula: 'team_capacity_hours − effort_spent_hours',
                 higherIsBetter: false,
                 threshold: 20,
                 description: 'Remaining hours from sprint capacity',
@@ -179,7 +181,7 @@ function computeMetrics(d: typeof SPRINT_DATA) {
                 value: resourceUtilization,
                 unit: '%',
                 targetLabel: 'Target ≤ 95%',
-                formula: 'effort_spent_hours / employee_capacity_hours × 100',
+                formula: 'effort_spent_hours / team_capacity_hours × 100',
                 higherIsBetter: true,
                 threshold: 95,
                 description: 'Team effort vs total capacity',
@@ -269,7 +271,7 @@ function computeMetrics(d: typeof SPRINT_DATA) {
                 value: productivity,
                 unit: 'ratio',
                 targetLabel: 'Target ≥ 0.085',
-                formula: 'stories_accepted_by_po / employee_capacity_hours',
+                formula: 'stories_accepted_by_po / team_capacity_hours',
                 higherIsBetter: true,
                 threshold: 0.085,
                 description: 'Stories accepted per capacity hour',
@@ -284,6 +286,17 @@ function computeMetrics(d: typeof SPRINT_DATA) {
                 higherIsBetter: true,
                 threshold: 18,
                 description: 'Total stories delivered this sprint',
+            },
+            {
+                id: 'velocity_per_member',
+                name: 'Velocity per Member',
+                value: velocityPerMember,
+                unit: 'stories/member',
+                targetLabel: 'Target ≥ 1.8',
+                formula: 'stories_delivered / team_members',
+                higherIsBetter: true,
+                threshold: 1.8,
+                description: 'Stories delivered per team member',
             },
             {
                 id: 'defect_density',
@@ -307,14 +320,26 @@ function computeMetrics(d: typeof SPRINT_DATA) {
                 threshold: 10,
                 description: 'Total successful deployments to production',
             },
+            {
+                id: 'member_workload',
+                name: 'Member Workload',
+                value: +(d.effort_spent_hours / (d.team_members || 1)).toFixed(1),
+                unit: 'hrs/member',
+                targetLabel: 'Target ≤ 40',
+                formula: 'effort_spent_hours / team_members',
+                higherIsBetter: true,
+                threshold: 40,
+                description: 'Average effort spent per team member',
+            },
         ],
     };
 }
 
 function getStatus(metric: { value: number; threshold: number; higherIsBetter: boolean }) {
+    if (isNaN(metric.value)) return 'poor';
     const ratio = metric.higherIsBetter
-        ? metric.value / metric.threshold
-        : metric.threshold / metric.value;
+        ? metric.value / (metric.threshold || 1)
+        : (metric.threshold || 0) / (metric.value || 1);
     if (ratio >= 1) return 'good';
     if (ratio >= 0.85) return 'warn';
     return 'poor';
@@ -335,7 +360,7 @@ const UOM_GROUPS = [
 import { useOrgHierarchy } from '@/hooks/use-hierarchy';
 import { useProjects, useUpdateProject } from '@/hooks/use-projects';
 import { useMetricDefinitions, useCreateMetricDefinition } from '@/hooks/use-metric-definitions';
-import { useGlobalBaseline, useUpdateGlobalBaseline } from '@/hooks/use-metrics';
+import { useGlobalBaseline, useUpdateGlobalBaseline, useMetrics } from '@/hooks/use-metrics';
 import { useDataFence } from '@/contexts/role-context';
 import { toast } from 'sonner';
 
@@ -349,7 +374,8 @@ export function ProvisionMetricsTab() {
     const existingDefinitions = existingDefinitionsData || EMPTY_ARRAY;
     const createMetricMutation = useCreateMetricDefinition();
     
-    const { data: globalBaseline, isLoading: baselineLoading } = useGlobalBaseline();
+    const [selectedProjectId, setSelectedProjectId] = useState<string>('');
+    const { data: projectManualMetrics } = useMetrics(selectedProjectId ? { projectId: selectedProjectId } : undefined);
     const saveBaselineMutation = useUpdateGlobalBaseline();
     const updateProjectMutation = useUpdateProject();
 
@@ -357,7 +383,6 @@ export function ProvisionMetricsTab() {
     // resolvedAllowedProjectIds is an extra frontend safety net for hybrid cases.
     const fence = useDataFence();
 
-    const [selectedProjectId, setSelectedProjectId] = useState<string>('');
     const [projInitialized, setProjInitialized] = useState(false);
     
     const [projectSearchQuery, setProjectSearchQuery] = useState('');
@@ -381,7 +406,80 @@ export function ProvisionMetricsTab() {
 
     const [sprintCategoryFilter, setSprintCategoryFilter] = useState<string>('all');
 
-    const [sprintData, setSprintData] = useState<typeof DEFAULT_SPRINT_DATA>(DEFAULT_SPRINT_DATA);
+    const [sprintData, setSprintData] = useState<typeof SPRINT_DATA>(SPRINT_DATA);
+    const [inputMode, setInputMode] = useState<'project' | 'member'>('project');
+    const [selectedMemberId, setSelectedMemberId] = useState<string>('');
+    const [memberSprintData, setMemberSprintData] = useState<Record<string, typeof SPRINT_DATA>>({});
+
+    const [targetTeamId, setTargetTeamId] = useState<string>('');
+    const [targetMemberId, setTargetMemberId] = useState<string>('');
+
+
+    const handleAggregateTeam = () => {
+        if (!targetTeamId) {
+            toast.error("Please select a target team first");
+            return;
+        }
+        
+        // Filter metrics to this team only
+        const teamMetrics = projectManualMetrics?.filter((m: any) => m.teamId === targetTeamId) || [];
+        
+        if (teamMetrics.length === 0) {
+            toast.error("No data found for this team to aggregate");
+            return;
+        }
+
+        const totals: typeof SPRINT_DATA = JSON.parse(JSON.stringify(SPRINT_DATA));
+        // Reset totals
+        Object.keys(totals).forEach(k => (totals as any)[k] = 0);
+
+        const avgFields = ['unit_test_coverage', 'doc_coverage_percentage', 'review_cycle_hrs', 'mttr_hours', 'productivity'];
+        const typeGroups: Record<string, number[]> = {};
+
+        teamMetrics.forEach((m: any) => {
+            if (!typeGroups[m.metricType]) typeGroups[m.metricType] = [];
+            typeGroups[m.metricType].push(Number(m.value) || 0);
+        });
+
+        Object.entries(typeGroups).forEach(([type, values]) => {
+            if (Object.keys(totals).includes(type)) {
+                const sum = values.reduce((a, b) => a + b, 0);
+                (totals as any)[type] = avgFields.includes(type) ? sum / values.length : sum;
+            }
+        });
+
+        setSprintData(totals);
+        toast.success(`Aggregated data for Team: ${filteredTeams.find((t: any) => t.id === targetTeamId)?.name}`);
+    };
+
+
+    const handleAggregateMembers = () => {
+        const memberIds = Object.keys(memberSprintData);
+        if (memberIds.length === 0) {
+            toast.error("No member data found to aggregate");
+            return;
+        }
+
+        const totals: typeof SPRINT_DATA = JSON.parse(JSON.stringify(SPRINT_DATA));
+        // Reset totals to 0 for summable fields
+        Object.keys(totals).forEach(k => {
+            if (k !== 'unit_test_coverage' && k !== 'doc_coverage_percentage' && k !== 'review_cycle_hrs' && k !== 'mttr_hours') {
+                (totals as any)[k] = 0;
+            }
+        });
+
+        memberIds.forEach(id => {
+            const data = memberSprintData[id];
+            Object.keys(data).forEach(k => {
+                if (k !== 'unit_test_coverage' && k !== 'doc_coverage_percentage' && k !== 'review_cycle_hrs' && k !== 'mttr_hours') {
+                    (totals as any)[k] += (data as any)[k] || 0;
+                }
+            });
+        });
+
+        setSprintData(totals);
+        toast.success(`Aggregated data from ${memberIds.length} members`);
+    };
 
     const computedMetrics = useMemo(() => computeMetrics(sprintData), [sprintData]);
 
@@ -448,6 +546,17 @@ export function ProvisionMetricsTab() {
         p.accountName.toLowerCase().includes(projectSearchQuery.toLowerCase())
     );
 
+    const selectedProjectObj = allProjects.find(p => p.id === selectedProjectId);
+    const projectMembers = selectedProjectObj?.employees || [];
+    const projectTeams = (selectedProjectObj as any)?.teams || [];
+
+    // Filter teams based on selected project
+    const filteredTeams = useMemo(() => {
+        if (!selectedProjectId) return [];
+        return projectTeams;
+    }, [selectedProjectId, projectTeams]);
+
+
     // Role-based auto-selection: Set initial project if restricted and none selected
     useEffect(() => {
         if (!fence.isRestricted || allProjects.length === 0 || projInitialized) return;
@@ -459,15 +568,45 @@ export function ProvisionMetricsTab() {
         }
     }, [fence.isRestricted, allProjects, selectedProjectId, projInitialized]);
 
-    // sync sprintData with global baseline from DB - merge with defaults to ensure all 26 fields exist
+    // ─── Sync project/team metrics to sprintData ──────────────────────────────
     useEffect(() => {
-        if (globalBaseline) {
-            setSprintData(prev => ({
-                ...prev,
-                ...globalBaseline
-            }));
+        if (!selectedProjectId || !projectManualMetrics || projectManualMetrics.length === 0) {
+            setSprintData(SPRINT_DATA);
+            return;
         }
-    }, [globalBaseline]);
+
+        const aggregated = JSON.parse(JSON.stringify(SPRINT_DATA));
+        Object.keys(aggregated).forEach(k => (aggregated[k] = 0));
+
+        // Determine filter-set based on inputMode and targetTeamId
+        const filteredMetrics = (inputMode === 'member' && targetTeamId)
+            ? projectManualMetrics.filter((m: any) => m.teamId === targetTeamId)
+            : projectManualMetrics;
+
+        if (filteredMetrics.length === 0) {
+            setSprintData(SPRINT_DATA);
+            return;
+        }
+
+        const avgFields = ['unit_test_coverage', 'doc_coverage_percentage', 'review_cycle_hrs', 'mttr_hours', 'productivity'];
+        const typeGroups: Record<string, number[]> = {};
+
+        filteredMetrics.forEach((m: any) => {
+            if (Object.keys(aggregated).includes(m.metricType)) {
+                if (!typeGroups[m.metricType]) typeGroups[m.metricType] = [];
+                typeGroups[m.metricType].push(Number(m.value) || 0);
+            }
+        });
+
+        Object.entries(typeGroups).forEach(([type, values]) => {
+            if (Object.keys(aggregated).includes(type)) {
+                const sum = values.reduce((a, b) => a + b, 0);
+                aggregated[type] = avgFields.includes(type) ? sum / values.length : sum;
+            }
+        });
+
+        setSprintData(aggregated);
+    }, [selectedProjectId, projectManualMetrics, targetTeamId, inputMode]);
 
     const handleSaveGlobalBaseline = async () => {
         try {
@@ -508,6 +647,8 @@ export function ProvisionMetricsTab() {
             if (!project) throw new Error('Project not found');
 
             const promises = metricsToProvision.map(m => {
+                const finalParameters = sprintData;
+
                 const payload = {
                     name: m.name,
                     metricType: (m as any).metricType || m.id.replace(/-/g, '_'),
@@ -521,7 +662,7 @@ export function ProvisionMetricsTab() {
                     marketName: project.marketName,
                     projectId: project.id,
                     projectName: project.name,
-                    parameters: sprintData,
+                    parameters: finalParameters,
                 };
                 return createMetricMutation.mutateAsync(payload);
             });
@@ -529,7 +670,7 @@ export function ProvisionMetricsTab() {
             await Promise.all(promises);
             toast.success(`Successfully provisioned ${selectedMetrics.length} metrics to ${project.name}`);
             setSelectedMetrics([]);
-            setSelectedProjectId('');
+            // Don't reset projectId to allow multi-scope provisioning faster
         } catch (error) {
             console.error('Provisioning failed', error);
             toast.error('Failed to provision some metrics. Please check logs.');
@@ -558,8 +699,6 @@ export function ProvisionMetricsTab() {
             badge: 'bg-emerald-500/15 text-emerald-500 border-emerald-500/30'
         },
     };
-
-    const selectedProjectObj = allProjects.find(p => p.id === selectedProjectId);
 
     const filteredInventory = useMemo(() => {
         return existingDefinitions.filter((item: any) => {
@@ -636,22 +775,40 @@ export function ProvisionMetricsTab() {
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2 space-y-12">
-                    {/* Step 1: Project Selection */}
+                    {/* Step 1: Project & Scope Selection */}
                     <div className="space-y-6">
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                             <div className="flex items-center gap-3">
                                 <div className="p-2 rounded-xl bg-blue-500/10 text-blue-500">
                                     <Briefcase className="h-5 w-5" />
                                 </div>
-                                <h3 className="text-xl font-bold">1. Select Target Project</h3>
+                                <h3 className="text-xl font-bold">1. Target Config</h3>
                                 {selectedProjectId && (
-                                    <Badge variant="secondary" className="rounded-full bg-primary/10 text-primary border-primary/20">Selected</Badge>
+                                    <Badge variant="secondary" className="rounded-full bg-primary/10 text-primary border-primary/20">Active</Badge>
                                 )}
                             </div>
+                            
+                            <div className="flex bg-muted/50 p-1.5 rounded-2xl border border-border/10">
+                                <button
+                                    onClick={() => setInputMode('project')}
+                                    className={cn(
+                                        "px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                                        inputMode === 'project' ? "bg-background text-primary shadow-lg" : "text-muted-foreground hover:text-foreground"
+                                    )}
+                                >Project</button>
+                                <button
+                                    onClick={() => setInputMode('member')}
+                                    className={cn(
+                                        "px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                                        inputMode === 'member' ? "bg-background text-primary shadow-lg" : "text-muted-foreground hover:text-foreground"
+                                    )}
+                                >Team/Member</button>
+                            </div>
+
                             <div className="relative w-64">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                 <Input
-                                    placeholder="Search projects..."
+                                    placeholder="Search project..."
                                     className="pl-9 rounded-xl border-border/50 bg-background/50 h-10"
                                     value={projectSearchQuery}
                                     onChange={(e) => setProjectSearchQuery(e.target.value)}
@@ -659,38 +816,96 @@ export function ProvisionMetricsTab() {
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[300px] overflow-y-auto pr-2 no-scrollbar">
-                            {filteredProjects.map(project => (
-                                <div
-                                    key={project.id}
-                                    onClick={() => setSelectedProjectId(project.id === selectedProjectId ? '' : project.id)}
-                                    className={cn(
-                                        "p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between group",
-                                        selectedProjectId === project.id
-                                            ? "bg-primary/10 border-primary shadow-sm"
-                                            : "bg-card/40 border-border/50 hover:bg-muted/50"
-                                    )}
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <div className={cn(
-                                            "h-10 w-10 rounded-xl flex items-center justify-center font-bold text-sm",
-                                            selectedProjectId === project.id ? "bg-primary text-white" : "bg-muted text-muted-foreground"
-                                        )}>
-                                            {project.name.charAt(0)}
-                                        </div>
-                                        <div className="flex flex-col">
-                                            <span className="text-sm font-bold truncate max-w-[150px]">{project.name}</span>
-                                            <span className="text-[10px] text-muted-foreground uppercase font-medium">{project.accountName}</span>
-                                        </div>
+
+                        {inputMode === 'member' && selectedProjectId && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 rounded-3xl border border-primary/20 bg-primary/5 animate-in fade-in slide-in-from-top-4 duration-500">
+                                <div className="space-y-4">
+                                    <div className="flex items-center gap-2">
+                                        <div className="h-2 w-2 rounded-full bg-primary" />
+                                        <h4 className="text-xs font-black uppercase tracking-widest text-primary">Team Context</h4>
                                     </div>
-                                    {selectedProjectId === project.id ? (
-                                        <CheckCircle2 className="h-5 w-5 text-primary" />
-                                    ) : (
-                                        <div className="h-2 w-2 rounded-full bg-border group-hover:bg-primary/50 transition-colors" />
-                                    )}
+                                    <Select value={targetTeamId} onValueChange={setTargetTeamId}>
+                                        <SelectTrigger className="h-12 rounded-2xl bg-background/50 border-border/50 font-bold">
+                                            <SelectValue placeholder="Select Target Team" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {filteredTeams.map((t: any) => (
+                                                <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <Button 
+                                        variant="outline" 
+                                        className="w-full rounded-2xl border-primary/20 h-11 text-[10px] font-black uppercase tracking-widest gap-2 bg-background/50"
+                                        onClick={handleAggregateTeam}
+                                        disabled={!targetTeamId}
+                                    >
+                                        <Activity className="h-4 w-4" />
+                                        Aggregate Team Data
+                                    </Button>
                                 </div>
-                            ))}
-                        </div>
+
+                                <div className="space-y-4">
+                                    <div className="flex items-center gap-2">
+                                        <div className="h-2 w-2 rounded-full bg-cyan-500" />
+                                        <h4 className="text-xs font-black uppercase tracking-widest text-cyan-500">Member Drill-down</h4>
+                                    </div>
+                                    <Select value={selectedMemberId} onValueChange={setSelectedMemberId}>
+                                        <SelectTrigger className="h-12 rounded-2xl bg-background/50 border-border/50 font-bold">
+                                            <SelectValue placeholder="Select Individual Member" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {projectMembers.map((m: any) => (
+                                                <SelectItem key={m.id} value={m.id}>{m.fullName}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <Button 
+                                        variant="outline" 
+                                        className="w-full rounded-2xl border-cyan-500/20 h-11 text-[10px] font-black uppercase tracking-widest gap-2 bg-background/50"
+                                        onClick={handleAggregateMembers}
+                                        disabled={Object.keys(memberSprintData).length === 0}
+                                    >
+                                        <Layers className="h-4 w-4" />
+                                        Aggregate All Members
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
+                        {inputMode === 'project' && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[300px] overflow-y-auto pr-2 no-scrollbar">
+                                {filteredProjects.map(project => (
+                                    <div
+                                        key={project.id}
+                                        onClick={() => setSelectedProjectId(project.id === selectedProjectId ? '' : project.id)}
+                                        className={cn(
+                                            "p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between group",
+                                            selectedProjectId === project.id
+                                                ? "bg-primary/10 border-primary shadow-sm"
+                                                : "bg-card/40 border-border/50 hover:bg-muted/50"
+                                        )}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <div className={cn(
+                                                "h-10 w-10 rounded-xl flex items-center justify-center font-bold text-sm",
+                                                selectedProjectId === project.id ? "bg-primary text-white" : "bg-muted text-muted-foreground"
+                                            )}>
+                                                {project.name.charAt(0)}
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <span className="text-sm font-bold truncate max-w-[150px]">{project.name}</span>
+                                                <span className="text-[10px] text-muted-foreground uppercase font-medium">{project.accountName}</span>
+                                            </div>
+                                        </div>
+                                        {selectedProjectId === project.id ? (
+                                            <CheckCircle2 className="h-5 w-5 text-primary" />
+                                        ) : (
+                                            <div className="h-2 w-2 rounded-full bg-border group-hover:bg-primary/50 transition-colors" />
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
                     {/* ── Step 2: Select Metrics ───────────────────────────────────── */}
@@ -701,59 +916,16 @@ export function ProvisionMetricsTab() {
                                     <Activity className="h-5 w-5" />
                                 </div>
                                 <div>
-                                    <h3 className="text-xl font-bold">2. Select Metrics</h3>
+                                    <h3 className="text-xl font-bold">2. Configure & Select Metrics</h3>
                                     <Tabs value={step2Tab} onValueChange={(v: any) => setStep2Tab(v)} className="mt-1">
                                         <TabsList className="h-8 bg-muted/50 p-1 rounded-lg">
-                                            <TabsTrigger value="sprint" className="text-[10px] px-3 py-1 rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm">Sprint Metrics</TabsTrigger>
-                                            <TabsTrigger value="library" className="text-[10px] px-3 py-1 rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm">Metric Library (Inventory)</TabsTrigger>
+                                            <TabsTrigger value="sprint" className="text-[10px] px-3 py-1 rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm">1. Preview Metrics</TabsTrigger>
+                                            <TabsTrigger value="library" className="text-[10px] px-3 py-1 rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm">2. Metric Inventory</TabsTrigger>
                                         </TabsList>
                                     </Tabs>
                                 </div>
                             </div>
                             <div className="flex items-center gap-4">
-                                {step2Tab === 'sprint' && (
-                                    <Dialog>
-                                        <DialogTrigger asChild>
-                                            <Button variant="outline" size="sm" className="h-8 rounded-lg gap-2 text-[10px] font-bold uppercase tracking-wider border-primary/20 hover:bg-primary/5">
-                                                <Pencil className="h-3 w-3" />
-                                                Edit Raw Data
-                                            </Button>
-                                        </DialogTrigger>
-                                        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto rounded-[2rem]">
-                                            <DialogHeader className="mb-4">
-                                                <DialogTitle className="text-2xl font-black">Raw Sprint Data</DialogTitle>
-                                                <DialogDescription className="font-medium">
-                                                    Manually insert values to recalculate baseline metrics.
-                                                </DialogDescription>
-                                            </DialogHeader>
-                                            <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-                                                {Object.entries(sprintData).map(([key, value]) => (
-                                                    <div key={key} className="space-y-2">
-                                                        <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground opacity-80 whitespace-nowrap overflow-hidden text-ellipsis block">
-                                                            {key.replace(/_/g, ' ')}
-                                                        </Label>
-                                                        <Input
-                                                            type="number"
-                                                            value={value}
-                                                            onChange={(e) => setSprintData(prev => ({ ...prev, [key]: Number(e.target.value) }))}
-                                                            className="h-10 rounded-xl bg-background/50 border-border/50 font-black tabular-nums"
-                                                        />
-                                                    </div>
-                                                ))}
-                                            </div>
-                                            <div className="flex justify-end pt-6 border-t border-border/10 mt-6">
-                                                <DialogTrigger asChild>
-                                                    <Button 
-                                                        onClick={handleSaveGlobalBaseline}
-                                                        className="rounded-xl gap-2 h-10 px-8 bg-primary text-white font-bold"
-                                                    >
-                                                        Apply & Save to DB
-                                                    </Button>
-                                                </DialogTrigger>
-                                            </div>
-                                        </DialogContent>
-                                    </Dialog>
-                                )}
                                 <Badge variant="secondary" className="rounded-full shadow-inner">{selectedMetrics.length} Selected</Badge>
                                 {step2Tab === 'sprint' ? (
                                     <Select value={sprintCategoryFilter} onValueChange={setSprintCategoryFilter}>
@@ -767,9 +939,9 @@ export function ProvisionMetricsTab() {
                                             ))}
                                         </SelectContent>
                                     </Select>
-                                ) : (
+                                ) : step2Tab === 'library' ? (
                                     <div className="flex items-center gap-4">
-                                        <span className="text-[10px] font-black uppercase tracking-widest text-primary/70">Organizational Metric Inventory</span>
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-primary/70">Library Inventory</span>
                                         <Button 
                                             variant="outline" 
                                             size="sm" 
@@ -780,7 +952,7 @@ export function ProvisionMetricsTab() {
                                             Define Custom
                                         </Button>
                                     </div>
-                                )}
+                                ) : null}
                             </div>
                         </div>
 
@@ -905,10 +1077,10 @@ export function ProvisionMetricsTab() {
                                                     const StatusIcon = st.icon;
                                                     
                                                     const barPct = group.key === 'hours'
-                                                        ? Math.min(100, (m.value / sprintData.employee_capacity_hours) * 100)
+                                                        ? Math.min(100, (m.value / (sprintData.team_capacity_hours || 1)) * 100)
                                                         : group.key === 'percentage'
                                                             ? Math.min(100, m.value)
-                                                            : Math.min(100, (m.value / (m.threshold * 1.5)) * 100);
+                                                            : Math.min(100, (m.value / (m.threshold * 1.5 || 1)) * 100);
 
                                                     return (
                                                         <div
@@ -943,7 +1115,7 @@ export function ProvisionMetricsTab() {
                                                                         'text-emerald-500': status === 'good',
                                                                         'text-amber-500': status === 'warn',
                                                                         'text-rose-500': status === 'poor',
-                                                                    })}>{m.value}</span>
+                                                                    })}>{isNaN(m.value) ? '0' : m.value}</span>
                                                                     <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">{m.unit}</span>
                                                                 </div>
                                                                 <div className={cn('flex items-center gap-1 px-2.5 py-1 rounded-full border text-[9px] font-black uppercase', st.badge)}>
@@ -1164,25 +1336,28 @@ export function ProvisionMetricsTab() {
                         <CardContent className="p-8 space-y-6">
                             {/* Selected Project Summary */}
                             <div className="space-y-3">
-                                <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Target Project</Label>
+                                <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Execution Target</Label>
                                 {!selectedProjectId ? (
                                     <div className="p-6 rounded-2xl border border-dashed border-border/50 text-center text-xs text-muted-foreground italic bg-muted/5">
                                         No project selected
                                     </div>
                                 ) : (
-                                    <div className="p-4 rounded-2xl bg-primary/5 border border-primary/20 flex items-center justify-between">
-                                        <div className="flex items-center gap-3">
-                                            <div className="h-10 w-10 rounded-xl bg-primary text-white flex items-center justify-center font-bold">
-                                                {selectedProjectObj?.name.charAt(0)}
+                                    <div className="space-y-2">
+                                        <div className="p-4 rounded-2xl bg-primary/5 border border-primary/20 flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <div className="h-10 w-10 rounded-xl bg-primary text-white flex items-center justify-center font-bold">
+                                                    {selectedProjectObj?.name.charAt(0)}
+                                                </div>
+                                                <div className="flex flex-col">
+                                                    <span className="text-sm font-bold">{selectedProjectObj?.name}</span>
+                                                    <span className="text-[10px] text-muted-foreground uppercase">{selectedProjectObj?.accountName}</span>
+                                                </div>
                                             </div>
-                                            <div className="flex flex-col">
-                                                <span className="text-sm font-bold">{selectedProjectObj?.name}</span>
-                                                <span className="text-[10px] text-muted-foreground uppercase">{selectedProjectObj?.accountName}</span>
-                                            </div>
+                                            <button onClick={() => setSelectedProjectId('')} className="p-1 hover:bg-destructive/10 hover:text-destructive rounded-lg transition-colors">
+                                                <X className="h-4 w-4" />
+                                            </button>
                                         </div>
-                                        <button onClick={() => setSelectedProjectId('')} className="p-1 hover:bg-destructive/10 hover:text-destructive rounded-lg transition-colors">
-                                            <X className="h-4 w-4" />
-                                        </button>
+                                        
                                     </div>
                                 )}
                             </div>
