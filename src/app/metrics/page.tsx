@@ -3,6 +3,7 @@
 import { Pencil, Calculator, PlusCircle, Database, BarChart3, Layers, Activity, Users } from 'lucide-react';
 import { ManualMetricsTab } from '@/components/metrics/manual-metrics-tab';
 import { ManualMetricsDashboard } from '@/components/metrics/manual-metrics-dashboard';
+import { AnalyticsDashboard } from '@/components/metrics/analytics-dashboard';
 import { CalculatedMetricsTab } from '@/components/metrics/calculated-metrics-tab';
 import { AddMetricForm } from '@/components/metrics/add-metric-form';
 import { AddFormulaMetricForm } from '@/components/metrics/add-formula-metric-form';
@@ -45,16 +46,17 @@ export default function MetricsPage() {
                             <Database className="h-4 w-4" />
                             Jira Analytics
                         </TabsTrigger> */}
+                         <TabsTrigger value="analytics" className={TAB_TRIGGER_CLS}>
+                            <BarChart3 className="h-4 w-4" />
+                            Metrics Dashboard
+                        </TabsTrigger>
 
                         <TabsTrigger value="manual" className={TAB_TRIGGER_CLS}>
                             <Pencil className="h-4 w-4" />
                             Manual Entry
                         </TabsTrigger>
 
-                        <TabsTrigger value="analytics" className={TAB_TRIGGER_CLS}>
-                            <BarChart3 className="h-4 w-4" />
-                            Manual Analytics
-                        </TabsTrigger>
+                       
 
                         <TabsTrigger value="member-sprint" className={TAB_TRIGGER_CLS}>
                             <Users className="h-4 w-4" />
@@ -96,7 +98,7 @@ export default function MetricsPage() {
                 </TabsContent>
 
                 <TabsContent value="analytics" className="mt-0">
-                    <ManualMetricsDashboard />
+                    <AnalyticsDashboard />
                 </TabsContent>
 
                 <TabsContent value="formula-metrics" className="mt-0">

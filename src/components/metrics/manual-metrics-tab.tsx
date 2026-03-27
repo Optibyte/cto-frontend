@@ -103,7 +103,8 @@ export function ManualMetricsTab() {
 
     // Data Fence & Role
     const fence = useDataFence();
-    const { role: CURRENT_USER_ROLE } = useRole();
+    const { role: CURRENT_USER_ROLE, user: AUTH_USER } = useRole();
+    const currentUserId = AUTH_USER?.id || AUTH_USER?.user?.id || CREATOR_ID;
 
     // Mutations
     const { mutateAsync: deleteMetricDef } = useDeleteMetricDefinition();
@@ -344,15 +345,19 @@ export function ManualMetricsTab() {
             const def = manualMetrics.find(d => d.id === metricId);
             const clampedValue = def ? Math.min(Math.max(value, def.min), def.max) : value;
             
+            const team = availableTeams.find(t => t.id === (selectedMember.teamId || selectedTeamId));
+            const projectId = selectedProjectId !== 'all' ? selectedProjectId : (team?.projectId || '');
+            
             return {
                 time: new Date().toISOString(),
                 teamId: selectedMember.teamId || '',
+                projectId: projectId,
                 userId: selectedMember.id,
                 metricType: metricId,
                 value: clampedValue,
                 unit: def?.type === 'percentage' ? '%' : def?.type === 'integer' ? 'qty' : 'pts',
                 source: 'manual' as const,
-                createdBy: CREATOR_ID,
+                createdBy: currentUserId,
                 metadata: { manual: true, name: def?.name }
             };
         });

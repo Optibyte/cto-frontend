@@ -852,53 +852,6 @@ export function ManualMetricsDashboard() {
                 </Card>
             </div>
 
-            {/* Overall Health Card */}
-            <Card className="rounded-[2.5rem] border-border/50 bg-gradient-to-br from-primary/10 via-background/50 to-violet-500/10 backdrop-blur-2xl shadow-2xl border-2">
-                <CardContent className="p-8">
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 items-center">
-                        <div className="space-y-6">
-                            <div className="space-y-2">
-                                <Badge className="bg-primary/20 text-primary border-primary/20 px-3 py-1 rounded-full text-[10px] font-bold tracking-widest uppercase">Member Insight</Badge>
-                                <h3 className="text-4xl font-black tracking-tight">Manual Performance Health</h3>
-                            </div>
-                            <p className="text-muted-foreground leading-relaxed">
-                                Our data indicates that team collaboration and initiative are the highest-rated areas across all projects. 
-                                <span className="text-primary font-bold"> Learning Level </span> has seen the most consistent growth over the last quarter.
-                            </p>
-                            <Button className="rounded-2xl h-12 px-8 bg-primary shadow-xl shadow-primary/20 hover:scale-105 transition-transform group">
-                                View Full Report
-                                <ArrowUpRight className="h-4 w-4 ml-2 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
-                            </Button>
-                        </div>
-
-                        <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {metricChartData.slice(0, 4).map((m, idx) => (
-                                <div key={idx} className="p-6 rounded-3xl bg-muted/20 border border-border/50 flex flex-col justify-between hover:bg-muted/30 transition-colors">
-                                    <div className="flex justify-between items-start mb-4">
-                                        <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">{m.name}</span>
-                                        <Badge className={cn(
-                                            "rounded-full px-2 py-0.5 text-[9px] font-black",
-                                            m.value > 4 ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" : "bg-amber-500/10 text-amber-500 border-amber-500/20"
-                                        )}>
-                                            {m.value > 4 ? "STABLE" : "IMPROVING"}
-                                        </Badge>
-                                    </div>
-                                    <div className="flex items-end gap-2">
-                                        <span className="text-4xl font-black">{m.value}</span>
-                                        <span className="text-sm text-muted-foreground font-bold mb-1.5 opacity-50">/ 5.0</span>
-                                    </div>
-                                    <div className="w-full bg-border/30 h-1.5 rounded-full mt-6 overflow-hidden">
-                                        <div 
-                                            className="h-full bg-gradient-to-r from-primary to-violet-500 rounded-full" 
-                                            style={{ width: `${(m.value / 5) * 100}%` }}
-                                        />
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
         </div>
     );
 }
