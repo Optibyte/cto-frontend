@@ -30,10 +30,12 @@ import { Lock } from 'lucide-react';
 const COLORS = ['#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#3b82f6'];
 const SOURCE_COLORS: Record<string, string> = { manual: '#8b5cf6', csv: '#10b981' };
 
-export function AnalyticsDashboard() {
-    const [selectedProjectId, setSelectedProjectId] = useState<string>('all');
-    const [selectedTeamId, setSelectedTeamId] = useState<string>('all');
-    
+export function AnalyticsDashboard({ 
+    selectedProjectId = 'all', 
+    setSelectedProjectId, 
+    selectedTeamId = 'all', 
+    setSelectedTeamId 
+}: any) {
     const [projInitialized, setProjInitialized] = useState(false);
     const [teamInitialized, setTeamInitialized] = useState(false);
     
@@ -43,6 +45,9 @@ export function AnalyticsDashboard() {
     const { data: hierarchy } = useOrgHierarchy();
 
     const fence = useDataFence();
+
+    // Hierarchy & Fence Logic (moved logic here if needed, but we keep it for filtering)
+    // ... (rest of memos stay the same)
 
     // Hierarchy & Fence Logic
     const resolvedAllowedProjectIds = useMemo(() => {
@@ -230,53 +235,6 @@ export function AnalyticsDashboard() {
                 </div>
             )}
 
-            <div className="flex flex-wrap items-center gap-4 bg-muted/20 p-4 rounded-3xl border border-border/50 backdrop-blur-sm shadow-xl">
-                <div className="flex items-center gap-4 ml-2 mr-auto">
-                    <div className="p-3 rounded-2xl bg-primary/10 text-primary border border-primary/20 shadow-inner">
-                        <LineChartIcon className="h-6 w-6" />
-                    </div>
-                    <div>
-                        <h2 className="text-2xl font-black bg-gradient-to-r from-primary to-violet-400 bg-clip-text text-transparent">Metrics Hub</h2>
-                        <p className="text-[10px] text-muted-foreground font-black tracking-[0.2em] uppercase mt-0.5 opacity-80">Manual & CSV Analytics</p>
-                    </div>
-                </div>
-
-                <div className="flex items-center gap-4">
-                    <div className="flex flex-col gap-1.5">
-                        <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground opacity-70 ml-1">Project Scope</span>
-                        <Select value={selectedProjectId} onValueChange={(val) => {
-                            setSelectedProjectId(val);
-                            setSelectedTeamId('all');
-                            setTeamInitialized(false);
-                        }}>
-                            <SelectTrigger className="w-[180px] rounded-xl bg-background/50 border-border/50 h-12 font-bold shadow-sm transition-all hover:bg-muted/50 text-xs">
-                                <SelectValue placeholder="All Projects" />
-                            </SelectTrigger>
-                            <SelectContent className="rounded-2xl border-border/50">
-                                <SelectItem value="all" className="font-bold text-xs">All Projects</SelectItem>
-                                {projects.map(p => (
-                                    <SelectItem key={p.id} value={p.id} className="font-medium text-xs">{p.name}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-
-                    <div className="flex flex-col gap-1.5">
-                        <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground opacity-70 ml-1">Team Filter</span>
-                        <Select value={selectedTeamId} onValueChange={setSelectedTeamId}>
-                            <SelectTrigger className="w-[180px] rounded-xl bg-background/50 border-border/50 h-12 font-bold shadow-sm transition-all hover:bg-muted/50 text-xs">
-                                <SelectValue placeholder="All Teams" />
-                            </SelectTrigger>
-                            <SelectContent className="rounded-2xl border-border/50">
-                                <SelectItem value="all" className="font-bold text-xs">All Teams</SelectItem>
-                                {teams.map(t => (
-                                    <SelectItem key={t.id} value={t.id} className="font-medium text-xs">{t.name}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                </div>
-            </div>
 
             {/* Quick Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">

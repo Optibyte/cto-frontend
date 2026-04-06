@@ -37,10 +37,15 @@ interface NavItem {
 }
 
 const navigationItems: NavItem[] = [
+    // {
+    //     title: ' jira Dashboard',
+    //     icon: LayoutDashboard,
+    //     href: '/',
+    // },
     {
-        title: 'Dashboard',
+        title: 'Metrics Dashboard',
         icon: LayoutDashboard,
-        href: '/',
+        href: '/metrics-dashboard',
     },
 
     {
