@@ -3,7 +3,7 @@
 import { Pencil, Calculator, PlusCircle, Database, BarChart3, Layers, Activity, Users } from 'lucide-react';
 import { ManualMetricsTab } from '@/components/metrics/manual-metrics-tab';
 import { ManualMetricsDashboard } from '@/components/metrics/manual-metrics-dashboard';
-import { AnalyticsDashboard } from '@/components/metrics/analytics-dashboard';
+
 import { CalculatedMetricsTab } from '@/components/metrics/calculated-metrics-tab';
 import { AddMetricForm } from '@/components/metrics/add-metric-form';
 import { AddFormulaMetricForm } from '@/components/metrics/add-formula-metric-form';
@@ -37,18 +37,9 @@ export default function MetricsPage() {
             </div>
 
             {/* Tabbed Interface */}
-            <Tabs defaultValue="analytics" className="space-y-8">
+            <Tabs defaultValue="manual" className="space-y-8">
                 <div className="sticky top-0 z-10 py-4 bg-background/80 backdrop-blur-md -mx-4 px-4 overflow-x-auto no-scrollbar">
                     <TabsList className="inline-flex h-12 items-center justify-start rounded-2xl bg-muted/30 p-1.5 gap-2 border border-border/50 shadow-inner w-max min-w-full">
-
-                        {/* <TabsTrigger value="jira" className={TAB_TRIGGER_CLS}>
-                            <Database className="h-4 w-4" />
-                            Jira Analytics
-                        </TabsTrigger> */}
-                         <TabsTrigger value="analytics" className={TAB_TRIGGER_CLS}>
-                            <BarChart3 className="h-4 w-4" />
-                            Metrics Dashboard
-                        </TabsTrigger>
 
                         <TabsTrigger value="manual" className={TAB_TRIGGER_CLS}>
                             <Pencil className="h-4 w-4" />
@@ -93,9 +84,7 @@ export default function MetricsPage() {
                     <ManualMetricsTab />
                 </TabsContent>
 
-                <TabsContent value="analytics" className="mt-0">
-                    <AnalyticsDashboard />
-                </TabsContent>
+
 
                 <TabsContent value="formula-metrics" className="mt-0">
                     <AddFormulaMetricForm />

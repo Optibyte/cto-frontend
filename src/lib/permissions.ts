@@ -35,6 +35,7 @@ export const ROUTE_FEATURE_MAP: Record<string, string> = {
     '/drilldown': 'projects.drilldown',
     '/teams': 'teams.view',
     '/metrics': 'metrics.view',
+    '/metrics-dashboard': 'metrics.view',
     '/reports': 'reports.view',
     '/integrations': 'admin.integrations',
     '/import': 'admin.import',
