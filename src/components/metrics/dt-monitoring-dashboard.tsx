@@ -24,6 +24,7 @@ import {
     Minus,
     ArrowUpRight,
     ArrowDownRight,
+    Download,
 } from 'lucide-react';
 import {
     LineChart,
@@ -40,8 +41,7 @@ import {
     AreaChart,
 } from 'recharts';
 import { cn } from '@/lib/utils';
-import { useMetrics } from '@/hooks/use-metrics';
-import { useMetricDefinitions } from '@/hooks/use-metric-definitions';
+import { useSprintMetrics } from '@/hooks/use-metrics';
 import { useOrgHierarchy } from '@/hooks/use-hierarchy';
 import { useProjects } from '@/hooks/use-projects';
 
@@ -82,6 +82,12 @@ interface DTAlert {
 function getPhase(date: Date, dtStart: Date, dtEnd: Date): DTPhase {
     if (date < dtStart) return 'before';
     if (date <= dtEnd) return 'during';
+    return 'after';
+}
+
+function getPhaseBySprint(sprintNumber: number): DTPhase {
+    if (sprintNumber <= 3) return 'before';
+    if (sprintNumber <= 7) return 'during';
     return 'after';
 }
 
@@ -167,7 +173,7 @@ function AlertCard({ alert }: { alert: DTAlert }) {
                 </div>
                 <p className="text-sm font-bold tracking-tight">{alert.metricName}</p>
                 <p className="text-xs opacity-70 font-medium leading-relaxed mt-0.5">
-                    {alert.metricName} {alert.phase} DT is below pre-DT baseline
+                    {alert.metricName} {alert.phase} DT dropped by {(alert.delta * 100).toFixed(1)}% compared to baseline
                     {' '}(Avg: {Number(alert.currentAvg).toFixed(2)} vs Baseline: {Number(alert.baseline).toFixed(2)})
                 </p>
             </div>
@@ -344,8 +350,7 @@ export function DTMonitoringDashboard() {
     const [selectedProjectId, setSelectedProjectId] = useState<string>('');
 
     const { data: allProjects = [] } = useProjects();
-    const { data: metrics = [], isLoading: metricsLoading } = useMetrics({ source: 'manual' });
-    const { data: definitions = [], isLoading: defLoading } = useMetricDefinitions();
+    const { data: sprintMetrics = [], isLoading: metricsLoading } = useSprintMetrics();
     const { data: hierarchy } = useOrgHierarchy();
 
     // Only DT projects
@@ -391,44 +396,44 @@ export function DTMonitoringDashboard() {
 
     // Filter metrics to this project's teams
     const projectMetrics = useMemo(() =>
-        (metrics as any[]).filter((m: any) => projectTeamIds.includes(m.teamId)),
-        [metrics, projectTeamIds]
+        (sprintMetrics as any[]).filter((m: any) => projectTeamIds.includes(m.teamId)),
+        [sprintMetrics, projectTeamIds]
     );
 
     // Compute per-metric analysis
     const metricAnalyses = useMemo((): MetricAnalysis[] => {
-        if (!dtStart || !dtEnd || !definitions.length) return [];
+        if (projectMetrics.length === 0) return [];
 
-        // Group metrics by type
-        const byType: Record<string, any[]> = {};
-        projectMetrics.forEach((m: any) => {
-            if (!byType[m.metricType]) byType[m.metricType] = [];
-            byType[m.metricType].push(m);
-        });
+        const sprintFields = [
+            { key: 'velocityPoints', name: 'Sprint Velocity', higherIsBetter: true },
+            { key: 'throughputPoints', name: 'Throughput Points', higherIsBetter: true },
+            { key: 'qualityScore', name: 'Quality Score (%)', higherIsBetter: true },
+            { key: 'doneToSaidRatio', name: 'Done to Said Ratio (%)', higherIsBetter: true },
+            { key: 'technicalDebtIndex', name: 'Technical Debt Index', higherIsBetter: false },
+        ];
 
-        return Object.entries(byType).map(([metricType, mList]) => {
-            const def = (definitions as any[]).find((d: any) => d.metricType === metricType);
-            const metricName = def?.name || metricType;
+        return sprintFields.map(field => {
+            const mList = projectMetrics.map(m => ({
+                 value: Number(m[field.key] || 0),
+                 sprintNumber: Number(m.sprintNumber || 1)
+            })).sort((a, b) => a.sprintNumber - b.sprintNumber);
 
-            // Sort by time
-            const sorted = [...mList].sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
-
-            // Group by month for display
-            const byMonth: Record<string, { values: number[]; phase: DTPhase; date: Date }> = {};
-            sorted.forEach((m: any) => {
-                const date = new Date(m.time);
-                const phase = getPhase(date, dtStart, dtEnd);
-                const key = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-                if (!byMonth[key]) byMonth[key] = { values: [], phase, date };
-                byMonth[key].values.push(Number(m.value));
+            // Group by Sprint Number for display
+            const bySprint: Record<number, { values: number[]; phase: DTPhase; sprintNumber: number }> = {};
+            mList.forEach((m: any) => {
+                const sprint = m.sprintNumber;
+                const phase = getPhaseBySprint(sprint);
+                if (!bySprint[sprint]) bySprint[sprint] = { values: [], phase, sprintNumber: sprint };
+                bySprint[sprint].values.push(m.value);
             });
 
-            const phaseData: PhaseDataPoint[] = Object.entries(byMonth).map(([label, { values, phase, date }]) => ({
-                label,
+            const phaseData: PhaseDataPoint[] = Object.values(bySprint).map(({ values, phase, sprintNumber }) => ({
+                label: `Sprint ${sprintNumber}`,
                 value: avg(values),
                 phase,
-                date,
-            }));
+                date: new Date(), // Dummy date
+                sprintNumber
+            })).sort((a: any, b: any) => a.sprintNumber - b.sprintNumber);
 
             const beforeValues = phaseData.filter(p => p.phase === 'before').map(p => p.value as number);
             const duringValues = phaseData.filter(p => p.phase === 'during').map(p => p.value as number);
@@ -438,38 +443,48 @@ export function DTMonitoringDashboard() {
             const duringAvg = duringValues.length > 0 ? avg(duringValues) : null;
             const afterAvg = afterValues.length > 0 ? avg(afterValues) : null;
 
-            // Alert logic
+            // Alert logic (50% drop/degradation)
             const alerts: DTAlert[] = [];
             if (baseline > 0) {
-                if (duringAvg !== null && duringAvg < baseline) {
-                    const delta = (baseline - duringAvg) / baseline;
-                    alerts.push({
-                        id: `${metricType}-during`,
-                        metricName,
-                        phase: 'during',
-                        currentAvg: duringAvg,
-                        baseline,
-                        delta,
-                        severity: delta > 0.15 ? 'critical' : 'warning',
-                    });
+                if (duringAvg !== null) {
+                    const isWorse = field.higherIsBetter ? duringAvg < baseline : duringAvg > baseline;
+                    if (isWorse) {
+                        const delta = Math.abs(baseline - duringAvg) / baseline;
+                        if (delta >= 0.50) {
+                            alerts.push({
+                                id: `${field.key}-during`,
+                                metricName: field.name,
+                                phase: 'during',
+                                currentAvg: duringAvg,
+                                baseline,
+                                delta,
+                                severity: 'critical',
+                            });
+                        }
+                    }
                 }
-                if (afterAvg !== null && afterAvg < baseline) {
-                    const delta = (baseline - afterAvg) / baseline;
-                    alerts.push({
-                        id: `${metricType}-after`,
-                        metricName,
-                        phase: 'after',
-                        currentAvg: afterAvg,
-                        baseline,
-                        delta,
-                        severity: delta > 0.15 ? 'critical' : 'warning',
-                    });
+                if (afterAvg !== null) {
+                    const isWorse = field.higherIsBetter ? afterAvg < baseline : afterAvg > baseline;
+                    if (isWorse) {
+                        const delta = Math.abs(baseline - afterAvg) / baseline;
+                        if (delta >= 0.50) {
+                            alerts.push({
+                                id: `${field.key}-after`,
+                                metricName: field.name,
+                                phase: 'after',
+                                currentAvg: afterAvg,
+                                baseline,
+                                delta,
+                                severity: 'critical',
+                            });
+                        }
+                    }
                 }
             }
 
             return {
-                metricType,
-                metricName,
+                metricType: field.key,
+                metricName: field.name,
                 baseline,
                 baselineCount: beforeValues.length,
                 duringAvg,
@@ -478,7 +493,7 @@ export function DTMonitoringDashboard() {
                 alerts,
             };
         });
-    }, [projectMetrics, definitions, dtStart, dtEnd]);
+    }, [projectMetrics]);
 
     const allAlerts = useMemo(() =>
         metricAnalyses.flatMap(a => a.alerts).sort((a, b) =>
@@ -486,6 +501,31 @@ export function DTMonitoringDashboard() {
         ),
         [metricAnalyses]
     );
+
+    // Report Generation
+    const handleExportReport = () => {
+        if (metricAnalyses.length === 0) return;
+
+        let csv = 'Metric,Phase,Sprint,Value,Baseline,Variance\n';
+
+        metricAnalyses.forEach(analysis => {
+            analysis.phaseData.forEach(p => {
+                if (p.value !== null) {
+                    const variance = p.value - analysis.baseline;
+                    csv += `"${analysis.metricName}","${p.phase}","${p.label}",${p.value.toFixed(2)},${analysis.baseline.toFixed(2)},${variance.toFixed(2)}\n`;
+                }
+            });
+        });
+
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `DT_Metrics_Report_${selectedProject?.name?.replace(/\s+/g, '_') || 'Project'}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
 
     // Summary stats
     const summaryStats = useMemo(() => {
@@ -526,7 +566,7 @@ export function DTMonitoringDashboard() {
         );
     }
 
-    if (metricsLoading || defLoading) {
+    if (metricsLoading) {
         return (
             <div className="flex items-center justify-center py-20">
                 <div className="flex flex-col items-center gap-3">
@@ -568,6 +608,15 @@ export function DTMonitoringDashboard() {
                         </SelectContent>
                     </Select>
                 </div>
+                
+                <Button 
+                    onClick={handleExportReport} 
+                    disabled={metricAnalyses.length === 0}
+                    className="ml-auto rounded-xl bg-violet-600 hover:bg-violet-700 text-white shadow-md shadow-violet-500/20 transition-all font-bold"
+                >
+                    <Download className="h-4 w-4 mr-2" />
+                    Export Report (CSV)
+                </Button>
             </div>
 
             {/* DT Period Banner */}
@@ -579,15 +628,15 @@ export function DTMonitoringDashboard() {
                     </div>
                     <div className="flex flex-wrap gap-3 items-center">
                         <Badge className="bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 font-bold text-xs px-3 py-1">
-                            Before: Pre {dtStart ? formatDate(dtStart) : '—'}
+                            Before: Sprints 1–3
                         </Badge>
                         <span className="text-muted-foreground text-xs">→</span>
                         <Badge className="bg-amber-500/10 text-amber-300 border border-amber-500/20 font-bold text-xs px-3 py-1">
-                            During: {dtStart ? formatDate(dtStart) : '—'} → {dtEnd ? formatDate(dtEnd) : '—'}
+                            During: Sprints 4–7
                         </Badge>
                         <span className="text-muted-foreground text-xs">→</span>
                         <Badge className="bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 font-bold text-xs px-3 py-1">
-                            After: Post {dtEnd ? formatDate(dtEnd) : '—'}
+                            After: Sprints 8+
                         </Badge>
                     </div>
                     <div className="ml-auto text-xs text-muted-foreground font-medium">

@@ -25,6 +25,17 @@ const getHeaders = () => {
     return headers;
 };
 
+const clearAuthAndRedirect = () => {
+    if (typeof window !== 'undefined') {
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('user_role');
+        localStorage.removeItem('user_data');
+        localStorage.removeItem('user_auth');
+        localStorage.removeItem('current_user_id');
+        window.location.href = '/login';
+    }
+};
+
 export const teamsAPI = {
     getAll: async () => {
         await delay();
@@ -109,12 +120,15 @@ export const metricsAPI = {
             const response = await fetch(`${METRICS_API_URL}${queryParams ? `?${queryParams}` : ''}`, {
                 headers: getHeaders()
             });
-            if (!response.ok) throw new Error('Failed to fetch metrics');
+            if (!response.ok) {
+                // Return empty array silently if the table/endpoint isn't available
+                return { data: [] };
+            }
             const data = await response.json();
             return { data: Array.isArray(data) ? data : (data.data || []) };
         } catch (error) {
-            console.error('Metrics API Error (getAll):', error);
-            throw error;
+            // Silently return empty array on network errors
+            return { data: [] };
         }
     },
     getByTeam: async (teamId: string) => {
@@ -122,12 +136,13 @@ export const metricsAPI = {
             const response = await fetch(`${METRICS_API_URL}/team/${teamId}`, {
                 headers: getHeaders()
             });
-            if (!response.ok) throw new Error('Failed to fetch team metrics');
+            if (!response.ok) {
+                return { data: [] };
+            }
             const data = await response.json();
             return { data: Array.isArray(data) ? data : (data.data || []) };
         } catch (error) {
-            console.error('Metrics API Error (getByTeam):', error);
-            throw error;
+            return { data: [] };
         }
     },
     getAggregates: async (teamId: string, metricType: string, startDate?: string, endDate?: string) => {
@@ -241,12 +256,15 @@ export const metricDefinitionsAPI = {
             const response = await fetch(METRIC_DEFINITIONS_API_URL, {
                 headers: getHeaders()
             });
-            if (!response.ok) throw new Error('Failed to fetch metric definitions');
+            if (!response.ok) {
+                // Return empty array silently if the table/endpoint isn't available
+                return { data: [] };
+            }
             const data = await response.json();
             return { data: Array.isArray(data) ? data : (data.data || []) };
         } catch (error) {
-            console.error('Metric Definitions API Error (getAll):', error);
-            throw error;
+            // Silently return empty array on network errors
+            return { data: [] };
         }
     },
     create: async (data: any) => {
@@ -369,6 +387,7 @@ export const projectsAPI = {
             const response = await fetch(PROJECTS_API_URL, {
                 headers: getHeaders()
             });
+            if (response.status === 401) { clearAuthAndRedirect(); throw new Error('Session expired'); }
             if (!response.ok) throw new Error('Failed to fetch projects');
             const data = await response.json();
             return { data: Array.isArray(data) ? data : (data.data || []) };
@@ -709,5 +728,83 @@ export const auditAPI = {
     }
 };
 
+const SPRINT_METRICS_API_URL = `${API_BASE_URL}/api/v1/sprint-metrics`;
 
+export const sprintMetricsAPI = {
+    getAll: async () => {
+        try {
+            const response = await fetch(SPRINT_METRICS_API_URL, {
+                headers: getHeaders(),
+            });
+            if (!response.ok) return { data: [] };
+            const data = await response.json();
+            return { data: Array.isArray(data) ? data : (data.data || []) };
+        } catch {
+            return { data: [] };
+        }
+    },
+
+    create: async (payload: any) => {
+        const response = await fetch(SPRINT_METRICS_API_URL, {
+            method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify(payload),
+        });
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.message || 'Failed to create sprint metric');
+        }
+        return response.json();
+    },
+
+    update: async (id: string, payload: any) => {
+        const response = await fetch(`${SPRINT_METRICS_API_URL}/${id}`, {
+            method: 'PATCH',
+            headers: getHeaders(),
+            body: JSON.stringify(payload),
+        });
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.message || 'Failed to update sprint metric');
+        }
+        return response.json();
+    },
+
+    bulkUpload: async (file: File) => {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const headers: Record<string, string> = {};
+        if (typeof window !== 'undefined') {
+            const token = localStorage.getItem('access_token');
+            const userId = localStorage.getItem('current_user_id');
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+            if (userId) headers['x-user-id'] = userId;
+        }
+
+        const response = await fetch(`${SPRINT_METRICS_API_URL}/bulk-upload`, {
+            method: 'POST',
+            headers,
+            body: formData,
+        });
+
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.message || 'Bulk upload failed');
+        }
+        return response.json();
+    },
+
+    getKpiSummary: async () => {
+        try {
+            const response = await fetch(`${SPRINT_METRICS_API_URL}/kpi-summary`, {
+                headers: getHeaders(),
+            });
+            if (!response.ok) return [];
+            return response.json();
+        } catch {
+            return [];
+        }
+    },
+};
 

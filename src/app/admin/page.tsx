@@ -14,12 +14,13 @@ import {
 } from '@/components/ui/dialog';
 import {
     Building2, Globe2, Briefcase, FolderKanban, Users2, UserPlus,
-    Plus, Pencil, Trash2, Loader2, RefreshCw, ChevronRight, ChevronLeft, X, Search, CheckSquare, Square
+    Plus, Pencil, Trash2, Loader2, RefreshCw, ChevronRight, ChevronLeft, X, Search, CheckSquare, Square,
+    Upload, FileSpreadsheet, CheckCircle2, AlertCircle, Download,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import {
-    marketsAPI, adminAccountsAPI, adminProjectsAPI, adminTeamsAPI, adminTeamMembersAPI, adminUsersAPI,
+    marketsAPI, adminAccountsAPI, adminProjectsAPI, adminTeamsAPI, adminTeamMembersAPI, adminUsersAPI, adminEmployeesAPI,
 } from '@/lib/api/admin';
 import { useRole } from '@/contexts/role-context';
 
@@ -66,6 +67,7 @@ export default function AdminPage() {
     const [dialogOpen, setDialogOpen] = useState(false);
     const [editItem, setEditItem] = useState<any>(null);
     const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+    const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
 
     // ── Search ────────────────────────────────────────────────
     const [tableSearch, setTableSearch] = useState('');
@@ -154,7 +156,7 @@ export default function AdminPage() {
     // Pagination derived values (based on filtered data)
     const totalItemsToUse = isServerPaginated && !tableSearch.trim() ? totalServerItems : filteredData.length;
     const totalPages = Math.max(1, Math.ceil(totalItemsToUse / PAGE_SIZE));
-    
+
     const pagedData = useMemo(() => {
         if (isServerPaginated && !tableSearch.trim()) return filteredData;
         return filteredData.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
@@ -245,9 +247,20 @@ export default function AdminPage() {
                     <p className="text-muted-foreground mt-1">Manage your organization hierarchy — Markets, Accounts, Projects, Teams, Members & Users</p>
                 </div>
                 {!(role === 'TEAM_LEAD' && activeTab !== 'members') && (
-                    <Button onClick={handleCreate} className="rounded-xl gap-2 shadow-lg shadow-primary/20">
-                        <Plus className="h-4 w-4" /> Add {tabConfig.label.slice(0, -1)}
-                    </Button>
+                    <div className="flex items-center gap-2">
+                        {activeTab === 'users' && (
+                            <Button
+                                variant="outline"
+                                onClick={() => setBulkUploadOpen(true)}
+                                className="rounded-xl gap-2 border-violet-500/40 text-violet-500 hover:bg-violet-500/10"
+                            >
+                                <Upload className="h-4 w-4" /> Bulk Upload
+                            </Button>
+                        )}
+                        <Button onClick={handleCreate} className="rounded-xl gap-2 shadow-lg shadow-primary/20">
+                            <Plus className="h-4 w-4" /> Add {tabConfig.label.slice(0, -1)}
+                        </Button>
+                    </div>
                 )}
             </div>
 
@@ -336,80 +349,80 @@ export default function AdminPage() {
                         </div>
                     ) : (
                         <>
-                        <div className="overflow-x-auto">
-                            <table className="w-full">
-                                <thead>
-                                    <tr className="border-b border-border/30">
-                                        {getColumns(activeTab).map(col => (
-                                            <th key={col} className="pb-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">{col}</th>
-                                        ))}
-                                        <th className="pb-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider pr-2">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {pagedData.map(item => (
-                                        <tr key={item.id} className="border-b border-border/20 last:border-0 hover:bg-accent/30 group transition-colors">
-                                            {renderRow(activeTab, item)}
-                                            <td className="py-3 text-right pr-2">
-                                                <div className="flex gap-1.5 justify-end opacity-0 group-hover:opacity-100 transition-all">
-                                                    {!(role === 'TEAM_LEAD' && activeTab !== 'members') && (
-                                                        <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg bg-primary/10 text-primary hover:bg-primary/20" onClick={() => handleEdit(item)}>
-                                                            <Pencil className="h-3.5 w-3.5" />
-                                                        </Button>
-                                                    )}
-                                                    {(activeTab === 'teams') && (
-                                                        <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20"
-                                                            onClick={() => {
-                                                                setActiveTab('members');
-                                                                handleCreate({ teamId: item.id });
-                                                            }}>
-                                                            <UserPlus className="h-3.5 w-3.5" />
-                                                        </Button>
-                                                    )}
-                                                    {!(role === 'TEAM_LEAD' && (activeTab === 'teams' || activeTab === 'users')) && (
-                                                        <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20" onClick={() => setDeleteConfirm(item.id)}>
-                                                            <Trash2 className="h-3.5 w-3.5" />
-                                                        </Button>
-                                                    )}
-                                                </div>
-                                            </td>
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead>
+                                        <tr className="border-b border-border/30">
+                                            {getColumns(activeTab).map(col => (
+                                                <th key={col} className="pb-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">{col}</th>
+                                            ))}
+                                            <th className="pb-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider pr-2">Actions</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-
-                        {/* Pagination Bar */}
-                        {totalPages > 1 && (
-                            <div className="flex items-center justify-between pt-4 mt-2 border-t border-border/20">
-                                <p className="text-xs text-muted-foreground">
-                                    Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, totalItemsToUse)} of {totalItemsToUse}{tableSearch && ` (filtered)`}
-                                </p>
-                                <div className="flex items-center gap-2">
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="h-8 rounded-lg gap-1 text-xs"
-                                        disabled={currentPage === 1}
-                                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                                    >
-                                        <ChevronLeft className="h-3.5 w-3.5" /> Prev
-                                    </Button>
-                                    <span className="text-xs font-medium text-muted-foreground px-1">
-                                        Page {currentPage} / {totalPages}
-                                    </span>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="h-8 rounded-lg gap-1 text-xs"
-                                        disabled={currentPage === totalPages}
-                                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                                    >
-                                        Next <ChevronRight className="h-3.5 w-3.5" />
-                                    </Button>
-                                </div>
+                                    </thead>
+                                    <tbody>
+                                        {pagedData.map(item => (
+                                            <tr key={item.id} className="border-b border-border/20 last:border-0 hover:bg-accent/30 group transition-colors">
+                                                {renderRow(activeTab, item)}
+                                                <td className="py-3 text-right pr-2">
+                                                    <div className="flex gap-1.5 justify-end opacity-0 group-hover:opacity-100 transition-all">
+                                                        {!(role === 'TEAM_LEAD' && activeTab !== 'members') && (
+                                                            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg bg-primary/10 text-primary hover:bg-primary/20" onClick={() => handleEdit(item)}>
+                                                                <Pencil className="h-3.5 w-3.5" />
+                                                            </Button>
+                                                        )}
+                                                        {(activeTab === 'teams') && (
+                                                            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20"
+                                                                onClick={() => {
+                                                                    setActiveTab('members');
+                                                                    handleCreate({ teamId: item.id });
+                                                                }}>
+                                                                <UserPlus className="h-3.5 w-3.5" />
+                                                            </Button>
+                                                        )}
+                                                        {!(role === 'TEAM_LEAD' && (activeTab === 'teams' || activeTab === 'users')) && (
+                                                            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20" onClick={() => setDeleteConfirm(item.id)}>
+                                                                <Trash2 className="h-3.5 w-3.5" />
+                                                            </Button>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
                             </div>
-                        )}
+
+                            {/* Pagination Bar */}
+                            {totalPages > 1 && (
+                                <div className="flex items-center justify-between pt-4 mt-2 border-t border-border/20">
+                                    <p className="text-xs text-muted-foreground">
+                                        Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, totalItemsToUse)} of {totalItemsToUse}{tableSearch && ` (filtered)`}
+                                    </p>
+                                    <div className="flex items-center gap-2">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-8 rounded-lg gap-1 text-xs"
+                                            disabled={currentPage === 1}
+                                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                        >
+                                            <ChevronLeft className="h-3.5 w-3.5" /> Prev
+                                        </Button>
+                                        <span className="text-xs font-medium text-muted-foreground px-1">
+                                            Page {currentPage} / {totalPages}
+                                        </span>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-8 rounded-lg gap-1 text-xs"
+                                            disabled={currentPage === totalPages}
+                                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                        >
+                                            Next <ChevronRight className="h-3.5 w-3.5" />
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
                         </>
                     )}
                 </CardContent>
@@ -429,6 +442,13 @@ export default function AdminPage() {
                 teams={teams}
                 role={role}
                 teamId={teamId}
+            />
+
+            {/* Bulk Upload Dialog */}
+            <BulkUploadDialog
+                open={bulkUploadOpen}
+                onOpenChange={setBulkUploadOpen}
+                onSuccess={() => fetchData(currentPage, activeTab)}
             />
 
             {/* Delete Confirm Dialog */}
@@ -461,7 +481,7 @@ function getColumns(tab: TabKey): string[] {
         case 'projects': return ['Name', 'Status', 'Manager', 'Team Size', 'Created'];
         case 'teams': return ['Name', 'Description', 'Project', 'Members', 'Active'];
         case 'members': return ['User', 'Email', 'Team', 'Role in Team', 'Joined'];
-        case 'users': return ['Name', 'Email', 'Access Role', 'Job Role', 'Active'];
+        case 'users': return ['Name', 'Email', 'Access Role', 'Employee ID', 'Job Role', 'Active'];
     }
 }
 
@@ -534,6 +554,7 @@ function renderRow(tab: TabKey, item: any) {
                             item.role === 'TEAM' ? 'TEAM MEMBER' :
                                 item.role === 'CTO' ? 'CTO' : item.role}
                 </Badge></td>
+                <td className="py-3 text-sm text-muted-foreground font-mono text-[11px]">{item.employeeId || '—'}</td>
                 <td className="py-3 text-sm text-muted-foreground">{item.jobRole || '—'}</td>
                 <td className="py-3">{item.isActive ? <Badge className="bg-emerald-500/10 text-emerald-500 rounded-full text-[10px]" variant="outline">Active</Badge> : <Badge variant="outline" className="rounded-full text-[10px]">Inactive</Badge>}</td>
             </>);
@@ -567,7 +588,7 @@ function EntityDialog({ open, onOpenChange, tab, editItem, onSave, markets, acco
             setUserSearch(''); // Reset search on open
             if (editItem) {
                 const initialForm = { ...editItem };
-                
+
                 // For projects, map existing associations to userIds array for the checklist
                 if (tab === 'projects') {
                     const ids = new Set<string>();
@@ -577,7 +598,7 @@ function EntityDialog({ open, onOpenChange, tab, editItem, onSave, markets, acco
                     if (editItem.users) editItem.users.forEach((u: any) => ids.add(u.id));
                     initialForm.userIds = Array.from(ids).filter(Boolean);
                 }
-                
+
                 setForm(initialForm);
             } else {
                 setForm(getDefaultForm(tab));
@@ -613,233 +634,95 @@ function EntityDialog({ open, onOpenChange, tab, editItem, onSave, markets, acco
 
                 <div className="flex-1 overflow-y-auto p-6 pt-2 custom-scrollbar">
                     <div className="space-y-4">
-                    {tab === 'markets' && (<>
-                        <div className="space-y-2"><Label>Name *</Label><Input className="rounded-xl" value={form.name || ''} onChange={e => set('name', e.target.value)} placeholder="e.g. North America" /></div>
-                        <div className="space-y-2"><Label>Region Code *</Label><Input className="rounded-xl" value={form.regionCode || ''} onChange={e => set('regionCode', e.target.value)} placeholder="e.g. NA" /></div>
-                    </>)}
+                        {tab === 'markets' && (<>
+                            <div className="space-y-2"><Label>Name *</Label><Input className="rounded-xl" value={form.name || ''} onChange={e => set('name', e.target.value)} placeholder="e.g. North America" /></div>
+                            <div className="space-y-2"><Label>Region Code *</Label><Input className="rounded-xl" value={form.regionCode || ''} onChange={e => set('regionCode', e.target.value)} placeholder="e.g. NA" /></div>
+                        </>)}
 
-                    {tab === 'accounts' && (<>
-                        <div className="space-y-2"><Label>Name *</Label><Input className="rounded-xl" value={form.name || ''} onChange={e => set('name', e.target.value)} placeholder="e.g. Global Finance" /></div>
-                        <div className="space-y-2">
-                            <Label>Market *</Label>
-                            <Select value={form.marketId || ''} onValueChange={v => set('marketId', v)}>
-                                <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select market" /></SelectTrigger>
-                                <SelectContent>{markets.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}</SelectContent>
-                            </Select>
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Account Manager *</Label>
-                            <Select value={form.accountManagerId || ''} onValueChange={v => set('accountManagerId', v)}>
-                                <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select managers" /></SelectTrigger>
-                                <SelectContent>
-                                    {users.filter(u => u.role === 'ACCOUNT').map(u => (
-                                        <SelectItem key={u.id} value={u.id}>{u.fullName} ({u.email})</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    </>)}
-
-                    {tab === 'projects' && (<>
-                        <div className="space-y-2"><Label>Name *</Label><Input className="rounded-xl" value={form.name || ''} onChange={e => set('name', e.target.value)} placeholder="e.g. Banking App" /></div>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2"><Label>Start Date</Label><Input type="date" className="rounded-xl" value={form.startDate ? form.startDate.split('T')[0] : ''} onChange={e => set('startDate', e.target.value)} /></div>
-                            <div className="space-y-2"><Label>End Date</Label><Input type="date" className="rounded-xl" value={form.enddate ? form.enddate.split('T')[0] : ''} onChange={e => set('enddate', e.target.value)} /></div>
-                        </div>
-
-                        <div className="flex items-center space-x-2 py-2">
-                            <input
-                                type="checkbox"
-                                id="digital-transformation"
-                                className="h-4 w-4 rounded border-primary"
-                                checked={!!form.isDigitalTransformation}
-                                onChange={(e) => set('isDigitalTransformation', e.target.checked)}
-                            />
-                            <Label htmlFor="digital-transformation" className="cursor-pointer font-medium">Digital Transformation Project</Label>
-                        </div>
-
-                        {!!form.isDigitalTransformation && (
-                            <div className="space-y-4 p-4 rounded-2xl bg-primary/5 border border-primary/10 animate-in fade-in slide-in-from-top-2 duration-300">
-                                <p className="text-xs font-bold uppercase tracking-wider text-primary">Digital Transformation Timeline</p>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-2"><Label>DT Start Date</Label><Input type="date" className="rounded-xl bg-background" value={form.digitalTransformationStartDate ? form.digitalTransformationStartDate.split('T')[0] : ''} onChange={e => set('digitalTransformationStartDate', e.target.value)} /></div>
-                                    <div className="space-y-2"><Label>DT End Date</Label><Input type="date" className="rounded-xl bg-background" value={form.digitalTransformationEndDate ? form.digitalTransformationEndDate.split('T')[0] : ''} onChange={e => set('digitalTransformationEndDate', e.target.value)} /></div>
-                                </div>
-                            </div>
-                        )}
-                        <div className="grid grid-cols-2 gap-4">
+                        {tab === 'accounts' && (<>
+                            <div className="space-y-2"><Label>Name *</Label><Input className="rounded-xl" value={form.name || ''} onChange={e => set('name', e.target.value)} placeholder="e.g. Global Finance" /></div>
                             <div className="space-y-2">
-                                <Label>Status</Label>
-                                <Select value={form.status || 'PLANNED'} onValueChange={v => set('status', v)}>
-                                    <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+                                <Label>Market *</Label>
+                                <Select value={form.marketId || ''} onValueChange={v => set('marketId', v)}>
+                                    <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select market" /></SelectTrigger>
+                                    <SelectContent>{markets.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}</SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Account Manager *</Label>
+                                <Select value={form.accountManagerId || ''} onValueChange={v => set('accountManagerId', v)}>
+                                    <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select managers" /></SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="PLANNED">Planned</SelectItem>
-                                        <SelectItem value="ACTIVE">Active</SelectItem>
-                                        <SelectItem value="ON_HOLD">On Hold</SelectItem>
-                                        <SelectItem value="COMPLETED">Completed</SelectItem>
+                                        {users.filter(u => u.role === 'ACCOUNT').map(u => (
+                                            <SelectItem key={u.id} value={u.id}>{u.fullName} ({u.email})</SelectItem>
+                                        ))}
                                     </SelectContent>
                                 </Select>
                             </div>
-                            <div className="space-y-2"><Label>Team Size</Label><Input type="number" className="rounded-xl" value={form.teamSize || 0} onChange={e => set('teamSize', Number(e.target.value))} /></div>
-                        </div>
-                        <div className="space-y-3">
-                            <Label>Select Project Manager *</Label>
-                            <div className="relative">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                                <Input
-                                    className="pl-9 h-9 rounded-xl text-sm"
-                                    placeholder="Search by name or email..."
-                                    value={userSearch}
-                                    onChange={e => setUserSearch(e.target.value)}
-                                />
+                        </>)}
+
+                        {tab === 'projects' && (<>
+                            <div className="space-y-2"><Label>Name *</Label><Input className="rounded-xl" value={form.name || ''} onChange={e => set('name', e.target.value)} placeholder="e.g. Banking App" /></div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2"><Label>Start Date</Label><Input type="date" className="rounded-xl" value={form.startDate ? form.startDate.split('T')[0] : ''} onChange={e => set('startDate', e.target.value)} /></div>
+                                <div className="space-y-2"><Label>End Date</Label><Input type="date" className="rounded-xl" value={form.enddate ? form.enddate.split('T')[0] : ''} onChange={e => set('enddate', e.target.value)} /></div>
                             </div>
-                            <div className="grid grid-cols-1 gap-1 max-h-[220px] overflow-y-auto p-2 rounded-xl border border-border/40 bg-muted/20">
-                                {users.filter(u => 
-                                    (u.role === 'PROJECT_MANAGER' || u.role === 'PROJECT') &&
-                                    (u.fullName.toLowerCase().includes(userSearch.toLowerCase()) || u.email.toLowerCase().includes(userSearch.toLowerCase()))
-                                ).map(u => (
-                                    <div key={u.id} className="flex items-center space-x-2 p-2 hover:bg-accent/50 rounded-lg transition-colors group">
-                                        <input
-                                            type="checkbox"
-                                            id={`pm-${u.id}`}
-                                            className="h-4 w-4 rounded border-primary"
-                                            checked={(form.userIds || []).includes(u.id)}
-                                            onChange={(e) => {
-                                                const currentIds = form.userIds || [];
-                                                if (e.target.checked) {
-                                                    set('userIds', [...currentIds, u.id]);
-                                                } else {
-                                                    set('userIds', currentIds.filter((id: string) => id !== u.id));
-                                                }
-                                            }}
-                                        />
-                                        <label htmlFor={`pm-${u.id}`} className="grid cursor-pointer flex-1">
-                                            <span className="text-sm font-medium leading-none">{u.fullName}</span>
-                                            <span className="text-[10px] text-muted-foreground line-clamp-1">{u.role} • {u.email}</span>
-                                        </label>
+
+                            <div className="flex items-center space-x-2 py-2">
+                                <input
+                                    type="checkbox"
+                                    id="digital-transformation"
+                                    className="h-4 w-4 rounded border-primary"
+                                    checked={!!form.isDigitalTransformation}
+                                    onChange={(e) => set('isDigitalTransformation', e.target.checked)}
+                                />
+                                <Label htmlFor="digital-transformation" className="cursor-pointer font-medium">Digital Transformation Project</Label>
+                            </div>
+
+                            {!!form.isDigitalTransformation && (
+                                <div className="space-y-4 p-4 rounded-2xl bg-primary/5 border border-primary/10 animate-in fade-in slide-in-from-top-2 duration-300">
+                                    <p className="text-xs font-bold uppercase tracking-wider text-primary">Digital Transformation Timeline</p>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-2"><Label>DT Start Date</Label><Input type="date" className="rounded-xl bg-background" value={form.digitalTransformationStartDate ? form.digitalTransformationStartDate.split('T')[0] : ''} onChange={e => set('digitalTransformationStartDate', e.target.value)} /></div>
+                                        <div className="space-y-2"><Label>DT End Date</Label><Input type="date" className="rounded-xl bg-background" value={form.digitalTransformationEndDate ? form.digitalTransformationEndDate.split('T')[0] : ''} onChange={e => set('digitalTransformationEndDate', e.target.value)} /></div>
                                     </div>
-                                ))}
+                                </div>
+                            )}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label>Status</Label>
+                                    <Select value={form.status || 'PLANNED'} onValueChange={v => set('status', v)}>
+                                        <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="PLANNED">Planned</SelectItem>
+                                            <SelectItem value="ACTIVE">Active</SelectItem>
+                                            <SelectItem value="ON_HOLD">On Hold</SelectItem>
+                                            <SelectItem value="COMPLETED">Completed</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-2"><Label>Team Size</Label><Input type="number" className="rounded-xl" value={form.teamSize || 0} onChange={e => set('teamSize', Number(e.target.value))} /></div>
                             </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label className="flex items-center gap-1.5">Jira Project Key <span className="text-[10px] text-blue-400 font-normal">(e.g. BANK)</span></Label>
-                                <Input className="rounded-xl font-mono uppercase" value={form.jiraProjectKey || ''} onChange={e => set('jiraProjectKey', e.target.value.toUpperCase())} placeholder="e.g. BANK" />
-                            </div>
-                            <div className="space-y-2">
-                                <Label className="flex items-center gap-1.5">Jira Board ID <span className="text-[10px] text-muted-foreground font-normal">(optional)</span></Label>
-                                <Input className="rounded-xl" value={form.jiraBoardId || ''} onChange={e => set('jiraBoardId', e.target.value)} placeholder="e.g. 12345" />
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4 mt-4">
-                            <div className="space-y-2">
-                                <Label className="flex items-center gap-1.5">GitHub Repo <span className="text-[10px] text-blue-400 font-normal">(e.g. owner/repo)</span></Label>
-                                <Input className="rounded-xl font-mono" value={form.githubRepoId || ''} onChange={e => set('githubRepoId', e.target.value)} placeholder="e.g. facebook/react" />
-                            </div>
-                            <div className="space-y-2">
-                                <Label className="flex items-center gap-1.5">GitHub Token <span className="text-[10px] text-muted-foreground font-normal">(optional)</span></Label>
-                                <Input type="password" className="rounded-xl font-mono" value={form.githubToken || ''} onChange={e => set('githubToken', e.target.value)} placeholder="ghp_..." />
-                            </div>
-                        </div>
-                        <div className="space-y-2 mt-4">
-                            <Label>License</Label>
-                            <Input className="rounded-xl" value={form.license || ''} onChange={e => set('license', e.target.value)} placeholder="e.g. MIT, Apache 2.0" />
-                        </div>
-                    </>)}
-
-                    {tab === 'teams' && (<>
-                        <div className="space-y-2"><Label>Name *</Label><Input className="rounded-xl" value={form.name || ''} onChange={e => set('name', e.target.value)} placeholder="e.g. Core Banking" /></div>
-                        <div className="space-y-2"><Label>Description</Label><Input className="rounded-xl" value={form.description || ''} onChange={e => set('description', e.target.value)} placeholder="Team description" /></div>
-                        <div className="space-y-2">
-                            <Label>Team Lead *</Label>
-                            <Select value={form.teamLeadId || ''} onValueChange={v => set('teamLeadId', v)}>
-                                <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select team lead" /></SelectTrigger>
-                                <SelectContent>
-                                    {users.filter(u => u.role === 'TEAM_LEAD').map(u => (
-                                        <SelectItem key={u.id} value={u.id}>{u.fullName} ({u.email})</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label>Account</Label>
-                                <Select value={form.accountId || 'none'} onValueChange={v => set('accountId', v === 'none' ? undefined : v)}>
-                                    <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select account" /></SelectTrigger>
-                                    <SelectContent><SelectItem value="none">None</SelectItem>{accounts.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}</SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Project</Label>
-                                <Select value={form.projectId || 'none'} onValueChange={v => set('projectId', v === 'none' ? undefined : v)}>
-                                    <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select project" /></SelectTrigger>
-                                    <SelectContent><SelectItem value="none">None</SelectItem>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
-                                </Select>
-                            </div>
-                        </div>
-                    </>)}
-
-                    {tab === 'members' && (<>
-                        <div className="space-y-2">
-                            <Label>Team *</Label>
-                            <Select value={form.teamId || ''} onValueChange={v => set('teamId', v)}>
-                                <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select team" /></SelectTrigger>
-                                <SelectContent>
-                                    {teams
-                                        .filter(t => role === 'ORG' || role === 'ACCOUNT' || role === 'PROJECT_MANAGER' || t.id === teamId || t.teamLeadId === localStorage.getItem('current_user_id'))
-                                        .map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)
-                                    }
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="space-y-3">
-                            <div className="flex items-center justify-between">
-                                <Label>Select Member(s) *</Label>
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-7 text-[10px] rounded-lg"
-                                    onClick={() => {
-                                        const filtered = users.filter(u => u.role === 'TEAM');
-                                        const allSelected = filtered.every(u => (form.userIds || []).includes(u.id));
-                                        if (allSelected) {
-                                            set('userIds', []);
-                                        } else {
-                                            set('userIds', filtered.map(u => u.id));
-                                        }
-                                    }}
-                                >
-                                    {(users.filter(u => u.role === 'TEAM').every(u => (form.userIds || []).includes(u.id))) ? 'Deselect All' : 'Select All'}
-                                </Button>
-                            </div>
-
-                            <div className="relative">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                                <Input
-                                    className="pl-9 h-9 rounded-xl text-sm"
-                                    placeholder="Search developers..."
-                                    value={userSearch}
-                                    onChange={e => setUserSearch(e.target.value)}
-                                />
-                            </div>
-
-                            <div className="grid grid-cols-1 gap-1 max-h-[220px] overflow-y-auto p-2 rounded-xl border border-border/40 bg-muted/20">
-                                {(() => {
-                                    const filteredUsers = users.filter(u =>
-                                        u.role === 'TEAM' &&
-                                        (u.fullName.toLowerCase().includes(userSearch.toLowerCase()) ||
-                                            u.email.toLowerCase().includes(userSearch.toLowerCase()))
-                                    );
-
-                                    if (filteredUsers.length === 0) {
-                                        return <div className="py-8 text-center text-xs text-muted-foreground">No users found</div>;
-                                    }
-
-                                    return filteredUsers.map(u => (
+                            <div className="space-y-3">
+                                <Label>Select Project Manager *</Label>
+                                <div className="relative">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                                    <Input
+                                        className="pl-9 h-9 rounded-xl text-sm"
+                                        placeholder="Search by name or email..."
+                                        value={userSearch}
+                                        onChange={e => setUserSearch(e.target.value)}
+                                    />
+                                </div>
+                                <div className="grid grid-cols-1 gap-1 max-h-[220px] overflow-y-auto p-2 rounded-xl border border-border/40 bg-muted/20">
+                                    {users.filter(u =>
+                                        (u.role === 'PROJECT_MANAGER' || u.role === 'PROJECT') &&
+                                        (u.fullName.toLowerCase().includes(userSearch.toLowerCase()) || u.email.toLowerCase().includes(userSearch.toLowerCase()))
+                                    ).map(u => (
                                         <div key={u.id} className="flex items-center space-x-2 p-2 hover:bg-accent/50 rounded-lg transition-colors group">
                                             <input
                                                 type="checkbox"
-                                                id={`user-${u.id}`}
+                                                id={`pm-${u.id}`}
                                                 className="h-4 w-4 rounded border-primary"
                                                 checked={(form.userIds || []).includes(u.id)}
                                                 onChange={(e) => {
@@ -851,51 +734,192 @@ function EntityDialog({ open, onOpenChange, tab, editItem, onSave, markets, acco
                                                     }
                                                 }}
                                             />
-                                            <label htmlFor={`user-${u.id}`} className="grid cursor-pointer flex-1">
+                                            <label htmlFor={`pm-${u.id}`} className="grid cursor-pointer flex-1">
                                                 <span className="text-sm font-medium leading-none">{u.fullName}</span>
-                                                <span className="text-[10px] text-muted-foreground line-clamp-1">{u.jobRole || u.role} • {u.email}</span>
+                                                <span className="text-[10px] text-muted-foreground line-clamp-1">{u.role} • {u.email}</span>
                                             </label>
                                         </div>
-                                    ));
-                                })()}
+                                    ))}
+                                </div>
                             </div>
-                            <p className="text-[10px] text-muted-foreground line-clamp-1 italic">
-                                {(form.userIds || []).length} users selected
-                            </p>
-                        </div>
-                    </>)}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label className="flex items-center gap-1.5">Jira Project Key <span className="text-[10px] text-blue-400 font-normal">(e.g. BANK)</span></Label>
+                                    <Input className="rounded-xl font-mono uppercase" value={form.jiraProjectKey || ''} onChange={e => set('jiraProjectKey', e.target.value.toUpperCase())} placeholder="e.g. BANK" />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="flex items-center gap-1.5">Jira Board ID <span className="text-[10px] text-muted-foreground font-normal">(optional)</span></Label>
+                                    <Input className="rounded-xl" value={form.jiraBoardId || ''} onChange={e => set('jiraBoardId', e.target.value)} placeholder="e.g. 12345" />
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4 mt-4">
+                                <div className="space-y-2">
+                                    <Label className="flex items-center gap-1.5">GitHub Repo <span className="text-[10px] text-blue-400 font-normal">(e.g. owner/repo)</span></Label>
+                                    <Input className="rounded-xl font-mono" value={form.githubRepoId || ''} onChange={e => set('githubRepoId', e.target.value)} placeholder="e.g. facebook/react" />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="flex items-center gap-1.5">GitHub Token <span className="text-[10px] text-muted-foreground font-normal">(optional)</span></Label>
+                                    <Input type="password" className="rounded-xl font-mono" value={form.githubToken || ''} onChange={e => set('githubToken', e.target.value)} placeholder="ghp_..." />
+                                </div>
+                            </div>
+                            <div className="space-y-2 mt-4">
+                                <Label>License</Label>
+                                <Input className="rounded-xl" value={form.license || ''} onChange={e => set('license', e.target.value)} placeholder="e.g. MIT, Apache 2.0" />
+                            </div>
+                        </>)}
 
-                    {tab === 'users' && (<>
-                        <div className="space-y-2"><Label>Full Name *</Label><Input className="rounded-xl" value={form.fullName || ''} onChange={e => set('fullName', e.target.value)} placeholder="e.g. John Doe" /></div>
-                        <div className="space-y-2"><Label>Email *</Label><Input type="email" className="rounded-xl" value={form.email || ''} onChange={e => set('email', e.target.value)} placeholder="john@example.com" /></div>
-                        <div className="space-y-2">
-                            <Label>Access Role *</Label>
-                            <Select value={form.role || 'TEAM'} onValueChange={v => set('role', v)}>
-                                <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="ORG">Organization</SelectItem>
-                                    <SelectItem value="MARKET">Market</SelectItem>
-                                    <SelectItem value="ACCOUNT">Account</SelectItem>
-                                    <SelectItem value="PROJECT_MANAGER">Project Manager</SelectItem>
-                                    <SelectItem value="PROJECT">Project Access</SelectItem>
-                                    <SelectItem value="TEAM_LEAD">Team Lead</SelectItem>
-                                    <SelectItem value="CTO">CTO</SelectItem>
-                                    <SelectItem value="TEAM">Team Member</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="space-y-2"><Label>Job Role / Designation</Label><Input className="rounded-xl" value={form.jobRole || ''} onChange={e => set('jobRole', e.target.value)} placeholder="e.g. Senior Software Engineer" /></div>
-                        <div className="grid grid-cols-2 gap-4">
+                        {tab === 'teams' && (<>
+                            <div className="space-y-2"><Label>Name *</Label><Input className="rounded-xl" value={form.name || ''} onChange={e => set('name', e.target.value)} placeholder="e.g. Core Banking" /></div>
+                            <div className="space-y-2"><Label>Description</Label><Input className="rounded-xl" value={form.description || ''} onChange={e => set('description', e.target.value)} placeholder="Team description" /></div>
                             <div className="space-y-2">
-                                <Label className="flex items-center gap-1.5">Jira Account ID <span className="text-[10px] text-blue-400 font-normal">(links to Jira user)</span></Label>
-                                <Input className="rounded-xl font-mono" value={form.jiraAccountId || ''} onChange={e => set('jiraAccountId', e.target.value)} placeholder="e.g. 6123abc..." />
+                                <Label>Team Lead *</Label>
+                                <Select value={form.teamLeadId || ''} onValueChange={v => set('teamLeadId', v)}>
+                                    <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select team lead" /></SelectTrigger>
+                                    <SelectContent>
+                                        {users.filter(u => u.role === 'TEAM_LEAD').map(u => (
+                                            <SelectItem key={u.id} value={u.id}>{u.fullName} ({u.email})</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label>Account</Label>
+                                    <Select value={form.accountId || 'none'} onValueChange={v => set('accountId', v === 'none' ? undefined : v)}>
+                                        <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select account" /></SelectTrigger>
+                                        <SelectContent><SelectItem value="none">None</SelectItem>{accounts.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}</SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Project</Label>
+                                    <Select value={form.projectId || 'none'} onValueChange={v => set('projectId', v === 'none' ? undefined : v)}>
+                                        <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select project" /></SelectTrigger>
+                                        <SelectContent><SelectItem value="none">None</SelectItem>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+                        </>)}
+
+                        {tab === 'members' && (<>
                             <div className="space-y-2">
-                                <Label className="flex items-center gap-1.5">GitHub Mail ID <span className="text-[10px] text-orange-400 font-normal">(for metrics)</span></Label>
-                                <Input className="rounded-xl font-mono" value={form.githubEmail || ''} onChange={e => set('githubEmail', e.target.value)} placeholder="e.g. user@github.com" />
+                                <Label>Team *</Label>
+                                <Select value={form.teamId || ''} onValueChange={v => set('teamId', v)}>
+                                    <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select team" /></SelectTrigger>
+                                    <SelectContent>
+                                        {teams
+                                            .filter(t => role === 'ORG' || role === 'ACCOUNT' || role === 'PROJECT_MANAGER' || t.id === teamId || t.teamLeadId === localStorage.getItem('current_user_id'))
+                                            .map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)
+                                        }
+                                    </SelectContent>
+                                </Select>
                             </div>
-                        </div>
-                    </>)}
+                            <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <Label>Select Member(s) *</Label>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-7 text-[10px] rounded-lg"
+                                        onClick={() => {
+                                            const filtered = users.filter(u => u.role === 'TEAM');
+                                            const allSelected = filtered.every(u => (form.userIds || []).includes(u.id));
+                                            if (allSelected) {
+                                                set('userIds', []);
+                                            } else {
+                                                set('userIds', filtered.map(u => u.id));
+                                            }
+                                        }}
+                                    >
+                                        {(users.filter(u => u.role === 'TEAM').every(u => (form.userIds || []).includes(u.id))) ? 'Deselect All' : 'Select All'}
+                                    </Button>
+                                </div>
+
+                                <div className="relative">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                                    <Input
+                                        className="pl-9 h-9 rounded-xl text-sm"
+                                        placeholder="Search developers..."
+                                        value={userSearch}
+                                        onChange={e => setUserSearch(e.target.value)}
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-1 gap-1 max-h-[220px] overflow-y-auto p-2 rounded-xl border border-border/40 bg-muted/20">
+                                    {(() => {
+                                        const filteredUsers = users.filter(u =>
+                                            u.role === 'TEAM' &&
+                                            (u.fullName.toLowerCase().includes(userSearch.toLowerCase()) ||
+                                                u.email.toLowerCase().includes(userSearch.toLowerCase()))
+                                        );
+
+                                        if (filteredUsers.length === 0) {
+                                            return <div className="py-8 text-center text-xs text-muted-foreground">No users found</div>;
+                                        }
+
+                                        return filteredUsers.map(u => (
+                                            <div key={u.id} className="flex items-center space-x-2 p-2 hover:bg-accent/50 rounded-lg transition-colors group">
+                                                <input
+                                                    type="checkbox"
+                                                    id={`user-${u.id}`}
+                                                    className="h-4 w-4 rounded border-primary"
+                                                    checked={(form.userIds || []).includes(u.id)}
+                                                    onChange={(e) => {
+                                                        const currentIds = form.userIds || [];
+                                                        if (e.target.checked) {
+                                                            set('userIds', [...currentIds, u.id]);
+                                                        } else {
+                                                            set('userIds', currentIds.filter((id: string) => id !== u.id));
+                                                        }
+                                                    }}
+                                                />
+                                                <label htmlFor={`user-${u.id}`} className="grid cursor-pointer flex-1">
+                                                    <span className="text-sm font-medium leading-none">{u.fullName}</span>
+                                                    <span className="text-[10px] text-muted-foreground line-clamp-1">{u.jobRole || u.role} • {u.email}</span>
+                                                </label>
+                                            </div>
+                                        ));
+                                    })()}
+                                </div>
+                                <p className="text-[10px] text-muted-foreground line-clamp-1 italic">
+                                    {(form.userIds || []).length} users selected
+                                </p>
+                            </div>
+                        </>)}
+
+                        {tab === 'users' && (<>
+                            <div className="space-y-2"><Label>Full Name *</Label><Input className="rounded-xl" value={form.fullName || ''} onChange={e => set('fullName', e.target.value)} placeholder="e.g. John Doe" /></div>
+                            <div className="space-y-2"><Label>Email *</Label><Input type="email" className="rounded-xl" value={form.email || ''} onChange={e => set('email', e.target.value)} placeholder="john@example.com" /></div>
+                            <div className="space-y-2">
+                                <Label>Access Role *</Label>
+                                <Select value={form.role || 'TEAM'} onValueChange={v => set('role', v)}>
+                                    <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="ORG">Organization</SelectItem>
+                                        <SelectItem value="MARKET">Market</SelectItem>
+                                        <SelectItem value="ACCOUNT">Account</SelectItem>
+                                        <SelectItem value="PROJECT_MANAGER">Project Manager</SelectItem>
+                                        <SelectItem value="PROJECT">Project Access</SelectItem>
+                                        <SelectItem value="TEAM_LEAD">Team Lead</SelectItem>
+                                        <SelectItem value="CTO">CTO</SelectItem>
+                                        <SelectItem value="TEAM">Team Member</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2"><Label>Job Role / Designation</Label><Input className="rounded-xl" value={form.jobRole || ''} onChange={e => set('jobRole', e.target.value)} placeholder="e.g. Senior Software Engineer" /></div>
+                                <div className="space-y-2"><Label>Employee ID</Label><Input className="rounded-xl" value={form.employeeId || ''} onChange={e => set('employeeId', e.target.value)} placeholder="e.g. EMP-1234" /></div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label className="flex items-center gap-1.5">Jira Account ID <span className="text-[10px] text-blue-400 font-normal">(links to Jira user)</span></Label>
+                                    <Input className="rounded-xl font-mono" value={form.jiraAccountId || ''} onChange={e => set('jiraAccountId', e.target.value)} placeholder="e.g. 6123abc..." />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="flex items-center gap-1.5">GitHub Mail ID <span className="text-[10px] text-orange-400 font-normal">(for metrics)</span></Label>
+                                    <Input className="rounded-xl font-mono" value={form.githubEmail || ''} onChange={e => set('githubEmail', e.target.value)} placeholder="e.g. user@github.com" />
+                                </div>
+                            </div>
+                        </>)}
                     </div>
                 </div>
 
@@ -918,7 +942,7 @@ function getDefaultForm(tab: TabKey): Record<string, any> {
         case 'projects': return { name: '', startDate: '', enddate: '', status: 'PLANNED', teamSize: 0, progress: 0, jiraProjectKey: '', jiraBoardId: '', githubRepoId: '', githubToken: '', license: '', isDigitalTransformation: false, digitalTransformationStartDate: '', digitalTransformationEndDate: '' };
         case 'teams': return { name: '', description: '', teamLeadId: '', accountId: '', projectId: '' };
         case 'members': return { teamId: '', userIds: [], roleInTeam: 'Member' };
-        case 'users': return { fullName: '', email: '', role: 'TEAM', jobRole: '', auth0Id: '', jiraAccountId: '', githubEmail: '' };
+        case 'users': return { fullName: '', email: '', role: 'TEAM', jobRole: '', employeeId: '', auth0Id: '', jiraAccountId: '', githubEmail: '' };
     }
 }
 
@@ -955,6 +979,7 @@ function buildPayload(tab: TabKey, form: Record<string, any>, isEdit: boolean): 
                 role: form.role || 'TEAM',
                 jobRole: form.jobRole || ''
             };
+            if (form.employeeId) u.employeeId = form.employeeId.trim();
             if (form.jiraAccountId) u.jiraAccountId = form.jiraAccountId.trim();
             if (form.githubEmail) u.githubEmail = form.githubEmail.trim();
             if (!isEdit) {
@@ -964,4 +989,260 @@ function buildPayload(tab: TabKey, form: Record<string, any>, isEdit: boolean): 
             return u;
         }
     }
+}
+
+// ═══════════════════ BULK UPLOAD DIALOG ═══════════════════════
+
+interface BulkUploadDialogProps {
+    open: boolean;
+    onOpenChange: (v: boolean) => void;
+    onSuccess: () => void;
+}
+
+function BulkUploadDialog({ open, onOpenChange, onSuccess }: BulkUploadDialogProps) {
+    const [file, setFile] = useState<File | null>(null);
+    const [uploading, setUploading] = useState(false);
+    const [result, setResult] = useState<any>(null);
+    const [dragOver, setDragOver] = useState(false);
+
+    const reset = () => { setFile(null); setResult(null); };
+
+    const handleDownloadTemplate = () => {
+        const headers = [
+            'employee_id', 'employee_name', 'email', 'org', 'country', 'role', 'employment_type', 'experience_years'
+        ];
+        const sampleRow = [
+            'EMP-1001', 'John Doe', 'john.doe@example.com', 'Global Org', 'USA', 'Team Member', 'Full-time', '5'
+        ];
+        const csvContent = [headers.join(','), sampleRow.join(',')].join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', 'employee_bulk_import_template.csv');
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    useEffect(() => { if (!open) reset(); }, [open]);
+
+    const handleFile = (f: File) => {
+        if (!f.name.match(/\.(xlsx|xls|csv)$/i)) {
+            toast.error('Only .xlsx, .xls or .csv files are supported');
+            return;
+        }
+        setFile(f);
+        setResult(null);
+    };
+
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        setDragOver(false);
+        const f = e.dataTransfer.files[0];
+        if (f) handleFile(f);
+    };
+
+    const handleUpload = async () => {
+        if (!file) return;
+        setUploading(true);
+        try {
+            const res = await adminEmployeesAPI.bulkUpload(file);
+            setResult(res);
+            if (res.created + res.updated > 0) {
+                toast.success(`✅ ${res.created} created, ${res.updated} updated`);
+                onSuccess();
+            }
+            if (res.errors?.length) {
+                toast.warning(`⚠️ ${res.errors.length} rows had errors`);
+            }
+        } catch (err: any) {
+            toast.error(`Upload failed: ${err.message}`);
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="sm:max-w-[580px] rounded-2xl p-0 flex flex-col max-h-[90vh]">
+                <DialogHeader className="p-6 pb-3">
+                    <DialogTitle className="text-xl font-bold flex items-center gap-2">
+                        <FileSpreadsheet className="h-5 w-5 text-violet-500" />
+                        Bulk Upload Employees
+                    </DialogTitle>
+                    <DialogDescription>
+                        Upload an Excel (.xlsx) or CSV file to import employees in bulk. All columns will be mapped automatically.
+                    </DialogDescription>
+                </DialogHeader>
+
+                <div className="flex-1 overflow-y-auto px-6 pb-2 space-y-4">
+                    {/* Column reference */}
+                    <div className="rounded-xl bg-muted/40 border border-border/30 p-4">
+                        <div className="flex items-center justify-between mb-3">
+                            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Expected Columns</p>
+                            <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="h-7 text-[10px] rounded-lg bg-background font-bold border-violet-500/30 text-violet-600 hover:bg-violet-50"
+                                onClick={handleDownloadTemplate}
+                            >
+                                <Download className="h-3 w-3 mr-1.5" />
+                                Download Template
+                            </Button>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                            {['employee_id', 'employee_name', 'email', 'org', 'country', 'role', 'employment_type', 'experience_years'].map(col => (
+                                <span key={col} className="font-mono text-[10px] px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-600 border border-violet-500/20 font-bold">{col}</span>
+                            ))}
+                            <span className="text-[10px] text-muted-foreground italic px-1">+ AI Profile columns</span>
+                        </div>
+                        <div className="mt-3 pt-3 border-t border-border/20 space-y-1.5">
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Role Mapping Reference</p>
+                            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[10px]">
+                                <div className="flex justify-between border-b border-border/10 pb-0.5"><span className="text-muted-foreground">Organization</span> <span className="font-bold text-violet-600">ORG</span></div>
+                                <div className="flex justify-between border-b border-border/10 pb-0.5"><span className="text-muted-foreground">Market</span> <span className="font-bold text-violet-600">MARKET</span></div>
+                                <div className="flex justify-between border-b border-border/10 pb-0.5"><span className="text-muted-foreground">Account</span> <span className="font-bold text-violet-600">ACCOUNT</span></div>
+                                <div className="flex justify-between border-b border-border/10 pb-0.5"><span className="text-muted-foreground">Project Manager</span> <span className="font-bold text-violet-600">PROJECT_MANAGER</span></div>
+                                <div className="flex justify-between border-b border-border/10 pb-0.5"><span className="text-muted-foreground">Team Lead</span> <span className="font-bold text-violet-600">TEAM_LEAD</span></div>
+                                <div className="flex justify-between border-b border-border/10 pb-0.5"><span className="text-muted-foreground">Team Member</span> <span className="font-bold text-violet-600">TEAM</span></div>
+                                <div className="flex justify-between border-b border-border/10 pb-0.5"><span className="text-muted-foreground">CTO</span> <span className="font-bold text-violet-600">CTO</span></div>
+                                <div className="flex justify-between border-b border-border/10 pb-0.5"><span className="text-muted-foreground">Project Access</span> <span className="font-bold text-violet-600">PROJECT</span></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Drop zone */}
+                    {!result && (
+                        <div
+                            className={cn(
+                                'border-2 border-dashed rounded-2xl p-8 text-center transition-all cursor-pointer',
+                                dragOver
+                                    ? 'border-violet-500 bg-violet-500/10'
+                                    : file
+                                        ? 'border-emerald-500/60 bg-emerald-500/5'
+                                        : 'border-border/40 hover:border-primary/50 hover:bg-primary/5'
+                            )}
+                            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                            onDragLeave={() => setDragOver(false)}
+                            onDrop={handleDrop}
+                            onClick={() => document.getElementById('bulk-file-input')?.click()}
+                        >
+                            <input
+                                id="bulk-file-input"
+                                type="file"
+                                accept=".xlsx,.xls,.csv"
+                                className="hidden"
+                                onChange={(e) => { if (e.target.files?.[0]) handleFile(e.target.files[0]); }}
+                            />
+                            {file ? (
+                                <div className="flex flex-col items-center gap-2">
+                                    <FileSpreadsheet className="h-10 w-10 text-emerald-500" />
+                                    <p className="font-semibold text-sm text-emerald-500">{file.name}</p>
+                                    <p className="text-xs text-muted-foreground">{(file.size / 1024).toFixed(1)} KB · Click to change</p>
+                                </div>
+                            ) : (
+                                <div className="flex flex-col items-center gap-2">
+                                    <Upload className="h-10 w-10 text-muted-foreground/40" />
+                                    <p className="font-semibold text-sm">Drop your file here or click to browse</p>
+                                    <p className="text-xs text-muted-foreground">Supports .xlsx, .xls, .csv · Max 10MB</p>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Results */}
+                    {result && (
+                        <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                            {/* Summary cards */}
+                            <div className="grid grid-cols-4 gap-2">
+                                {[
+                                    { label: 'Total', value: result.total, color: 'text-foreground', bg: 'bg-muted/40' },
+                                    { label: 'Created', value: result.created, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
+                                    { label: 'Updated', value: result.updated, color: 'text-blue-500', bg: 'bg-blue-500/10' },
+                                    { label: 'Skipped', value: result.skipped, color: 'text-amber-500', bg: 'bg-amber-500/10' },
+                                ].map(s => (
+                                    <div key={s.label} className={cn('rounded-xl p-3 text-center border border-border/20', s.bg)}>
+                                        <p className={cn('text-xl font-bold', s.color)}>{s.value}</p>
+                                        <p className="text-[10px] text-muted-foreground uppercase tracking-wide">{s.label}</p>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Row results */}
+                            {result.rows?.length > 0 && (
+                                <div className="max-h-[160px] overflow-y-auto rounded-xl border border-border/30">
+                                    <table className="w-full text-xs">
+                                        <thead className="bg-muted/30 sticky top-0">
+                                            <tr>
+                                                <th className="text-left px-3 py-2 font-semibold text-muted-foreground">Row</th>
+                                                <th className="text-left px-3 py-2 font-semibold text-muted-foreground">Employee ID</th>
+                                                <th className="text-left px-3 py-2 font-semibold text-muted-foreground">Name</th>
+                                                <th className="text-left px-3 py-2 font-semibold text-muted-foreground">Role</th>
+                                                <th className="text-left px-3 py-2 font-semibold text-muted-foreground">Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {result.rows.map((r: any) => (
+                                                <tr key={r.row} className="border-t border-border/20">
+                                                    <td className="px-3 py-1.5 text-muted-foreground">{r.row}</td>
+                                                    <td className="px-3 py-1.5 font-mono">{r.employeeId}</td>
+                                                    <td className="px-3 py-1.5">{r.name}</td>
+                                                    <td className="px-3 py-1.5">{r.role}</td>
+                                                    <td className="px-3 py-1.5">
+                                                        <span className={cn('font-semibold', r.status === 'created' ? 'text-emerald-500' : 'text-blue-500')}>
+                                                            {r.status}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+
+                            {/* Errors */}
+                            {result.errors?.length > 0 && (
+                                <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-3 space-y-1">
+                                    <p className="text-xs font-semibold text-red-400 flex items-center gap-1.5">
+                                        <AlertCircle className="h-3.5 w-3.5" /> {result.errors.length} Errors
+                                    </p>
+                                    {result.errors.map((e: any, i: number) => (
+                                        <p key={i} className="text-[10px] text-red-400 font-mono">
+                                            Row {e.row} [{e.employeeId}]: {e.error}
+                                        </p>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+
+                <DialogFooter className="p-6 pt-4 border-t border-border/40 gap-2">
+                    {result ? (
+                        <>
+                            <Button variant="ghost" className="rounded-xl" onClick={reset}>
+                                Upload Another
+                            </Button>
+                            <Button className="rounded-xl gap-2" onClick={() => onOpenChange(false)}>
+                                <CheckCircle2 className="h-4 w-4" /> Done
+                            </Button>
+                        </>
+                    ) : (
+                        <>
+                            <Button variant="ghost" className="rounded-xl" onClick={() => onOpenChange(false)}>Cancel</Button>
+                            <Button
+                                className="rounded-xl gap-2 font-bold px-6 bg-violet-600 hover:bg-violet-700"
+                                onClick={handleUpload}
+                                disabled={!file || uploading}
+                            >
+                                {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                                {uploading ? 'Processing...' : 'Upload & Import'}
+                            </Button>
+                        </>
+                    )}
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
 }

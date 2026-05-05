@@ -28,7 +28,7 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { Save, User, Info, Lock, Pencil, Plus, Check, LayoutGrid, Users, PlusCircle, Trash2 } from 'lucide-react';
+import { Save, User, Info, Lock, Pencil, Plus, Check, LayoutGrid, Users, PlusCircle, Trash2, Upload, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import {
@@ -41,9 +41,11 @@ import { useEmployees } from '@/hooks/use-employees';
 import { useOrgHierarchy } from '@/hooks/use-hierarchy';
 import { useProjects } from '@/hooks/use-projects';
 import { useEffect as useReactEffect, useMemo } from 'react';
-import { useBulkCreateMetrics, useTeamMetrics, useDeleteMetric } from '@/hooks/use-metrics';
+import { useBulkCreateMetrics, useTeamMetrics, useDeleteMetric, useSprintMetrics } from '@/hooks/use-metrics';
 import { useMetricDefinitions, useDeleteMetricDefinition, useCreateMetricDefinition } from '@/hooks/use-metric-definitions';
 import { useDataFence, useRole } from '@/contexts/role-context';
+import { SprintBulkUploadPanel } from './sprint-bulk-upload-panel';
+import { SprintMetricsSection } from './sprint-metrics-section';
 
 const EMPTY_ARRAY: any[] = [];
 const CREATOR_ID = '33333333-3333-4333-8333-333333330001'; // Alice Johnson (Admin)
@@ -82,6 +84,7 @@ export function ManualMetricsTab() {
     const [manualMetrics, setManualMetrics] = useState<ManualMetricDef[]>([]);
     const [editingValues, setEditingValues] = useState<Record<string, number>>({});
     const [isEditing, setIsEditing] = useState(false);
+    const [showBulkUpload, setShowBulkUpload] = useState(false);
     
     // Auto-select initialization locks
     const [projInitialized, setProjInitialized] = useState(false);
@@ -101,6 +104,9 @@ export function ManualMetricsTab() {
     
     const { data: dbMetricDefsData } = useMetricDefinitions();
     const dbMetricDefs = dbMetricDefsData || EMPTY_ARRAY;
+
+    // Sprint metrics from the bulk-upload table
+    const { data: allSprintMetrics } = useSprintMetrics();
 
     // Data Fence & Role
     const fence = useDataFence();
@@ -188,53 +194,63 @@ export function ManualMetricsTab() {
 
     // DERIVED MEMBERS STATE
     const members = useMemo(() => {
-        if (!selectedTeamId) return [];
-        
-        const selectedTeam = availableTeams.find(t => t.id === selectedTeamId);
-        if (!selectedTeam || !selectedTeam.members) return [];
+        const teamMembers: MemberWithMetrics[] = [];
 
-        // 1. Map base team members
-        const teamMembers: MemberWithMetrics[] = selectedTeam.members.map((m: any) => {
-            const userId = m.userId || m.id;
-            
-            // Enrich with live employee info if available
-            const employeeInfo = liveEmployees.find((e: any) => (e.id || e._id) === userId);
-            
-            // Extract display metrics from teamMetrics
-            const memberMetricsFromServer = teamMetrics.filter((mt: any) => 
-                mt.userId === userId && mt.source === 'manual'
-            );
+        if (selectedTeamId) {
+            const selectedTeam = availableTeams.find(t => t.id === selectedTeamId);
+            if (selectedTeam && selectedTeam.members) {
+                selectedTeam.members.forEach((m: any) => {
+                    const userId = m.userId || m.id;
+                    const employeeInfo = liveEmployees.find((e: any) => (e.id || e._id) === userId);
+                    const memberMetricsFromServer = teamMetrics.filter((mt: any) =>
+                        mt.userId === userId && mt.source === 'manual'
+                    );
+                    const latestMetricsMap = new Map();
+                    memberMetricsFromServer.forEach((mm: any) => {
+                        if (!latestMetricsMap.has(mm.metricType)) {
+                            latestMetricsMap.set(mm.metricType, { value: mm.value, id: mm.id });
+                        }
+                    });
+                    const displayMetrics: { metricId: string; value: number; id?: string }[] = [];
+                    Array.from(latestMetricsMap.entries()).forEach(([mType, data]: [string, any]) => {
+                        displayMetrics.push({ metricId: mType, value: data.value, id: data.id });
+                    });
+                    teamMembers.push({
+                        id: userId,
+                        name: employeeInfo?.user?.fullName || employeeInfo?.fullName || m.user?.fullName || m.fullName || 'Unknown',
+                        role: m.roleInTeam || m.role || employeeInfo?.role || 'Member',
+                        avatar: (employeeInfo?.fullName || m.fullName || 'U').charAt(0),
+                        team: selectedTeam.name,
+                        teamId: selectedTeam.id,
+                        metrics: displayMetrics
+                    });
+                });
+            }
+        }
 
-            const displayMetrics: { metricId: string; value: number; id?: string }[] = [];
-            
-            // Latest manual metrics for this user (they are sorted desc, so we want the first one for each type)
-            const latestMetricsMap = new Map();
-            memberMetricsFromServer.forEach((mm: any) => {
-                if (!latestMetricsMap.has(mm.metricType)) {
-                    latestMetricsMap.set(mm.metricType, { value: mm.value, id: mm.id });
-                }
+        // Also include employees who have sprint metrics but no team assignment
+        const existingIds = new Set(teamMembers.map(m => m.id));
+        (allSprintMetrics || []).forEach((sm: any) => {
+            if (!sm.userId || existingIds.has(sm.userId)) return;
+            const employeeInfo = liveEmployees.find((e: any) => (e.id || e._id) === sm.userId);
+            const name = employeeInfo?.user?.fullName || employeeInfo?.fullName || sm.userId;
+            teamMembers.push({
+                id: sm.userId,
+                name,
+                role: employeeInfo?.role || 'Member',
+                avatar: name.charAt(0),
+                team: '',
+                teamId: '',
+                metrics: []
             });
-
-            Array.from(latestMetricsMap.entries()).forEach(([mType, data]: [string, any]) => {
-                displayMetrics.push({ metricId: mType, value: data.value, id: data.id });
-            });
-
-            return {
-                id: userId,
-                name: employeeInfo?.user?.fullName || employeeInfo?.fullName || m.user?.fullName || m.fullName || 'Unknown',
-                role: m.roleInTeam || m.role || employeeInfo?.role || 'Member',
-                avatar: (employeeInfo?.fullName || m.fullName || 'U').charAt(0),
-                team: selectedTeam.name,
-                teamId: selectedTeam.id,
-                metrics: displayMetrics
-            };
+            existingIds.add(sm.userId);
         });
 
-        // Deduplicate just in case
-        const uniqueMembersMap = new Map();
-        teamMembers.forEach(m => uniqueMembersMap.set(m.id, m));
-        return Array.from(uniqueMembersMap.values());
-    }, [selectedTeamId, availableTeams, liveEmployees, teamMetrics]);
+        // Deduplicate
+        const uniqueMap = new Map();
+        teamMembers.forEach(m => uniqueMap.set(m.id, m));
+        return Array.from(uniqueMap.values());
+    }, [selectedTeamId, availableTeams, liveEmployees, teamMetrics, allSprintMetrics]);
 
     const filteredMembers = members;
     
@@ -490,7 +506,33 @@ export function ManualMetricsTab() {
                     <span className="text-xs font-bold">{(fence as any).fenceLabel || '🔒 Data restricted to your scope'}</span>
                 </div>
             )}
-            {/* Selectors Bar */}
+
+            {/* ── Bulk Upload Panel ─────────────────────────────────── */}
+            <div className="rounded-2xl border border-border/50 bg-muted/10 overflow-hidden">
+                <button
+                    onClick={() => setShowBulkUpload(v => !v)}
+                    className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-muted/20 transition-colors"
+                >
+                    <div className="flex items-center gap-2.5">
+                        <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
+                            <Upload className="h-3.5 w-3.5 text-primary" />
+                        </div>
+                        <div className="text-left">
+                            <p className="text-sm font-bold text-foreground">Bulk Upload Sprint Data</p>
+                            <p className="text-[11px] text-muted-foreground">Upload CSV / Excel using employee_id — data stored directly to DB</p>
+                        </div>
+                    </div>
+                    {showBulkUpload
+                        ? <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                        : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                </button>
+                {showBulkUpload && (
+                    <div className="border-t border-border/40 px-5 py-5">
+                        <SprintBulkUploadPanel />
+                    </div>
+                )}
+            </div>
+
             <div className="flex flex-wrap items-center gap-4">
                 {/* Project Selector */}
                 <div className="flex flex-col gap-1.5">
@@ -592,6 +634,21 @@ export function ManualMetricsTab() {
                     <p className="text-sm">Choose a member above to view and edit their manual metrics</p>
                 </div>
             )}
+
+            {/* ── Sprint Performance Records ─────────────────────── */}
+            {selectedMember && (() => {
+                const memberSprintData = (allSprintMetrics || [])
+                    .filter((sm: any) => sm.userId === selectedMember.id)
+                    .sort((a: any, b: any) => a.sprintNumber - b.sprintNumber);
+
+                if (memberSprintData.length === 0) return null;
+
+                return <SprintMetricsSection
+                    memberSprintData={memberSprintData}
+                    memberName={selectedMember.name}
+                    userId={selectedMember.id}
+                />;
+            })()}
 
             {/* Metrics Grid */}
             {selectedMember && (

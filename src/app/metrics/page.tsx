@@ -55,10 +55,10 @@ export default function MetricsPage() {
                             Add Metrics
                         </TabsTrigger>
 
-                        <TabsTrigger value="formula-metrics" className={TAB_TRIGGER_CLS}>
+{/* <TabsTrigger value="formula-metrics" className={TAB_TRIGGER_CLS}>
                             <Calculator className="h-4 w-4" />
                             Metric Formula
-                        </TabsTrigger>
+                        </TabsTrigger> */}
 
                         <TabsTrigger value="provision" className={TAB_TRIGGER_CLS}>
                             <Layers className="h-4 w-4" />
@@ -86,9 +86,9 @@ export default function MetricsPage() {
 
 
 
-                <TabsContent value="formula-metrics" className="mt-0">
+{/* <TabsContent value="formula-metrics" className="mt-0">
                     <AddFormulaMetricForm />
-                </TabsContent>
+                </TabsContent> */}
 
                 <TabsContent value="calculated" className="mt-0">
                     <CalculatedMetricsTab />

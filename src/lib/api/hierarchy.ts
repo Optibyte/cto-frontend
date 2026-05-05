@@ -17,6 +17,22 @@ api.interceptors.request.use((config) => {
     return config;
 });
 
+// Auto-redirect on 401 (expired/invalid token)
+api.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        if (error.response?.status === 401 && typeof window !== 'undefined') {
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('user_role');
+            localStorage.removeItem('user_data');
+            localStorage.removeItem('user_auth');
+            localStorage.removeItem('current_user_id');
+            window.location.href = '/login';
+        }
+        return Promise.reject(error);
+    }
+);
+
 export interface HierarchyUser {
     id: string;
     fullName: string;

@@ -13,6 +13,18 @@ const getHeaders = () => {
 
 async function apiFetch(url: string, options?: RequestInit) {
     const response = await fetch(url, { ...options, headers: { ...getHeaders(), ...options?.headers } });
+    if (response.status === 401) {
+        // Token expired or invalid — clear auth state and redirect to login
+        if (typeof window !== 'undefined') {
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('user_role');
+            localStorage.removeItem('user_data');
+            localStorage.removeItem('user_auth');
+            localStorage.removeItem('current_user_id');
+            window.location.href = '/login';
+        }
+        throw new Error('Session expired. Please log in again.');
+    }
     if (!response.ok) {
         const err = await response.json().catch(() => ({}));
         throw new Error(err.message || `Request failed: ${response.status}`);
@@ -128,3 +140,34 @@ export const adminUsersAPI = {
     delete: (id: string) =>
         apiFetch(`${USERS_URL}/${id}`, { method: 'DELETE' }),
 };
+
+// ── Employees Bulk Upload ──────────────────────────────────
+const EMPLOYEES_URL = `${API_BASE_URL}/api/v1/employees`;
+
+export const adminEmployeesAPI = {
+    bulkUpload: async (file: File) => {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const headers: Record<string, string> = {};
+        if (typeof window !== 'undefined') {
+            const token = localStorage.getItem('access_token');
+            const userId = localStorage.getItem('current_user_id');
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+            if (userId) headers['x-user-id'] = userId;
+        }
+
+        const response = await fetch(`${EMPLOYEES_URL}/bulk-upload`, {
+            method: 'POST',
+            headers,
+            body: formData,
+        });
+
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.message || `Bulk upload failed: ${response.status}`);
+        }
+        return response.json();
+    },
+};
+

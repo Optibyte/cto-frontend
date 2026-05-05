@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { metricsAPI } from '@/lib/api/client';
+import { metricsAPI, sprintMetricsAPI } from '@/lib/api/client';
 
 export function useMetrics(filters?: any) {
     return useQuery({
@@ -107,5 +107,16 @@ export function useUpdateGlobalBaseline() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['metrics', 'baseline'] });
         },
+    });
+}
+
+export function useSprintMetrics() {
+    return useQuery({
+        queryKey: ['sprint-metrics'],
+        queryFn: async () => {
+            const { data } = await sprintMetricsAPI.getAll();
+            return data;
+        },
+        retry: 1,
     });
 }

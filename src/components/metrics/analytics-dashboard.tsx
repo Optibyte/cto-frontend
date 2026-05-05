@@ -13,19 +13,21 @@ import {
     Zap,
     PieChart as PieChartIcon,
     LineChart as LineChartIcon,
-    Database
+    Database,
+    Download
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { 
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
     AreaChart, Area, PieChart, Pie, Cell
 } from 'recharts';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-import { useMetrics } from '@/hooks/use-metrics';
-import { useMetricDefinitions } from '@/hooks/use-metric-definitions';
+import { useSprintMetrics } from '@/hooks/use-metrics';
 import { useOrgHierarchy } from '@/hooks/use-hierarchy';
 import { useDataFence } from '@/contexts/role-context';
 import { Lock } from 'lucide-react';
+import { SprintKPIPanel } from './sprint-kpi-panel';
 
 const COLORS = ['#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#3b82f6'];
 const SOURCE_COLORS: Record<string, string> = { manual: '#8b5cf6', csv: '#10b981' };
@@ -39,9 +41,8 @@ export function AnalyticsDashboard({
     const [projInitialized, setProjInitialized] = useState(false);
     const [teamInitialized, setTeamInitialized] = useState(false);
     
-    // Fetch all metrics, we'll filter client-side 
-    const { data: metrics = [], isLoading: metricsLoading } = useMetrics();
-    const { data: definitions = [], isLoading: defLoading } = useMetricDefinitions();
+    // Fetch all sprint metrics
+    const { data: metrics = [], isLoading: metricsLoading } = useSprintMetrics();
     const { data: hierarchy } = useOrgHierarchy();
 
     const fence = useDataFence();
@@ -127,50 +128,57 @@ export function AnalyticsDashboard({
     // Apply the "manual" and "csv" filter precisely here
     const filteredMetrics = useMemo(() => {
         return metrics.filter((m: any) => {
-            if (m.source !== 'manual' && m.source !== 'csv') return false;
-
-            const hasDefinition = definitions.some((d: any) => d.metricType === m.metricType);
-            if (!hasDefinition) return false;
-
             const team = teams.find(t => t.id === m.teamId);
             const matchesProject = selectedProjectId === 'all' || m.projectId === selectedProjectId || (team && team.projectId === selectedProjectId);
             const matchesTeam = selectedTeamId === 'all' || m.teamId === selectedTeamId;
             return matchesProject && matchesTeam;
         });
-    }, [metrics, definitions, selectedProjectId, selectedTeamId, teams]);
+    }, [metrics, selectedProjectId, selectedTeamId, teams]);
 
     // Aggregates for Cards
     const stats = useMemo(() => {
-        if (filteredMetrics.length === 0 || definitions.length === 0) return { avg: 0, count: 0, trend: 0 };
+        if (filteredMetrics.length === 0) return { avg: 0, count: 0, trend: 0 };
         
-        let totalNormalized = 0;
+        let totalQuality = 0;
         let validCount = 0;
 
         filteredMetrics.forEach((m: any) => {
-            const def = definitions.find((d: any) => d.metricType === m.metricType);
-            if (def) {
-                const min = Number(def.rangeMin) || 0;
-                const max = Number(def.rangeMax) || (def.metricType === 'quality' ? 100 : 5);
-                const range = max - min;
-                
-                if (range > 0) {
-                    const val = Number(m.value) || 0;
-                    const normalized = Math.min(1, Math.max(0, (val - min) / range));
-                    totalNormalized += normalized;
-                    validCount++;
-                }
+            if (m.qualityScore !== undefined) {
+                totalQuality += Number(m.qualityScore);
+                validCount++;
             }
         });
 
-        const avgPercentage = validCount > 0 ? totalNormalized / validCount : 0;
-        const avgRating = Math.min(5, avgPercentage * 5);
+        // Compute avg out of 5 based on quality score (which is a percentage 0-100)
+        const avgPercentage = validCount > 0 ? (totalQuality / validCount) / 100 : 0;
+        const avgRating = Math.min(5, Math.max(0, avgPercentage * 5));
         
         return {
             avg: Number(avgRating.toFixed(1)),
             count: filteredMetrics.length,
             trend: 8.4
         };
-    }, [filteredMetrics, definitions]);
+    }, [filteredMetrics]);
+
+    // Report Generation
+    const handleExportReport = () => {
+        if (filteredMetrics.length === 0) return;
+        
+        let csv = 'Sprint,Team ID,Project ID,Velocity,Throughput,Quality,Done To Said,Tech Debt,Stories Delivered\n';
+        
+        filteredMetrics.forEach((m: any) => {
+            csv += `"${m.sprintName || m.sprintNumber}",${m.teamId || ''},${m.projectId || ''},${m.velocityPoints || 0},${m.throughputPoints || 0},${m.qualityScore || 0},${m.doneToSaidRatio || 0},${m.technicalDebtIndex || 0},${m.userStoriesDelivered || 0}\n`;
+        });
+        
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `Analytics_Metrics_Report.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
 
     // Chart: Source Dist
     const sourceChartData = useMemo(() => {
@@ -185,31 +193,38 @@ export function AnalyticsDashboard({
         ].filter(d => d.value > 0);
     }, [filteredMetrics]);
 
-    // Chart: Category Dist
+    // Chart: Category Dist (Simulated by averaging across specific metric fields in sprints)
     const categoryChartData = useMemo(() => {
-        const groups: Record<string, { sum: number, count: number, name: string }> = {};
+        if (filteredMetrics.length === 0) return [];
+        let tp = 0, vel = 0, qa = 0, td = 0, dt = 0;
         filteredMetrics.forEach((m: any) => {
-            const def = definitions.find((d: any) => d.metricType === m.metricType);
-            if (!def) return;
-            const name = def.name;
-            if (!groups[name]) groups[name] = { sum: 0, count: 0, name };
-            groups[name].sum += m.value;
-            groups[name].count += 1;
+            tp += Number(m.throughputPoints || 0);
+            vel += Number(m.velocityPoints || 0);
+            qa += Number(m.qualityScore || 0);
+            td += Number(m.technicalDebtIndex || 0);
+            dt += Number(m.doneToSaidRatio || 0);
         });
-        return Object.values(groups).map(g => ({
-            name: g.name,
-            value: Number((g.sum / g.count).toFixed(1))
-        })).sort((a, b) => b.value - a.value).slice(0, 5);
-    }, [filteredMetrics, definitions]);
+        const n = filteredMetrics.length;
+        return [
+            { name: 'Throughput', value: Math.min(5, (tp / n) / 10) },
+            { name: 'Velocity', value: Math.min(5, (vel / n) / 10) },
+            { name: 'Quality', value: Math.min(5, (qa / n) / 20) },
+            { name: 'Tech Debt', value: Math.max(0, 5 - (td / n) / 2) },
+            { name: 'Done/Said', value: Math.min(5, (dt / n) / 20) }
+        ].sort((a, b) => b.value - a.value);
+    }, [filteredMetrics]);
 
     // Chart: Trend over time
     const trendChartData = useMemo(() => {
         const groups: Record<string, { sum: number, count: number }> = {};
         filteredMetrics.forEach((m: any) => {
-            if (!m.time) return;
-            const dateStr = new Date(m.time).toISOString().split('T')[0];
+            const timeField = m.calculatedAt || m.createdAt || m.updatedAt;
+            if (!timeField) return;
+            const dateStr = new Date(timeField).toISOString().split('T')[0];
             if (!groups[dateStr]) groups[dateStr] = { sum: 0, count: 0 };
-            groups[dateStr].sum += m.value;
+            
+            // Just average velocity for the trend line
+            groups[dateStr].sum += Number(m.velocityPoints || 0);
             groups[dateStr].count += 1;
         });
 
@@ -222,7 +237,7 @@ export function AnalyticsDashboard({
             .slice(-14);
     }, [filteredMetrics]);
 
-    if (metricsLoading || defLoading) {
+    if (metricsLoading) {
         return <div className="flex justify-center py-20 animate-pulse text-muted-foreground font-black tracking-widest uppercase">Loading Analytics Dashboard...</div>;
     }
 
@@ -235,6 +250,33 @@ export function AnalyticsDashboard({
                 </div>
             )}
 
+
+            {/* Sprint KPI Summary Panel */}
+            <div className="rounded-[2.5rem] border-[1.5px] border-border/50 bg-gradient-to-b from-background/90 to-background/50 backdrop-blur-2xl shadow-xl overflow-hidden">
+                <div className="p-8 pb-4 flex items-center justify-between border-b border-border/10">
+                    <div>
+                        <h3 className="text-2xl font-black tracking-tight">Productivity &amp; Quality Metrics</h3>
+                        <p className="text-muted-foreground text-xs font-medium mt-1">Calculated from sprint data using standard engineering formulas — averaged across all sprints</p>
+                    </div>
+                    <div className="flex gap-3 text-[10px] font-black uppercase tracking-widest items-center">
+                        <Button 
+                            onClick={handleExportReport} 
+                            disabled={filteredMetrics.length === 0}
+                            variant="outline"
+                            className="h-8 rounded-full bg-primary/10 text-primary border-primary/20 hover:bg-primary/20 mr-2"
+                        >
+                            <Download className="h-3 w-3 mr-1.5" />
+                            Export CSV
+                        </Button>
+                        <span className="px-3 py-1.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">● On Target</span>
+                        <span className="px-3 py-1.5 rounded-full bg-amber-400/10 text-amber-400 border border-amber-400/20">● At Risk</span>
+                        <span className="px-3 py-1.5 rounded-full bg-red-500/10 text-red-500 border border-red-500/20">● Off Target</span>
+                    </div>
+                </div>
+                <div className="p-8">
+                    <SprintKPIPanel metrics={filteredMetrics} />
+                </div>
+            </div>
 
             {/* Quick Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
