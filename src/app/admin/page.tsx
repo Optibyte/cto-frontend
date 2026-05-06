@@ -15,18 +15,18 @@ import {
 import {
     Building2, Globe2, Briefcase, FolderKanban, Users2, UserPlus,
     Plus, Pencil, Trash2, Loader2, RefreshCw, ChevronRight, ChevronLeft, X, Search, CheckSquare, Square,
-    Upload, FileSpreadsheet, CheckCircle2, AlertCircle, Download,
+    Upload, FileSpreadsheet, CheckCircle2, AlertCircle, Download, Zap,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import {
-    marketsAPI, adminAccountsAPI, adminProjectsAPI, adminTeamsAPI, adminTeamMembersAPI, adminUsersAPI, adminEmployeesAPI,
+    marketsAPI, adminAccountsAPI, adminProjectsAPI, adminTeamsAPI, adminTeamMembersAPI, adminUsersAPI, adminEmployeesAPI, adminOrganizationsAPI, adminSprintMetricsAPI,
 } from '@/lib/api/admin';
 import { useRole } from '@/contexts/role-context';
 
 // ═══════════════════════════ TYPES ═══════════════════════════
 
-type TabKey = 'markets' | 'accounts' | 'projects' | 'teams' | 'members' | 'users';
+type TabKey = 'organizations' | 'markets' | 'accounts' | 'projects' | 'ai-projects' | 'teams' | 'members' | 'users';
 
 interface TabConfig {
     key: TabKey;
@@ -37,9 +37,11 @@ interface TabConfig {
 }
 
 const TABS: TabConfig[] = [
+    { key: 'organizations', label: 'Organizations', icon: Building2, color: 'text-indigo-500', gradient: 'from-indigo-600 to-indigo-400' },
     { key: 'markets', label: 'Markets', icon: Globe2, color: 'text-blue-500', gradient: 'from-blue-600 to-blue-400' },
     { key: 'accounts', label: 'Accounts', icon: Briefcase, color: 'text-emerald-500', gradient: 'from-emerald-600 to-emerald-400' },
     { key: 'projects', label: 'Projects', icon: FolderKanban, color: 'text-violet-500', gradient: 'from-violet-600 to-violet-400' },
+    { key: 'ai-projects', label: 'AI Projects', icon: Zap, color: 'text-violet-600', gradient: 'from-violet-700 to-violet-500' },
     { key: 'teams', label: 'Teams', icon: Users2, color: 'text-amber-500', gradient: 'from-amber-600 to-amber-400' },
     { key: 'members', label: 'Team Members', icon: UserPlus, color: 'text-cyan-500', gradient: 'from-cyan-600 to-cyan-400' },
     { key: 'users', label: 'Users', icon: Building2, color: 'text-rose-500', gradient: 'from-rose-600 to-rose-400' },
@@ -54,9 +56,9 @@ export default function AdminPage() {
     // Filter tabs based on role
     const filteredTabs = TABS.filter(tab => {
         if (role === 'ORG') return true;
-        if (role === 'MARKET') return ['markets', 'accounts', 'teams', 'members', 'users'].includes(tab.key);
-        if (role === 'ACCOUNT') return ['accounts', 'teams', 'members', 'users'].includes(tab.key);
-        if (role === 'PROJECT_MANAGER' || role === 'PROJECT') return ['projects', 'teams', 'members', 'users'].includes(tab.key);
+        if (role === 'MARKET') return ['markets', 'accounts', 'ai-projects', 'teams', 'members', 'users'].includes(tab.key);
+        if (role === 'ACCOUNT') return ['accounts', 'ai-projects', 'teams', 'members', 'users'].includes(tab.key);
+        if (role === 'PROJECT_MANAGER' || role === 'PROJECT') return ['projects', 'ai-projects', 'teams', 'members', 'users'].includes(tab.key);
         if (role === 'TEAM_LEAD') return ['teams', 'members'].includes(tab.key);
         return ['teams', 'members'].includes(tab.key); // Default for lower roles if they can access admin at all
     });
@@ -68,6 +70,7 @@ export default function AdminPage() {
     const [editItem, setEditItem] = useState<any>(null);
     const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
     const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
+    const [bulkUploadType, setBulkUploadType] = useState<'employees' | 'sprints'>('employees');
 
     // ── Search ────────────────────────────────────────────────
     const [tableSearch, setTableSearch] = useState('');
@@ -79,24 +82,34 @@ export default function AdminPage() {
     const [isServerPaginated, setIsServerPaginated] = useState<boolean>(false);
 
     // Linked data for dropdowns
+    const [organizations, setOrganizations] = useState<any[]>([]);
     const [markets, setMarkets] = useState<any[]>([]);
     const [accounts, setAccounts] = useState<any[]>([]);
     const [projects, setProjects] = useState<any[]>([]);
     const [users, setUsers] = useState<any[]>([]);
     const [teams, setTeams] = useState<any[]>([]);
 
-    const fetchData = useCallback(async (page: number, tab: TabKey) => {
+    // Debounced server-side search (used for Users tab)
+    const [serverSearch, setServerSearch] = useState('');
+
+    const fetchData = useCallback(async (page: number, tab: TabKey, search?: string) => {
         setLoading(true);
         try {
-            const apiMap: Record<TabKey, (page?: number, limit?: number) => Promise<any>> = {
-                markets: marketsAPI.getAll,
-                accounts: adminAccountsAPI.getAll,
-                projects: adminProjectsAPI.getAll,
-                teams: adminTeamsAPI.getAll,
-                members: adminTeamMembersAPI.getAll as any,
-                users: adminUsersAPI.getAll,
-            };
-            const result = await apiMap[tab](page, PAGE_SIZE);
+            let result: any;
+            if (tab === 'users') {
+                result = await adminUsersAPI.getAll(page, PAGE_SIZE, search);
+            } else {
+                const apiMap: Record<string, (page?: number, limit?: number, aiEnabled?: boolean) => Promise<any>> = {
+                    organizations: adminOrganizationsAPI.getAll,
+                    markets: marketsAPI.getAll,
+                    accounts: adminAccountsAPI.getAll,
+                    projects: (p, l) => adminProjectsAPI.getAll(p, l, false),
+                    'ai-projects': (p, l) => adminProjectsAPI.getAll(p, l, true),
+                    teams: adminTeamsAPI.getAll,
+                    members: adminTeamMembersAPI.getAll as any,
+                };
+                result = await apiMap[tab](page, PAGE_SIZE);
+            }
             if (result && result.total !== undefined) {
                 setData(result.data || []);
                 setTotalServerItems(result.total);
@@ -119,13 +132,15 @@ export default function AdminPage() {
     // Load linked data for dropdowns
     const fetchLinkedData = useCallback(async () => {
         try {
-            const [m, a, p, u, t] = await Promise.all([
+            const [orgs, m, a, p, u, t] = await Promise.all([
+                adminOrganizationsAPI.getAll().catch(() => []),
                 marketsAPI.getAll().catch(() => []),
                 adminAccountsAPI.getAll().catch(() => []),
                 adminProjectsAPI.getAll().catch(() => []),
                 adminUsersAPI.getAll().catch(() => []),
                 adminTeamsAPI.getAll().catch(() => []),
             ]);
+            setOrganizations(Array.isArray(orgs) ? orgs : orgs?.data || []);
             setMarkets(Array.isArray(m) ? m : []);
             setAccounts(Array.isArray(a) ? a : []);
             setProjects(Array.isArray(p) ? p : []);
@@ -140,8 +155,19 @@ export default function AdminPage() {
         fetchData(currentPage, activeTab);
     }, [currentPage, activeTab, fetchData]);
 
-    // Search filter
+    // Server-side search for Users tab — debounce 300ms
+    useEffect(() => {
+        if (activeTab !== 'users') return;
+        const timer = setTimeout(() => {
+            setCurrentPage(1);
+            fetchData(1, 'users', tableSearch.trim() || undefined);
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [tableSearch, activeTab]); // eslint-disable-line
+
+    // Search filter (client-side for all tabs except 'users' which uses server-side search)
     const filteredData = useMemo(() => {
+        if (activeTab === 'users') return data; // server already filtered
         const q = tableSearch.trim().toLowerCase();
         if (!q) return data;
         return data.filter(item =>
@@ -151,16 +177,17 @@ export default function AdminPage() {
                 String(v).toLowerCase().includes(q)
             )
         );
-    }, [data, tableSearch]);
+    }, [data, tableSearch, activeTab]);
 
     // Pagination derived values (based on filtered data)
     const totalItemsToUse = isServerPaginated && !tableSearch.trim() ? totalServerItems : filteredData.length;
     const totalPages = Math.max(1, Math.ceil(totalItemsToUse / PAGE_SIZE));
 
     const pagedData = useMemo(() => {
-        if (isServerPaginated && !tableSearch.trim()) return filteredData;
-        return filteredData.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
-    }, [filteredData, currentPage, isServerPaginated, tableSearch]);
+        let filtered = filteredData;
+        if (isServerPaginated && !tableSearch.trim()) return filtered;
+        return filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+    }, [filteredData, currentPage, isServerPaginated, tableSearch, activeTab]);
 
     // Reset to page 1 when search changes
     useEffect(() => { setCurrentPage(1); }, [tableSearch]);
@@ -178,9 +205,11 @@ export default function AdminPage() {
                 }
             } else {
                 const apiMap: Record<string, (id: string) => Promise<any>> = {
+                    organizations: adminOrganizationsAPI.delete,
                     markets: marketsAPI.delete,
                     accounts: adminAccountsAPI.delete,
                     projects: adminProjectsAPI.delete,
+                    'ai-projects': adminProjectsAPI.delete,
                     teams: adminTeamsAPI.delete,
                     users: adminUsersAPI.delete,
                 };
@@ -206,9 +235,11 @@ export default function AdminPage() {
                 toast.success(`${formData.userIds.length} members added to team`);
             } else if (editItem && editItem.id) {
                 const updateMap: Record<string, (id: string, data: any) => Promise<any>> = {
+                    organizations: adminOrganizationsAPI.update,
                     markets: marketsAPI.update,
                     accounts: adminAccountsAPI.update,
                     projects: adminProjectsAPI.update,
+                    'ai-projects': adminProjectsAPI.update,
                     teams: adminTeamsAPI.update,
                     users: adminUsersAPI.update,
                 };
@@ -216,9 +247,11 @@ export default function AdminPage() {
                 toast.success(`Updated successfully`);
             } else {
                 const createMap: Record<string, (data: any) => Promise<any>> = {
+                    organizations: adminOrganizationsAPI.create,
                     markets: marketsAPI.create,
                     accounts: adminAccountsAPI.create,
                     projects: adminProjectsAPI.create,
+                    'ai-projects': adminProjectsAPI.create,
                     teams: adminTeamsAPI.create,
                     users: adminUsersAPI.create,
                 };
@@ -248,13 +281,16 @@ export default function AdminPage() {
                 </div>
                 {!(role === 'TEAM_LEAD' && activeTab !== 'members') && (
                     <div className="flex items-center gap-2">
-                        {activeTab === 'users' && (
+                        {(activeTab === 'users') && (
                             <Button
                                 variant="outline"
-                                onClick={() => setBulkUploadOpen(true)}
+                                onClick={() => {
+                                    setBulkUploadType('employees');
+                                    setBulkUploadOpen(true);
+                                }}
                                 className="rounded-xl gap-2 border-violet-500/40 text-violet-500 hover:bg-violet-500/10"
                             >
-                                <Upload className="h-4 w-4" /> Bulk Upload
+                                <Upload className="h-4 w-4" /> Bulk Upload Employees
                             </Button>
                         )}
                         <Button onClick={handleCreate} className="rounded-xl gap-2 shadow-lg shadow-primary/20">
@@ -435,6 +471,7 @@ export default function AdminPage() {
                 tab={activeTab}
                 editItem={editItem}
                 onSave={handleSave}
+                organizations={organizations}
                 markets={markets}
                 accounts={accounts}
                 projects={projects}
@@ -448,6 +485,7 @@ export default function AdminPage() {
             <BulkUploadDialog
                 open={bulkUploadOpen}
                 onOpenChange={setBulkUploadOpen}
+                type={bulkUploadType}
                 onSuccess={() => fetchData(currentPage, activeTab)}
             />
 
@@ -476,10 +514,12 @@ export default function AdminPage() {
 
 function getColumns(tab: TabKey): string[] {
     switch (tab) {
-        case 'markets': return ['Name', 'Region Code', 'Accounts', 'Created'];
+        case 'organizations': return ['Name', 'Country', 'Created'];
+        case 'markets': return ['Name', 'Country', 'Organization', 'Accounts', 'Created'];
         case 'accounts': return ['Name', 'Market', 'Teams', 'Created'];
-        case 'projects': return ['Name', 'Status', 'Manager', 'Team Size', 'Created'];
-        case 'teams': return ['Name', 'Description', 'Project', 'Members', 'Active'];
+        case 'projects': return ['Name', 'Status', 'AI Enabled', 'Manager', 'Team Size', 'Created'];
+        case 'ai-projects': return ['Name', 'Status', 'Licenses', 'AI Tools', 'Manager', 'Created'];
+        case 'teams': return ['Name', 'AI Enabled', 'Project', 'Members', 'Active'];
         case 'members': return ['User', 'Email', 'Team', 'Role in Team', 'Joined'];
         case 'users': return ['Name', 'Email', 'Access Role', 'Employee ID', 'Job Role', 'Active'];
     }
@@ -488,10 +528,29 @@ function getColumns(tab: TabKey): string[] {
 function renderRow(tab: TabKey, item: any) {
     const formatDate = (d: string) => d ? new Date(d).toLocaleDateString() : '—';
     switch (tab) {
+        case 'organizations':
+            return (<>
+                <td className="py-3 text-sm font-semibold">{item.name}</td>
+                <td className="py-3">
+                    <div className="flex flex-wrap gap-1">
+                        {Array.isArray(item.country) && item.country.length > 0 ? item.country.map((c: string) => (
+                            <Badge key={c} variant="outline" className="rounded-full text-[10px] px-2">{c}</Badge>
+                        )) : <Badge variant="outline" className="rounded-full text-[10px] px-2">Global</Badge>}
+                    </div>
+                </td>
+                <td className="py-3 text-xs text-muted-foreground">{formatDate(item.createdAt)}</td>
+            </>);
         case 'markets':
             return (<>
                 <td className="py-3 text-sm font-semibold">{item.name}</td>
-                <td className="py-3"><Badge variant="outline" className="rounded-full text-[10px] px-2">{item.regionCode}</Badge></td>
+                <td className="py-3">
+                    <div className="flex flex-wrap gap-1">
+                        {Array.isArray(item.country) && item.country.length > 0 ? item.country.map((c: string) => (
+                            <Badge key={c} variant="outline" className="rounded-full text-[10px] px-2">{c}</Badge>
+                        )) : <Badge variant="outline" className="rounded-full text-[10px] px-2">Global</Badge>}
+                    </div>
+                </td>
+                <td className="py-3 text-sm text-muted-foreground">{item.org?.name || '—'}</td>
                 <td className="py-3 text-sm text-muted-foreground">{item._count?.accounts ?? item.accounts?.length ?? 0}</td>
                 <td className="py-3 text-xs text-muted-foreground">{formatDate(item.createdAt)}</td>
             </>);
@@ -513,16 +572,57 @@ function renderRow(tab: TabKey, item: any) {
                         'bg-gray-500/10 text-gray-500 border-gray-500/20': item.status === 'COMPLETED',
                     })} variant="outline">{item.status}</Badge>
                 </td>
+                <td className="py-3">
+                    {item.aiEnabled ? (
+                        <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 rounded-full text-[9px] px-2" variant="outline">AI ENABLED</Badge>
+                    ) : (
+                        <span className="text-muted-foreground text-[10px]">Standard</span>
+                    )}
+                </td>
                 <td className="py-3 text-sm text-muted-foreground">
                     {item.users && item.users.length > 0 ? item.users.filter((u: any) => u.role === 'PROJECT_MANAGER' || u.role === 'PROJECT' || u.role === 'CTO').map((u: any) => u.fullName).join(', ') || '—' : '—'}
                 </td>
                 <td className="py-3 text-sm text-muted-foreground">{item.teamSize || 0}</td>
                 <td className="py-3 text-xs text-muted-foreground">{formatDate(item.createdAt)}</td>
             </>);
+        case 'ai-projects':
+            return (<>
+                <td className="py-3 text-sm font-semibold">{item.name}</td>
+                <td className="py-3">
+                    <Badge className={cn('rounded-full text-[10px] px-2', {
+                        'bg-emerald-500/10 text-emerald-500 border-emerald-500/20': item.status === 'ACTIVE',
+                        'bg-amber-500/10 text-amber-500 border-amber-500/20': item.status === 'ON_HOLD',
+                        'bg-blue-500/10 text-blue-500 border-blue-500/20': item.status === 'PLANNED',
+                        'bg-gray-500/10 text-gray-500 border-gray-500/20': item.status === 'COMPLETED',
+                    })} variant="outline">{item.status}</Badge>
+                </td>
+                <td className="py-3">
+                    <Badge className="bg-violet-500/10 text-violet-500 border-violet-500/20 rounded-full text-[10px] font-bold px-2" variant="outline">
+                        {item.aiToolLicenses || 0}
+                    </Badge>
+                </td>
+                <td className="py-3">
+                    <div className="flex flex-wrap gap-1">
+                        {item.aiToolsUsed && item.aiToolsUsed.length > 0 ? item.aiToolsUsed.map((tool: string) => (
+                            <Badge key={tool} className="rounded-full text-[9px] px-1.5 py-0 bg-violet-100 text-violet-600 border-violet-200" variant="secondary">{tool}</Badge>
+                        )) : <span className="text-muted-foreground text-[10px]">None</span>}
+                    </div>
+                </td>
+                <td className="py-3 text-sm text-muted-foreground">
+                    {item.users && item.users.length > 0 ? item.users.filter((u: any) => u.role === 'PROJECT_MANAGER' || u.role === 'PROJECT' || u.role === 'CTO').map((u: any) => u.fullName).join(', ') || '—' : '—'}
+                </td>
+                <td className="py-3 text-xs text-muted-foreground">{formatDate(item.createdAt)}</td>
+            </>);
         case 'teams':
             return (<>
                 <td className="py-3 text-sm font-semibold">{item.name}</td>
-                <td className="py-3 text-sm text-muted-foreground truncate max-w-[200px]">{item.description || '—'}</td>
+                <td className="py-3">
+                    {item.project?.aiEnabled ? (
+                        <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 rounded-full text-[9px] px-2" variant="outline">AI ENABLED</Badge>
+                    ) : (
+                        <span className="text-muted-foreground text-[10px]">Standard</span>
+                    )}
+                </td>
                 <td className="py-3 text-sm text-muted-foreground">{item.project?.name || '—'}</td>
                 <td className="py-3 text-sm text-muted-foreground">{item.members?.length ?? 0}</td>
                 <td className="py-3">{item.isActive ? <Badge className="bg-emerald-500/10 text-emerald-500 rounded-full text-[10px]" variant="outline">Active</Badge> : <Badge variant="outline" className="rounded-full text-[10px]">Inactive</Badge>}</td>
@@ -569,6 +669,7 @@ interface EntityDialogProps {
     tab: TabKey;
     editItem: any;
     onSave: (data: any) => Promise<void>;
+    organizations: any[];
     markets: any[];
     accounts: any[];
     projects: any[];
@@ -578,7 +679,7 @@ interface EntityDialogProps {
     teamId: string | null;
 }
 
-function EntityDialog({ open, onOpenChange, tab, editItem, onSave, markets, accounts, projects, users, teams, role, teamId }: EntityDialogProps) {
+function EntityDialog({ open, onOpenChange, tab, editItem, onSave, organizations, markets, accounts, projects, users, teams, role, teamId }: EntityDialogProps) {
     const [form, setForm] = useState<Record<string, any>>({});
     const [saving, setSaving] = useState(false);
     const [userSearch, setUserSearch] = useState('');
@@ -621,6 +722,22 @@ function EntityDialog({ open, onOpenChange, tab, editItem, onSave, markets, acco
     const set = (key: string, val: any) => setForm(prev => ({ ...prev, [key]: val }));
     const tabConfig = TABS.find(t => t.key === tab)!;
 
+    // Derive unique countries from existing organizations/markets (for selection)
+    const existingCountries = Array.from(
+        new Set([
+            ...organizations.flatMap((o: any) => Array.isArray(o.country) ? o.country : [o.country]),
+            ...markets.flatMap((m: any) => Array.isArray(m.country) ? m.country : [m.country])
+        ].filter(Boolean))
+    ).sort() as string[];
+
+    // Filter orgs by the currently selected country (for Markets form)
+    const orgsForCountry = form.country
+        ? organizations.filter((o: any) => {
+            const countries = Array.isArray(o.country) ? o.country : [o.country];
+            return countries.some((c: string) => (Array.isArray(form.country) ? form.country : [form.country]).includes(c));
+        })
+        : organizations;
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-[600px] rounded-2xl p-0 flex flex-col max-h-[90vh]">
@@ -634,9 +751,70 @@ function EntityDialog({ open, onOpenChange, tab, editItem, onSave, markets, acco
 
                 <div className="flex-1 overflow-y-auto p-6 pt-2 custom-scrollbar">
                     <div className="space-y-4">
+                        {tab === 'organizations' && (<>
+                            <div className="space-y-2"><Label>Name *</Label><Input className="rounded-xl" value={form.name || ''} onChange={e => set('name', e.target.value)} placeholder="e.g. Acme Corp" /></div>
+                            <div className="space-y-2">
+                                <Label>Countries (Comma separated) *</Label>
+                                <Input
+                                    className="rounded-xl"
+                                    value={Array.isArray(form.country) ? form.country.join(', ') : form.country || ''}
+                                    onChange={e => set('country', e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
+                                    placeholder="e.g. USA, UK, India"
+                                />
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                    {existingCountries.map((c: string) => (
+                                        <Badge
+                                            key={c}
+                                            variant="secondary"
+                                            className="cursor-pointer hover:bg-primary hover:text-white"
+                                            onClick={() => {
+                                                const current = Array.isArray(form.country) ? form.country : [];
+                                                if (!current.includes(c)) set('country', [...current, c]);
+                                            }}
+                                        >
+                                            + {c}
+                                        </Badge>
+                                    ))}
+                                </div>
+                            </div>
+                        </>)}
+
                         {tab === 'markets' && (<>
                             <div className="space-y-2"><Label>Name *</Label><Input className="rounded-xl" value={form.name || ''} onChange={e => set('name', e.target.value)} placeholder="e.g. North America" /></div>
-                            <div className="space-y-2"><Label>Region Code *</Label><Input className="rounded-xl" value={form.regionCode || ''} onChange={e => set('regionCode', e.target.value)} placeholder="e.g. NA" /></div>
+                            <div className="space-y-2">
+                                <Label>Country *</Label>
+                                <Select
+                                    value={form.country || ''}
+                                    onValueChange={v => {
+                                        set('country', v);
+                                        set('orgId', ''); // reset org when country changes
+                                    }}
+                                >
+                                    <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select country" /></SelectTrigger>
+                                    <SelectContent className="max-h-60">
+                                        {existingCountries.length > 0
+                                            ? existingCountries.map((c: string) => <SelectItem key={c} value={c}>{c}</SelectItem>)
+                                            : <SelectItem value="__none__" disabled>No countries found — type them in Organizations first</SelectItem>
+                                        }
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Organization</Label>
+                                <Select
+                                    value={form.orgId || ''}
+                                    onValueChange={v => set('orgId', v === 'none' ? '' : v)}
+                                    disabled={!form.country}
+                                >
+                                    <SelectTrigger className="rounded-xl">
+                                        <SelectValue placeholder={form.country ? 'Select organization' : 'Select a country first'} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="none">None</SelectItem>
+                                        {orgsForCountry.map((o: any) => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                            </div>
                         </>)}
 
                         {tab === 'accounts' && (<>
@@ -645,7 +823,7 @@ function EntityDialog({ open, onOpenChange, tab, editItem, onSave, markets, acco
                                 <Label>Market *</Label>
                                 <Select value={form.marketId || ''} onValueChange={v => set('marketId', v)}>
                                     <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select market" /></SelectTrigger>
-                                    <SelectContent>{markets.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}</SelectContent>
+                                    <SelectContent>{markets.map((m: any) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}</SelectContent>
                                 </Select>
                             </div>
                             <div className="space-y-2">
@@ -653,7 +831,7 @@ function EntityDialog({ open, onOpenChange, tab, editItem, onSave, markets, acco
                                 <Select value={form.accountManagerId || ''} onValueChange={v => set('accountManagerId', v)}>
                                     <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select managers" /></SelectTrigger>
                                     <SelectContent>
-                                        {users.filter(u => u.role === 'ACCOUNT').map(u => (
+                                        {users.filter((u: any) => u.role === 'ACCOUNT').map((u: any) => (
                                             <SelectItem key={u.id} value={u.id}>{u.fullName} ({u.email})</SelectItem>
                                         ))}
                                     </SelectContent>
@@ -661,30 +839,47 @@ function EntityDialog({ open, onOpenChange, tab, editItem, onSave, markets, acco
                             </div>
                         </>)}
 
-                        {tab === 'projects' && (<>
+                        {(tab === 'projects' || tab === 'ai-projects') && (<>
                             <div className="space-y-2"><Label>Name *</Label><Input className="rounded-xl" value={form.name || ''} onChange={e => set('name', e.target.value)} placeholder="e.g. Banking App" /></div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2"><Label>Start Date</Label><Input type="date" className="rounded-xl" value={form.startDate ? form.startDate.split('T')[0] : ''} onChange={e => set('startDate', e.target.value)} /></div>
                                 <div className="space-y-2"><Label>End Date</Label><Input type="date" className="rounded-xl" value={form.enddate ? form.enddate.split('T')[0] : ''} onChange={e => set('enddate', e.target.value)} /></div>
                             </div>
 
+
                             <div className="flex items-center space-x-2 py-2">
                                 <input
                                     type="checkbox"
-                                    id="digital-transformation"
-                                    className="h-4 w-4 rounded border-primary"
-                                    checked={!!form.isDigitalTransformation}
-                                    onChange={(e) => set('isDigitalTransformation', e.target.checked)}
+                                    id="ai-enabled"
+                                    className="h-4 w-4 rounded border-violet-500"
+                                    checked={!!form.aiEnabled}
+                                    onChange={(e) => set('aiEnabled', e.target.checked)}
                                 />
-                                <Label htmlFor="digital-transformation" className="cursor-pointer font-medium">Digital Transformation Project</Label>
+                                <Label htmlFor="ai-enabled" className="cursor-pointer font-bold text-violet-600">AI Enabled Project</Label>
                             </div>
 
-                            {!!form.isDigitalTransformation && (
-                                <div className="space-y-4 p-4 rounded-2xl bg-primary/5 border border-primary/10 animate-in fade-in slide-in-from-top-2 duration-300">
-                                    <p className="text-xs font-bold uppercase tracking-wider text-primary">Digital Transformation Timeline</p>
+                            {!!form.aiEnabled && (
+                                <div className="space-y-4 p-4 rounded-2xl bg-violet-500/5 border border-violet-500/10 animate-in fade-in slide-in-from-top-2 duration-300">
+                                    <p className="text-[10px] font-black uppercase tracking-wider text-violet-600">AI Tooling Configuration</p>
                                     <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-2"><Label>DT Start Date</Label><Input type="date" className="rounded-xl bg-background" value={form.digitalTransformationStartDate ? form.digitalTransformationStartDate.split('T')[0] : ''} onChange={e => set('digitalTransformationStartDate', e.target.value)} /></div>
-                                        <div className="space-y-2"><Label>DT End Date</Label><Input type="date" className="rounded-xl bg-background" value={form.digitalTransformationEndDate ? form.digitalTransformationEndDate.split('T')[0] : ''} onChange={e => set('digitalTransformationEndDate', e.target.value)} /></div>
+                                        <div className="space-y-2">
+                                            <Label>AI Licenses</Label>
+                                            <Input type="number" className="rounded-xl bg-background" value={form.aiToolLicenses || 0} onChange={e => set('aiToolLicenses', Number(e.target.value))} />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>AI Tools (comma separated)</Label>
+                                            <Input className="rounded-xl bg-background" value={form.aiToolsUsed?.join(', ') || ''} onChange={e => set('aiToolsUsed', e.target.value.split(',').map(s => s.trim()))} placeholder="Copilot, ChatGPT" />
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {!!form.aiEnabled && (
+                                <div className="space-y-4 p-4 rounded-2xl bg-violet-500/5 border border-violet-500/10 animate-in fade-in slide-in-from-top-2 duration-300">
+                                    <p className="text-xs font-black uppercase tracking-wider text-violet-600">AI Transformation Rollout</p>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-2"><Label>Start Date</Label><Input type="date" className="rounded-xl bg-background" value={form.digitalTransformationStartDate ? form.digitalTransformationStartDate.split('T')[0] : ''} onChange={e => set('digitalTransformationStartDate', e.target.value)} /></div>
+                                        <div className="space-y-2"><Label>End Date</Label><Input type="date" className="rounded-xl bg-background" value={form.digitalTransformationEndDate ? form.digitalTransformationEndDate.split('T')[0] : ''} onChange={e => set('digitalTransformationEndDate', e.target.value)} /></div>
                                     </div>
                                 </div>
                             )}
@@ -715,10 +910,10 @@ function EntityDialog({ open, onOpenChange, tab, editItem, onSave, markets, acco
                                     />
                                 </div>
                                 <div className="grid grid-cols-1 gap-1 max-h-[220px] overflow-y-auto p-2 rounded-xl border border-border/40 bg-muted/20">
-                                    {users.filter(u =>
+                                    {users.filter((u: any) =>
                                         (u.role === 'PROJECT_MANAGER' || u.role === 'PROJECT') &&
                                         (u.fullName.toLowerCase().includes(userSearch.toLowerCase()) || u.email.toLowerCase().includes(userSearch.toLowerCase()))
-                                    ).map(u => (
+                                    ).map((u: any) => (
                                         <div key={u.id} className="flex items-center space-x-2 p-2 hover:bg-accent/50 rounded-lg transition-colors group">
                                             <input
                                                 type="checkbox"
@@ -772,11 +967,12 @@ function EntityDialog({ open, onOpenChange, tab, editItem, onSave, markets, acco
                             <div className="space-y-2"><Label>Name *</Label><Input className="rounded-xl" value={form.name || ''} onChange={e => set('name', e.target.value)} placeholder="e.g. Core Banking" /></div>
                             <div className="space-y-2"><Label>Description</Label><Input className="rounded-xl" value={form.description || ''} onChange={e => set('description', e.target.value)} placeholder="Team description" /></div>
                             <div className="space-y-2">
-                                <Label>Team Lead *</Label>
-                                <Select value={form.teamLeadId || ''} onValueChange={v => set('teamLeadId', v)}>
+                                <Label>Team Lead</Label>
+                                <Select value={form.teamLeadId || 'none'} onValueChange={v => set('teamLeadId', v === 'none' ? undefined : v)}>
                                     <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select team lead" /></SelectTrigger>
                                     <SelectContent>
-                                        {users.filter(u => u.role === 'TEAM_LEAD').map(u => (
+                                        <SelectItem value="none">None</SelectItem>
+                                        {users.filter((u: any) => u.role === 'TEAM_LEAD').map((u: any) => (
                                             <SelectItem key={u.id} value={u.id}>{u.fullName} ({u.email})</SelectItem>
                                         ))}
                                     </SelectContent>
@@ -787,14 +983,14 @@ function EntityDialog({ open, onOpenChange, tab, editItem, onSave, markets, acco
                                     <Label>Account</Label>
                                     <Select value={form.accountId || 'none'} onValueChange={v => set('accountId', v === 'none' ? undefined : v)}>
                                         <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select account" /></SelectTrigger>
-                                        <SelectContent><SelectItem value="none">None</SelectItem>{accounts.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}</SelectContent>
+                                        <SelectContent><SelectItem value="none">None</SelectItem>{accounts.map((a: any) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}</SelectContent>
                                     </Select>
                                 </div>
                                 <div className="space-y-2">
                                     <Label>Project</Label>
                                     <Select value={form.projectId || 'none'} onValueChange={v => set('projectId', v === 'none' ? undefined : v)}>
                                         <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select project" /></SelectTrigger>
-                                        <SelectContent><SelectItem value="none">None</SelectItem>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
+                                        <SelectContent><SelectItem value="none">None</SelectItem>{projects.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
                                     </Select>
                                 </div>
                             </div>
@@ -807,8 +1003,8 @@ function EntityDialog({ open, onOpenChange, tab, editItem, onSave, markets, acco
                                     <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select team" /></SelectTrigger>
                                     <SelectContent>
                                         {teams
-                                            .filter(t => role === 'ORG' || role === 'ACCOUNT' || role === 'PROJECT_MANAGER' || t.id === teamId || t.teamLeadId === localStorage.getItem('current_user_id'))
-                                            .map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)
+                                            .filter((t: any) => role === 'ORG' || role === 'ACCOUNT' || role === 'PROJECT_MANAGER' || t.id === teamId || t.teamLeadId === localStorage.getItem('current_user_id'))
+                                            .map((t: any) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)
                                         }
                                     </SelectContent>
                                 </Select>
@@ -821,16 +1017,16 @@ function EntityDialog({ open, onOpenChange, tab, editItem, onSave, markets, acco
                                         size="sm"
                                         className="h-7 text-[10px] rounded-lg"
                                         onClick={() => {
-                                            const filtered = users.filter(u => u.role === 'TEAM');
-                                            const allSelected = filtered.every(u => (form.userIds || []).includes(u.id));
+                                            const filtered = users.filter((u: any) => u.role === 'TEAM');
+                                            const allSelected = filtered.every((u: any) => (form.userIds || []).includes(u.id));
                                             if (allSelected) {
                                                 set('userIds', []);
                                             } else {
-                                                set('userIds', filtered.map(u => u.id));
+                                                set('userIds', filtered.map((u: any) => u.id));
                                             }
                                         }}
                                     >
-                                        {(users.filter(u => u.role === 'TEAM').every(u => (form.userIds || []).includes(u.id))) ? 'Deselect All' : 'Select All'}
+                                        {(users.filter((u: any) => u.role === 'TEAM').every((u: any) => (form.userIds || []).includes(u.id))) ? 'Deselect All' : 'Select All'}
                                     </Button>
                                 </div>
 
@@ -846,7 +1042,7 @@ function EntityDialog({ open, onOpenChange, tab, editItem, onSave, markets, acco
 
                                 <div className="grid grid-cols-1 gap-1 max-h-[220px] overflow-y-auto p-2 rounded-xl border border-border/40 bg-muted/20">
                                     {(() => {
-                                        const filteredUsers = users.filter(u =>
+                                        const filteredUsers = users.filter((u: any) =>
                                             u.role === 'TEAM' &&
                                             (u.fullName.toLowerCase().includes(userSearch.toLowerCase()) ||
                                                 u.email.toLowerCase().includes(userSearch.toLowerCase()))
@@ -856,7 +1052,7 @@ function EntityDialog({ open, onOpenChange, tab, editItem, onSave, markets, acco
                                             return <div className="py-8 text-center text-xs text-muted-foreground">No users found</div>;
                                         }
 
-                                        return filteredUsers.map(u => (
+                                        return filteredUsers.map((u: any) => (
                                             <div key={u.id} className="flex items-center space-x-2 p-2 hover:bg-accent/50 rounded-lg transition-colors group">
                                                 <input
                                                     type="checkbox"
@@ -937,9 +1133,11 @@ function EntityDialog({ open, onOpenChange, tab, editItem, onSave, markets, acco
 
 function getDefaultForm(tab: TabKey): Record<string, any> {
     switch (tab) {
-        case 'markets': return { name: '', regionCode: '' };
+        case 'organizations': return { name: '', country: [] };
+        case 'markets': return { name: '', regionCode: '', country: '' };
         case 'accounts': return { name: '', marketId: '', accountManagerId: '' };
-        case 'projects': return { name: '', startDate: '', enddate: '', status: 'PLANNED', teamSize: 0, progress: 0, jiraProjectKey: '', jiraBoardId: '', githubRepoId: '', githubToken: '', license: '', isDigitalTransformation: false, digitalTransformationStartDate: '', digitalTransformationEndDate: '' };
+        case 'projects': return { name: '', startDate: '', enddate: '', status: 'PLANNED', teamSize: 0, progress: 0, jiraProjectKey: '', jiraBoardId: '', githubRepoId: '', githubToken: '', license: '', isDigitalTransformation: false, digitalTransformationStartDate: '', digitalTransformationEndDate: '', aiEnabled: false, aiToolLicenses: 0, aiToolsUsed: [] };
+        case 'ai-projects': return { name: '', startDate: '', enddate: '', status: 'PLANNED', teamSize: 0, progress: 0, jiraProjectKey: '', jiraBoardId: '', githubRepoId: '', githubToken: '', license: '', isDigitalTransformation: false, digitalTransformationStartDate: '', digitalTransformationEndDate: '', aiEnabled: true, aiToolLicenses: 0, aiToolsUsed: [] };
         case 'teams': return { name: '', description: '', teamLeadId: '', accountId: '', projectId: '' };
         case 'members': return { teamId: '', userIds: [], roleInTeam: 'Member' };
         case 'users': return { fullName: '', email: '', role: 'TEAM', jobRole: '', employeeId: '', auth0Id: '', jiraAccountId: '', githubEmail: '' };
@@ -948,9 +1146,14 @@ function getDefaultForm(tab: TabKey): Record<string, any> {
 
 function buildPayload(tab: TabKey, form: Record<string, any>, isEdit: boolean): any {
     switch (tab) {
-        case 'markets': return { name: form.name, regionCode: form.regionCode };
+        case 'organizations': return {
+            name: form.name,
+            country: Array.isArray(form.country) ? form.country : (form.country ? [form.country] : [])
+        };
+        case 'markets': return { name: form.name, regionCode: form.regionCode, country: form.country };
         case 'accounts': return { name: form.name, marketId: form.marketId, accountManagerId: form.accountManagerId };
-        case 'projects': {
+        case 'projects':
+        case 'ai-projects': {
             const p: any = { name: form.name, status: form.status, teamSize: Number(form.teamSize) };
             if (form.userIds && form.userIds.length > 0) p.userIds = form.userIds;
             if (form.startDate) p.startDate = form.startDate;
@@ -961,12 +1164,18 @@ function buildPayload(tab: TabKey, form: Record<string, any>, isEdit: boolean): 
             if (form.githubToken) p.githubToken = form.githubToken.trim();
             if (form.license) p.license = form.license.trim();
             p.isDigitalTransformation = !!form.isDigitalTransformation;
+            p.aiEnabled = !!form.aiEnabled;
+            if (form.aiEnabled) {
+                p.aiToolLicenses = Number(form.aiToolLicenses || 0);
+                p.aiToolsUsed = Array.isArray(form.aiToolsUsed) ? form.aiToolsUsed : [];
+            }
             if (form.digitalTransformationStartDate) p.digitalTransformationStartDate = form.digitalTransformationStartDate;
             if (form.digitalTransformationEndDate) p.digitalTransformationEndDate = form.digitalTransformationEndDate;
             return p;
         }
         case 'teams': {
-            const t: any = { name: form.name, teamLeadId: form.teamLeadId };
+            const t: any = { name: form.name };
+            if (form.teamLeadId && form.teamLeadId !== 'none') t.teamLeadId = form.teamLeadId;
             if (form.description) t.description = form.description;
             if (form.accountId) t.accountId = form.accountId;
             if (form.projectId) t.projectId = form.projectId;
@@ -996,10 +1205,13 @@ function buildPayload(tab: TabKey, form: Record<string, any>, isEdit: boolean): 
 interface BulkUploadDialogProps {
     open: boolean;
     onOpenChange: (v: boolean) => void;
+    type: 'employees' | 'sprints';
     onSuccess: () => void;
 }
 
-function BulkUploadDialog({ open, onOpenChange, onSuccess }: BulkUploadDialogProps) {
+function BulkUploadDialog({ open, onOpenChange, type, onSuccess }: BulkUploadDialogProps) {
+    const isEmployees = type === 'employees';
+    const isSprints = type === 'sprints';
     const [file, setFile] = useState<File | null>(null);
     const [uploading, setUploading] = useState(false);
     const [result, setResult] = useState<any>(null);
@@ -1008,18 +1220,26 @@ function BulkUploadDialog({ open, onOpenChange, onSuccess }: BulkUploadDialogPro
     const reset = () => { setFile(null); setResult(null); };
 
     const handleDownloadTemplate = () => {
-        const headers = [
-            'employee_id', 'employee_name', 'email', 'org', 'country', 'role', 'employment_type', 'experience_years'
-        ];
-        const sampleRow = [
-            'EMP-1001', 'John Doe', 'john.doe@example.com', 'Global Org', 'USA', 'Team Member', 'Full-time', '5'
-        ];
+        let headers: string[] = [];
+        let sampleRow: string[] = [];
+        let fileName = '';
+
+        if (isEmployees) {
+            headers = ['employee_id', 'employee_name', 'email', 'org', 'country', 'market', 'account', 'project', 'team', 'role', 'employment_type', 'experience_years', 'project_ai_enabled', 'project_ai_tools_used', 'primary_ai_skill', 'primary_ai_skill_proficiency'];
+            sampleRow = ['EMP-1001', 'John Doe', 'john.doe@example.com', 'Acme Corp', 'USA', 'US-Market', 'Aetna', 'Claims Mod', 'Alpha Team', 'Dev', 'Full-Time', '5', 'Yes', 'Copilot, ChatGPT', 'Python', '4'];
+            fileName = 'employee_bulk_import_template.csv';
+        } else {
+            headers = ['org', 'country', 'market', 'account', 'project', 'team', 'team_size', 'project_ai_enabled', 'project_ai_tool_licenses', 'project_ai_tools_used', 'sprint_number', 'sprint_name', 'throughput_points', 'quality_score', 'velocity_points', 'done_to_said_ratio', 'technical_debt_index', 'user_stories_delivered'];
+            sampleRow = ['Acme Corp', 'USA', 'US-Market', 'Aetna', 'Claims Mod', 'Alpha Team', '10', 'Yes', '12', 'Copilot', '1', 'Sprint-1', '45.5', '92.0', '50.0', '0.95', '12.5', '8'];
+            fileName = 'sprint_metrics_bulk_import_template.csv';
+        }
+
         const csvContent = [headers.join(','), sampleRow.join(',')].join('\n');
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.setAttribute('download', 'employee_bulk_import_template.csv');
+        link.setAttribute('download', fileName);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -1047,10 +1267,13 @@ function BulkUploadDialog({ open, onOpenChange, onSuccess }: BulkUploadDialogPro
         if (!file) return;
         setUploading(true);
         try {
-            const res = await adminEmployeesAPI.bulkUpload(file);
+            const api = isEmployees ? adminEmployeesAPI : adminSprintMetricsAPI;
+            const res = await api.bulkUpload(file);
             setResult(res);
-            if (res.created + res.updated > 0) {
-                toast.success(`✅ ${res.created} created, ${res.updated} updated`);
+
+            const successCount = isEmployees ? (res.created + res.updated) : res.processed;
+            if (successCount > 0) {
+                toast.success(`✅ Successfully processed ${successCount} items`);
                 onSuccess();
             }
             if (res.errors?.length) {
@@ -1068,11 +1291,11 @@ function BulkUploadDialog({ open, onOpenChange, onSuccess }: BulkUploadDialogPro
             <DialogContent className="sm:max-w-[580px] rounded-2xl p-0 flex flex-col max-h-[90vh]">
                 <DialogHeader className="p-6 pb-3">
                     <DialogTitle className="text-xl font-bold flex items-center gap-2">
-                        <FileSpreadsheet className="h-5 w-5 text-violet-500" />
-                        Bulk Upload Employees
+                        <FileSpreadsheet className={cn("h-5 w-5", isEmployees ? "text-violet-500" : "text-amber-500")} />
+                        Bulk Upload {isEmployees ? 'Employees' : 'Sprint Metrics'}
                     </DialogTitle>
                     <DialogDescription>
-                        Upload an Excel (.xlsx) or CSV file to import employees in bulk. All columns will be mapped automatically.
+                        Upload an Excel (.xlsx) or CSV file to import {isEmployees ? 'employees' : 'team sprint data'} in bulk. {isEmployees ? 'All columns will be mapped automatically.' : 'Teams and projects will be auto-provisioned if missing.'}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -1081,9 +1304,9 @@ function BulkUploadDialog({ open, onOpenChange, onSuccess }: BulkUploadDialogPro
                     <div className="rounded-xl bg-muted/40 border border-border/30 p-4">
                         <div className="flex items-center justify-between mb-3">
                             <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Expected Columns</p>
-                            <Button 
-                                variant="outline" 
-                                size="sm" 
+                            <Button
+                                variant="outline"
+                                size="sm"
                                 className="h-7 text-[10px] rounded-lg bg-background font-bold border-violet-500/30 text-violet-600 hover:bg-violet-50"
                                 onClick={handleDownloadTemplate}
                             >
@@ -1092,10 +1315,18 @@ function BulkUploadDialog({ open, onOpenChange, onSuccess }: BulkUploadDialogPro
                             </Button>
                         </div>
                         <div className="flex flex-wrap gap-1.5">
-                            {['employee_id', 'employee_name', 'email', 'org', 'country', 'role', 'employment_type', 'experience_years'].map(col => (
-                                <span key={col} className="font-mono text-[10px] px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-600 border border-violet-500/20 font-bold">{col}</span>
+                            {(isEmployees
+                                ? ['employee_id', 'employee_name', 'org', 'project', 'team', 'role', 'project_ai_enabled']
+                                : ['team', 'sprint_number', 'throughput_points', 'quality_score', 'velocity_points', 'project_ai_enabled']
+                            ).map(col => (
+                                <span key={col} className={cn(
+                                    "font-mono text-[10px] px-2 py-0.5 rounded-full border font-bold",
+                                    isEmployees
+                                        ? "bg-violet-500/10 text-violet-600 border-violet-500/20"
+                                        : "bg-amber-500/10 text-amber-600 border-amber-500/20"
+                                )}>{col}</span>
                             ))}
-                            <span className="text-[10px] text-muted-foreground italic px-1">+ AI Profile columns</span>
+                            <span className="text-[10px] text-muted-foreground italic px-1">+ all other metrics</span>
                         </div>
                         <div className="mt-3 pt-3 border-t border-border/20 space-y-1.5">
                             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Role Mapping Reference</p>
@@ -1156,7 +1387,7 @@ function BulkUploadDialog({ open, onOpenChange, onSuccess }: BulkUploadDialogPro
                         <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
                             {/* Summary cards */}
                             <div className="grid grid-cols-4 gap-2">
-                                {[
+                                {isEmployees ? [
                                     { label: 'Total', value: result.total, color: 'text-foreground', bg: 'bg-muted/40' },
                                     { label: 'Created', value: result.created, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
                                     { label: 'Updated', value: result.updated, color: 'text-blue-500', bg: 'bg-blue-500/10' },
@@ -1166,8 +1397,29 @@ function BulkUploadDialog({ open, onOpenChange, onSuccess }: BulkUploadDialogPro
                                         <p className={cn('text-xl font-bold', s.color)}>{s.value}</p>
                                         <p className="text-[10px] text-muted-foreground uppercase tracking-wide">{s.label}</p>
                                     </div>
+                                )) : [
+                                    { label: 'Total', value: result.total, color: 'text-foreground', bg: 'bg-muted/40' },
+                                    { label: 'Processed', value: result.processed, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
+                                    { label: 'Provisioned', value: result.provisioned?.teams || 0, color: 'text-blue-500', bg: 'bg-blue-500/10' },
+                                    { label: 'Errors', value: result.errors?.length || 0, color: 'text-red-500', bg: 'bg-red-500/10' },
+                                ].map(s => (
+                                    <div key={s.label} className={cn('rounded-xl p-3 text-center border border-border/20', s.bg)}>
+                                        <p className={cn('text-xl font-bold', s.color)}>{s.value}</p>
+                                        <p className="text-[10px] text-muted-foreground uppercase tracking-wide">{s.label}</p>
+                                    </div>
                                 ))}
                             </div>
+
+                            {/* Provisioned Details (for Sprints) */}
+                            {isSprints && result.provisioned && (result.provisioned.orgs + result.provisioned.projects + result.provisioned.teams > 0) && (
+                                <div className="p-3 rounded-xl bg-blue-500/5 border border-blue-500/10 text-[10px] text-blue-600 flex gap-4 justify-center">
+                                    <span>Provisioned:</span>
+                                    {result.provisioned.orgs > 0 && <span>{result.provisioned.orgs} Orgs</span>}
+                                    {result.provisioned.markets > 0 && <span>{result.provisioned.markets} Markets</span>}
+                                    {result.provisioned.projects > 0 && <span>{result.provisioned.projects} Projects</span>}
+                                    {result.provisioned.teams > 0 && <span>{result.provisioned.teams} Teams</span>}
+                                </div>
+                            )}
 
                             {/* Row results */}
                             {result.rows?.length > 0 && (
@@ -1176,14 +1428,14 @@ function BulkUploadDialog({ open, onOpenChange, onSuccess }: BulkUploadDialogPro
                                         <thead className="bg-muted/30 sticky top-0">
                                             <tr>
                                                 <th className="text-left px-3 py-2 font-semibold text-muted-foreground">Row</th>
-                                                <th className="text-left px-3 py-2 font-semibold text-muted-foreground">Employee ID</th>
-                                                <th className="text-left px-3 py-2 font-semibold text-muted-foreground">Name</th>
-                                                <th className="text-left px-3 py-2 font-semibold text-muted-foreground">Role</th>
+                                                <th className="text-left px-3 py-2 font-semibold text-muted-foreground">{isEmployees ? 'Employee ID' : 'Team'}</th>
+                                                <th className="text-left px-3 py-2 font-semibold text-muted-foreground">{isEmployees ? 'Name' : 'Project'}</th>
+                                                <th className="text-left px-3 py-2 font-semibold text-muted-foreground">{isEmployees ? 'Role' : 'Sprint'}</th>
                                                 <th className="text-left px-3 py-2 font-semibold text-muted-foreground">Status</th>
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {result.rows.map((r: any) => (
+                                            {isEmployees ? result.rows.map((r: any) => (
                                                 <tr key={r.row} className="border-t border-border/20">
                                                     <td className="px-3 py-1.5 text-muted-foreground">{r.row}</td>
                                                     <td className="px-3 py-1.5 font-mono">{r.employeeId}</td>
@@ -1193,6 +1445,16 @@ function BulkUploadDialog({ open, onOpenChange, onSuccess }: BulkUploadDialogPro
                                                         <span className={cn('font-semibold', r.status === 'created' ? 'text-emerald-500' : 'text-blue-500')}>
                                                             {r.status}
                                                         </span>
+                                                    </td>
+                                                </tr>
+                                            )) : result.summary?.map((s: any, idx: number) => (
+                                                <tr key={idx} className="border-t border-border/20">
+                                                    <td className="px-3 py-1.5 text-muted-foreground">—</td>
+                                                    <td className="px-3 py-1.5 font-medium">{s.team}</td>
+                                                    <td className="px-3 py-1.5 text-muted-foreground">{s.project}</td>
+                                                    <td className="px-3 py-1.5">{s.sprintsImported} sprints</td>
+                                                    <td className="px-3 py-1.5">
+                                                        {s.aiEnabled ? <Badge className="bg-emerald-500/10 text-emerald-500 text-[9px] h-4">AI ENABLED</Badge> : <span className="text-muted-foreground text-[9px]">Standard</span>}
                                                     </td>
                                                 </tr>
                                             ))}
@@ -1209,7 +1471,7 @@ function BulkUploadDialog({ open, onOpenChange, onSuccess }: BulkUploadDialogPro
                                     </p>
                                     {result.errors.map((e: any, i: number) => (
                                         <p key={i} className="text-[10px] text-red-400 font-mono">
-                                            Row {e.row} [{e.employeeId}]: {e.error}
+                                            Row {e.row} [{e.employeeId || e.team}]: {e.error}
                                         </p>
                                     ))}
                                 </div>
@@ -1232,7 +1494,10 @@ function BulkUploadDialog({ open, onOpenChange, onSuccess }: BulkUploadDialogPro
                         <>
                             <Button variant="ghost" className="rounded-xl" onClick={() => onOpenChange(false)}>Cancel</Button>
                             <Button
-                                className="rounded-xl gap-2 font-bold px-6 bg-violet-600 hover:bg-violet-700"
+                                className={cn(
+                                    "rounded-xl gap-2 font-bold px-6",
+                                    isEmployees ? "bg-violet-600 hover:bg-violet-700" : "bg-amber-600 hover:bg-amber-700"
+                                )}
                                 onClick={handleUpload}
                                 disabled={!file || uploading}
                             >

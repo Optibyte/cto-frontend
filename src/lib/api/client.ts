@@ -806,5 +806,29 @@ export const sprintMetricsAPI = {
             return [];
         }
     },
+
+    getAnalytics: async (filters?: {
+        org?: string; country?: string; market?: string;
+        account?: string; project?: string; team?: string;
+    }) => {
+        try {
+            const params = new URLSearchParams();
+            if (filters?.org)     params.set('org',     filters.org);
+            if (filters?.country) params.set('country', filters.country);
+            if (filters?.market)  params.set('market',  filters.market);
+            if (filters?.account) params.set('account', filters.account);
+            if (filters?.project) params.set('project', filters.project);
+            if (filters?.team)    params.set('team',    filters.team);
+            const qs = params.toString();
+            const response = await fetch(
+                `${SPRINT_METRICS_API_URL}/analytics${qs ? `?${qs}` : ''}`,
+                { headers: getHeaders() }
+            );
+            if (!response.ok) return null;
+            return response.json();
+        } catch {
+            return null;
+        }
+    },
 };
 

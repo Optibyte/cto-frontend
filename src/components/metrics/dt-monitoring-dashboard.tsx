@@ -355,7 +355,7 @@ export function DTMonitoringDashboard() {
 
     // Only DT projects
     const dtProjects = useMemo(() =>
-        (allProjects as any[]).filter((p: any) => p.isDigitalTransformation === true),
+        (allProjects as any[]).filter((p: any) => p.isDigitalTransformation === true || p.aiEnabled === true),
         [allProjects]
     );
 
@@ -554,13 +554,13 @@ export function DTMonitoringDashboard() {
                     </div>
                 </div>
                 <div className="space-y-2 max-w-md">
-                    <h3 className="text-xl font-bold">No DT Projects Configured</h3>
+                    <h3 className="text-xl font-bold">No Transformation Projects Configured</h3>
                     <p className="text-muted-foreground text-sm">
-                        Enable the <strong>DT Flag</strong> on a project and set DT Start/End dates to begin monitoring Digital Transformation performance.
+                        Enable the <strong>DT Flag</strong> or <strong>AI Enabled</strong> on a project to begin monitoring transformation performance.
                     </p>
                 </div>
                 <Badge className="text-xs px-3 py-1 bg-violet-500/10 text-violet-400 border border-violet-500/20">
-                    Go to Projects → Edit → Enable DT Flag
+                    Go to Admin → AI Projects → Add / Edit
                 </Badge>
             </div>
         );

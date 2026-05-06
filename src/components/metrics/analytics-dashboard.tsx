@@ -1,248 +1,395 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { teamsAPI } from '@/lib/api/teams';
+import { toast } from 'sonner';
+import { useState } from 'react';
+import { Maximize2, X, ShieldCheck, Cpu, Briefcase, Lock, CheckCircle2, LayoutGrid, PieChart as PieIcon, Table as TableIcon, Download, Wrench, UserMinus, Trash2, Users, Zap, BarChart3, Activity, Layers, Target, TrendingUp, TrendingDown, Minus, Hash, Percent, Clock, Search, Shield, ChevronRight, Globe, Filter } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { 
-    TrendingUp, 
-    Award, 
-    BarChart3, 
-    ArrowUpRight, 
-    ArrowDownRight,
-    Users2,
-    Zap,
-    PieChart as PieChartIcon,
-    LineChart as LineChartIcon,
-    Database,
-    Download
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { 
-    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
-    AreaChart, Area, PieChart, Pie, Cell
+    LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
+    RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, Legend,
+    ScatterChart, Scatter, ZAxis, BarChart, Bar, ComposedChart, AreaChart, Area,
+    PieChart, Pie, Cell
 } from 'recharts';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-import { useSprintMetrics } from '@/hooks/use-metrics';
-import { useOrgHierarchy } from '@/hooks/use-hierarchy';
+import { useSprintAnalytics } from '@/hooks/use-metrics';
 import { useDataFence } from '@/contexts/role-context';
-import { Lock } from 'lucide-react';
-import { SprintKPIPanel } from './sprint-kpi-panel';
+import { Button } from '@/components/ui/button';
 
-const COLORS = ['#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#3b82f6'];
-const SOURCE_COLORS: Record<string, string> = { manual: '#8b5cf6', csv: '#10b981' };
+const COLORS = ['#d946ef', '#a855f7', '#8b5cf6', '#6366f1', '#3b82f6'];
 
-export function AnalyticsDashboard({ 
-    selectedProjectId = 'all', 
-    setSelectedProjectId, 
-    selectedTeamId = 'all', 
-    setSelectedTeamId 
-}: any) {
-    const [projInitialized, setProjInitialized] = useState(false);
-    const [teamInitialized, setTeamInitialized] = useState(false);
-    
-    // Fetch all sprint metrics
-    const { data: metrics = [], isLoading: metricsLoading } = useSprintMetrics();
-    const { data: hierarchy } = useOrgHierarchy();
+const ChartTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+        return (
+            <div className="bg-white dark:bg-card/95 backdrop-blur-2xl border border-border/50 p-3 rounded-2xl shadow-2xl animate-in fade-in zoom-in duration-300">
+                {label && <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-2">{label}</p>}
+                {payload.map((item: any, index: number) => (
+                    <div key={index} className="flex items-center justify-between gap-4 mb-1.5 last:mb-0">
+                        <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color || item.fill }} />
+                            <span className="text-[11px] font-bold text-muted-foreground">{item.name}</span>
+                        </div>
+                        <span className="text-[11px] font-black text-foreground">
+                            {typeof item.value === 'number' ? 
+                                (item.name.toLowerCase().includes('rate') || item.name.toLowerCase().includes('quality') || item.name.toLowerCase().includes('%') ? 
+                                    `${item.value.toFixed(1)}%` : 
+                                    item.value.toLocaleString()) : 
+                                item.value}
+                        </span>
+                    </div>
+                ))}
+            </div>
+        );
+    }
+    return null;
+};
 
+const ScatterTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+        const data = payload[0].payload;
+        return (
+            <div className="bg-white dark:bg-card/95 backdrop-blur-2xl border border-border/50 p-4 rounded-[1.5rem] shadow-2xl animate-in fade-in zoom-in duration-300 min-w-[200px]">
+                <div className="flex items-center gap-2 mb-3">
+                    <div className={cn("w-3 h-3 rounded-full", data.aiEnabled ? "bg-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.4)]" : "bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.4)]")} />
+                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Project Analytics</p>
+                </div>
+                <h4 className="text-sm font-black text-foreground mb-3">{data.project}</h4>
+                <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-4 py-1.5 border-b border-border/5">
+                        <span className="text-[11px] font-bold text-muted-foreground">Quality Score</span>
+                        <span className="text-[11px] font-black text-emerald-500">{data.avgQuality}%</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-4 py-1.5 border-b border-border/5">
+                        <span className="text-[11px] font-bold text-muted-foreground">Velocity</span>
+                        <span className="text-[11px] font-black text-blue-500">{data.avgVelocity} pts</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-4 py-1.5">
+                        <span className="text-[11px] font-bold text-muted-foreground">Model</span>
+                        <Badge className={cn("text-[9px] font-black h-4 px-1.5", data.aiEnabled ? "bg-purple-500/10 text-purple-500 border-none" : "bg-blue-500/10 text-blue-500 border-none")}>
+                            {data.aiEnabled ? 'AI ENABLED' : 'TRADITIONAL'}
+                        </Badge>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+    return null;
+};
+
+// --- CHART COMPONENTS ---
+
+const RoleProficiencyChart = ({ data }: any) => (
+    <ResponsiveContainer width="100%" height="100%">
+        <ComposedChart data={data || []}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.1} />
+            <XAxis dataKey="role" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'currentColor', fontWeight: 700 }} dy={10} />
+            <YAxis yAxisId="left" orientation="left" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700 }} label={{ value: 'Resources', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fontSize: 10, fill: '#8b5cf6' } }} />
+            <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700 }} domain={[0, 5]} label={{ value: 'Skill Level', angle: 90, position: 'insideRight', style: { textAnchor: 'middle', fontSize: 10, fill: '#f97316' } }} />
+            <RechartsTooltip content={<ChartTooltip />} />
+            <Legend verticalAlign="top" align="right" height={36}/>
+            <Bar yAxisId="left" dataKey="resources" name="Resources" fill="#a855f7" radius={[6, 6, 0, 0]} barSize={40} />
+            <Line yAxisId="right" type="monotone" dataKey="avgSkill" name="Avg Skill" stroke="#f97316" strokeWidth={3} dot={{ r: 4, fill: '#f97316' }} />
+        </ComposedChart>
+    </ResponsiveContainer>
+);
+
+const SkillMaturityChart = ({ data }: any) => (
+    <ResponsiveContainer width="100%" height="100%">
+        <PieChart>
+            <Pie
+                data={data || []}
+                cx="50%"
+                cy="50%"
+                innerRadius="60%"
+                outerRadius="80%"
+                paddingAngle={5}
+                dataKey="count"
+            >
+                {data?.map((entry: any, index: number) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+            </Pie>
+            <RechartsTooltip content={<ChartTooltip />} />
+            <Legend layout="vertical" align="right" verticalAlign="middle" />
+        </PieChart>
+    </ResponsiveContainer>
+);
+
+const PerformanceTrendsChart = ({ data }: any) => (
+    <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={data || []} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+            <defs>
+                <linearGradient id="colorQuality" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.1} />
+            <XAxis dataKey="sprintLabel" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700 }} dy={10} />
+            <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700 }} />
+            <RechartsTooltip content={<ChartTooltip />} />
+            <Legend />
+            <Area type="monotone" dataKey="avgQuality" name="Quality %" stroke="#10b981" fillOpacity={1} fill="url(#colorQuality)" />
+            <Line type="monotone" dataKey="avgVelocity" name="Velocity" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4 }} />
+            <Line type="monotone" dataKey="avgTechDebt" name="Tech Debt" stroke="#ef4444" strokeDasharray="5 5" strokeWidth={2} dot={{ r: 3 }} />
+        </AreaChart>
+    </ResponsiveContainer>
+);
+
+const AiVsTraditionalChart = ({ data }: any) => (
+    <ResponsiveContainer width="100%" height="100%">
+        <RadarChart cx="50%" cy="50%" outerRadius="70%" data={data}>
+            <PolarGrid />
+            <PolarAngleAxis dataKey="subject" tick={{ fill: 'currentColor', fontSize: 11, fontWeight: 600 }} />
+            <PolarRadiusAxis angle={30} domain={[0, 'auto']} />
+            <Radar name="AI Enabled" dataKey="ai" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.6} />
+            <Radar name="Traditional" dataKey="nonAi" stroke="#3b82f6" fill="transparent" strokeWidth={2} />
+            <Legend />
+            <RechartsTooltip content={<ChartTooltip />} />
+        </RadarChart>
+    </ResponsiveContainer>
+);
+
+const ProjectCorrelationChart = ({ data }: any) => (
+    <ResponsiveContainer width="100%" height="100%">
+        <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
+            <XAxis type="number" dataKey="avgVelocity" name="Velocity" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700 }} label={{ value: 'Velocity', position: 'bottom', fontSize: 10 }} />
+            <YAxis type="number" dataKey="avgQuality" name="Quality" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700 }} label={{ value: 'Quality', angle: -90, position: 'left', fontSize: 10 }} />
+            <ZAxis type="category" dataKey="project" name="Project" />
+            <RechartsTooltip cursor={{ strokeDasharray: '3 3' }} content={<ScatterTooltip />} />
+            <Scatter name="AI Projects" data={data?.filter((d: any) => d.aiEnabled) || []} fill="#8b5cf6" />
+            <Scatter name="Traditional" data={data?.filter((d: any) => !d.aiEnabled) || []} fill="#3b82f6" />
+        </ScatterChart>
+    </ResponsiveContainer>
+);
+
+export function AnalyticsDashboard({ filters }: { filters: any }) {
+    const { data: analytics, isLoading } = useSprintAnalytics(filters);
     const fence = useDataFence();
+    const [expandedCard, setExpandedCard] = useState<string | null>(null);
 
-    // Hierarchy & Fence Logic (moved logic here if needed, but we keep it for filtering)
-    // ... (rest of memos stay the same)
+    if (isLoading) {
+        return <div className="flex justify-center py-20 animate-pulse text-muted-foreground font-black tracking-widest uppercase">Loading Analytics Dashboard...</div>;
+    }
 
-    // Hierarchy & Fence Logic
-    const resolvedAllowedProjectIds = useMemo(() => {
-        if (!fence.isRestricted) return null;
-        if (fence.allowedProjectIds && fence.allowedProjectIds.length > 0) return fence.allowedProjectIds;
-        if (fence.allowedTeamIds && hierarchy) {
-            const projectIds: string[] = [];
-            hierarchy.markets?.forEach((m: any) => {
-                m.accounts?.forEach((a: any) => {
-                    a.teams?.forEach((t: any) => {
-                        if (fence.allowedTeamIds!.includes(t.id) && t.projectId && !projectIds.includes(t.projectId)) {
-                            projectIds.push(t.projectId);
-                        }
-                    });
-                });
+    if (!analytics) {
+        return <div className="flex justify-center py-20 text-muted-foreground font-black tracking-widest uppercase">No data available</div>;
+    }
+
+    const { kpi, roleProficiency, skillMaturity, performanceTrends, aiVsNonAi, scatter } = analytics;
+
+    const cards = [
+        { id: 'role', title: 'Role AI Proficiency', description: 'Headcount vs Skill Level across roles', icon: Users, data: roleProficiency, component: RoleProficiencyChart, span: 'lg:col-span-2' },
+        { id: 'maturity', title: 'AI Skill Maturity', description: 'Proficiency level distribution', icon: Target, data: skillMaturity, component: SkillMaturityChart, span: 'lg:col-span-1' },
+        { id: 'trends', title: 'Performance Trends', description: 'Quality, Velocity, and Debt trends', icon: Activity, data: performanceTrends, component: PerformanceTrendsChart, span: 'lg:col-span-2' },
+        { id: 'radar', title: 'AI vs Traditional', description: 'Performance comparison', icon: Zap, data: [
+            { subject: 'Quality',   ai: aiVsNonAi?.ai?.quality || 0,    nonAi: aiVsNonAi?.nonAi?.quality || 0 },
+            { subject: 'Velocity',  ai: aiVsNonAi?.ai?.velocity || 0,   nonAi: aiVsNonAi?.nonAi?.velocity || 0 },
+            { subject: 'Throughput',ai: aiVsNonAi?.ai?.throughput || 0, nonAi: aiVsNonAi?.nonAi?.throughput || 0 },
+        ], component: AiVsTraditionalChart, span: 'lg:col-span-1' },
+        { id: 'scatter', title: 'Project Correlation', description: 'Quality Score vs Velocity Points', icon: BarChart3, data: scatter, component: ProjectCorrelationChart, span: 'lg:col-span-1' },
+    ];
+
+    const radarData = [
+        { subject: 'Quality',   ai: aiVsNonAi?.ai?.quality || 0,    nonAi: aiVsNonAi?.nonAi?.quality || 0 },
+        { subject: 'Velocity',  ai: aiVsNonAi?.ai?.velocity || 0,   nonAi: aiVsNonAi?.nonAi?.velocity || 0 },
+        { subject: 'Throughput',ai: aiVsNonAi?.ai?.throughput || 0, nonAi: aiVsNonAi?.nonAi?.throughput || 0 },
+    ];
+
+    const handleExport = () => {
+        if (!analytics) return;
+
+        let csv = 'Report: Metrics Dashboard Analysis\n';
+        csv += `Exported At: ${new Date().toLocaleString()}\n\n`;
+
+        // KPIs
+        csv += '--- KEY PERFORMANCE INDICATORS ---\n';
+        csv += `Avg Done to Said Ratio,${kpi?.avgDoneToSaid}%\n`;
+        csv += `Technical Debt Index,${kpi?.avgTechDebt}\n`;
+        csv += `AI Enabled Projects,${kpi?.aiProjectCount}\n`;
+        csv += `Avg Throughput,${kpi?.avgThroughput} Pts/Sprint\n\n`;
+
+        // Role Proficiency
+        if (roleProficiency?.length > 0) {
+            csv += '--- ROLE AI PROFICIENCY ---\n';
+            csv += 'Role,Resources,Avg Skill,Progress\n';
+            roleProficiency.forEach((r: any) => {
+                csv += `"${r.role}",${r.resources},${r.avgSkill},${r.progress}%\n`;
             });
-            return projectIds.length > 0 ? projectIds : null;
+            csv += '\n';
         }
-        return null;
-    }, [fence, hierarchy]);
 
-    const projects = useMemo(() => {
-        if (!hierarchy) return [];
-        const projs: any[] = [];
-        hierarchy.markets?.forEach((m: any) => {
-            m.accounts?.forEach((a: any) => {
-                a.teams?.forEach((t: any) => {
-                    if (t.project && !projs.find((p: any) => p.id === t.project.id)) {
-                        const withinFence = !resolvedAllowedProjectIds || resolvedAllowedProjectIds.includes(t.project.id);
-                        const withinTeamFence = !fence.allowedTeamIds || fence.allowedTeamIds.includes(t.id);
-                        if (withinFence && withinTeamFence) projs.push(t.project);
-                    }
-                });
+        // Skill Maturity
+        if (skillMaturity?.length > 0) {
+            csv += '--- AI SKILL MATURITY ---\n';
+            csv += 'Level,Count\n';
+            skillMaturity.forEach((s: any) => {
+                csv += `"${s.name}",${s.count}\n`;
             });
-        });
-        return projs;
-    }, [hierarchy, resolvedAllowedProjectIds, fence.allowedTeamIds]);
+            csv += '\n';
+        }
 
-    const teams = useMemo(() => {
-        if (!hierarchy) return [];
-        let allTeams: any[] = [];
-        hierarchy.markets?.forEach((m: any) => {
-            m.accounts?.forEach((a: any) => {
-                allTeams = [...allTeams, ...(a.teams || [])];
+        // Performance Trends
+        if (performanceTrends?.length > 0) {
+            csv += '--- PERFORMANCE TRENDS ---\n';
+            csv += 'Sprint,Quality %,Velocity,Tech Debt\n';
+            performanceTrends.forEach((t: any) => {
+                csv += `"${t.sprintLabel}",${t.avgQuality},${t.avgVelocity},${t.avgTechDebt}\n`;
             });
-        });
-        if (selectedProjectId !== 'all') {
-            allTeams = allTeams.filter((t: any) => t.projectId === selectedProjectId);
+            csv += '\n';
         }
-        if (fence.allowedTeamIds) {
-            allTeams = allTeams.filter((t: any) => fence.allowedTeamIds!.includes(t.id));
-        }
-        if (resolvedAllowedProjectIds) {
-            allTeams = allTeams.filter((t: any) => resolvedAllowedProjectIds.includes(t.projectId));
-        }
-        return allTeams;
-    }, [hierarchy, selectedProjectId, fence.allowedTeamIds, resolvedAllowedProjectIds]);
 
-    useEffect(() => {
-        if (!fence.isRestricted) return;
-        if (projects.length > 0 && !projInitialized) {
-            const isProjectValid = projects.some(p => p.id === selectedProjectId);
-            if (selectedProjectId === 'all' || !isProjectValid) {
-                setSelectedProjectId(projects[0].id);
-                setProjInitialized(true);
-            }
-        }
-        if (teams.length > 0 && !teamInitialized) {
-            const isTeamValid = teams.some(t => t.id === selectedTeamId);
-            if (selectedTeamId === 'all' || !isTeamValid) {
-                setSelectedTeamId(teams[0].id);
-                setTeamInitialized(true);
-            }
-        }
-    }, [fence.isRestricted, projects, teams, selectedProjectId, selectedTeamId, projInitialized, teamInitialized]);
-
-    // Apply the "manual" and "csv" filter precisely here
-    const filteredMetrics = useMemo(() => {
-        return metrics.filter((m: any) => {
-            const team = teams.find(t => t.id === m.teamId);
-            const matchesProject = selectedProjectId === 'all' || m.projectId === selectedProjectId || (team && team.projectId === selectedProjectId);
-            const matchesTeam = selectedTeamId === 'all' || m.teamId === selectedTeamId;
-            return matchesProject && matchesTeam;
-        });
-    }, [metrics, selectedProjectId, selectedTeamId, teams]);
-
-    // Aggregates for Cards
-    const stats = useMemo(() => {
-        if (filteredMetrics.length === 0) return { avg: 0, count: 0, trend: 0 };
-        
-        let totalQuality = 0;
-        let validCount = 0;
-
-        filteredMetrics.forEach((m: any) => {
-            if (m.qualityScore !== undefined) {
-                totalQuality += Number(m.qualityScore);
-                validCount++;
-            }
-        });
-
-        // Compute avg out of 5 based on quality score (which is a percentage 0-100)
-        const avgPercentage = validCount > 0 ? (totalQuality / validCount) / 100 : 0;
-        const avgRating = Math.min(5, Math.max(0, avgPercentage * 5));
-        
-        return {
-            avg: Number(avgRating.toFixed(1)),
-            count: filteredMetrics.length,
-            trend: 8.4
-        };
-    }, [filteredMetrics]);
-
-    // Report Generation
-    const handleExportReport = () => {
-        if (filteredMetrics.length === 0) return;
-        
-        let csv = 'Sprint,Team ID,Project ID,Velocity,Throughput,Quality,Done To Said,Tech Debt,Stories Delivered\n';
-        
-        filteredMetrics.forEach((m: any) => {
-            csv += `"${m.sprintName || m.sprintNumber}",${m.teamId || ''},${m.projectId || ''},${m.velocityPoints || 0},${m.throughputPoints || 0},${m.qualityScore || 0},${m.doneToSaidRatio || 0},${m.technicalDebtIndex || 0},${m.userStoriesDelivered || 0}\n`;
-        });
-        
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.setAttribute('download', `Analytics_Metrics_Report.csv`);
+        link.setAttribute('download', `Metrics_Dashboard_Report_${new Date().toISOString().split('T')[0]}.csv`);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
     };
 
-    // Chart: Source Dist
-    const sourceChartData = useMemo(() => {
-        const counts = { manual: 0, csv: 0 };
-        filteredMetrics.forEach((m: any) => {
-            if (m.source === 'manual') counts.manual++;
-            if (m.source === 'csv') counts.csv++;
-        });
-        return [
-            { name: 'Manual', value: counts.manual, source: 'manual' },
-            { name: 'CSV Upload', value: counts.csv, source: 'csv' }
-        ].filter(d => d.value > 0);
-    }, [filteredMetrics]);
+    const selectedEmployee = filters.member 
+        ? analytics.filteredEmployees?.find((e: any) => e.fullName === filters.member)
+        : null;
 
-    // Chart: Category Dist (Simulated by averaging across specific metric fields in sprints)
-    const categoryChartData = useMemo(() => {
-        if (filteredMetrics.length === 0) return [];
-        let tp = 0, vel = 0, qa = 0, td = 0, dt = 0;
-        filteredMetrics.forEach((m: any) => {
-            tp += Number(m.throughputPoints || 0);
-            vel += Number(m.velocityPoints || 0);
-            qa += Number(m.qualityScore || 0);
-            td += Number(m.technicalDebtIndex || 0);
-            dt += Number(m.doneToSaidRatio || 0);
-        });
-        const n = filteredMetrics.length;
-        return [
-            { name: 'Throughput', value: Math.min(5, (tp / n) / 10) },
-            { name: 'Velocity', value: Math.min(5, (vel / n) / 10) },
-            { name: 'Quality', value: Math.min(5, (qa / n) / 20) },
-            { name: 'Tech Debt', value: Math.max(0, 5 - (td / n) / 2) },
-            { name: 'Done/Said', value: Math.min(5, (dt / n) / 20) }
-        ].sort((a, b) => b.value - a.value);
-    }, [filteredMetrics]);
+    const handleRemoveMember = async () => {
+        if (!selectedEmployee || !selectedEmployee.teamId) {
+            toast.error("Team information missing for this member");
+            return;
+        }
 
-    // Chart: Trend over time
-    const trendChartData = useMemo(() => {
-        const groups: Record<string, { sum: number, count: number }> = {};
-        filteredMetrics.forEach((m: any) => {
-            const timeField = m.calculatedAt || m.createdAt || m.updatedAt;
-            if (!timeField) return;
-            const dateStr = new Date(timeField).toISOString().split('T')[0];
-            if (!groups[dateStr]) groups[dateStr] = { sum: 0, count: 0 };
-            
-            // Just average velocity for the trend line
-            groups[dateStr].sum += Number(m.velocityPoints || 0);
-            groups[dateStr].count += 1;
-        });
+        if (!confirm(`Are you sure you want to remove ${selectedEmployee.fullName} from their team?`)) {
+            return;
+        }
 
-        return Object.entries(groups)
-            .sort((a, b) => a[0].localeCompare(b[0]))
-            .map(([date, g]) => ({
-                name: date,
-                value: Number((g.sum / g.count).toFixed(1))
-            }))
-            .slice(-14);
-    }, [filteredMetrics]);
-
-    if (metricsLoading) {
-        return <div className="flex justify-center py-20 animate-pulse text-muted-foreground font-black tracking-widest uppercase">Loading Analytics Dashboard...</div>;
-    }
+        try {
+            await teamsAPI.removeSingleMember(selectedEmployee.teamId, selectedEmployee.id);
+            toast.success("Member removed from team successfully");
+            // Reload the page or trigger a re-fetch
+            window.location.reload();
+        } catch (error) {
+            console.error("Error removing member:", error);
+            toast.error("Failed to remove member from team");
+        }
+    };
 
     return (
-        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-1000 pb-10">
+            <div className="flex justify-end mb-2">
+                <Button 
+                    onClick={handleExport}
+                    className="rounded-xl bg-violet-600 hover:bg-violet-700 text-white shadow-lg shadow-violet-500/20 font-bold px-6 h-11"
+                >
+                    <Download className="h-4 w-4 mr-2" />
+                    Download Executive Report
+                </Button>
+            </div>
+            {/* Member Spotlight (Expanded Full Profile) */}
+            {selectedEmployee && (
+                <Card className="rounded-[2.5rem] border-[1.5px] border-violet-500/30 bg-violet-500/5 backdrop-blur-2xl shadow-2xl overflow-hidden animate-in zoom-in duration-500">
+                    <CardContent className="p-10">
+                        <div className="flex flex-col lg:flex-row gap-10">
+                            {/* Left: Avatar & Basic Info */}
+                            <div className="flex flex-col items-center text-center space-y-4 lg:w-1/4">
+                                <div className="relative">
+                                    <div className="w-32 h-32 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-white text-4xl font-black shadow-2xl shadow-violet-500/40 border-4 border-background/50">
+                                        {selectedEmployee.fullName?.charAt(0)}
+                                    </div>
+                                    <div className="absolute bottom-2 right-2 bg-emerald-500 w-8 h-8 rounded-full border-4 border-background flex items-center justify-center">
+                                        <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                                    </div>
+                                </div>
+                                <div>
+                                    <h2 className="text-3xl font-black tracking-tight text-foreground mb-1">{selectedEmployee.fullName}</h2>
+                                    <div className="flex flex-wrap justify-center gap-2">
+                                        <Badge className="bg-violet-500/10 text-violet-600 dark:text-violet-400 border-none px-2 py-0.5 rounded-md text-[10px] font-black uppercase">
+                                            {selectedEmployee.jobRole || 'Engineer'}
+                                        </Badge>
+                                        <Badge className="bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-none px-2 py-0.5 rounded-md text-[10px] font-black uppercase">
+                                            {selectedEmployee.aiProfile?.employmentType || 'Full-Time'}
+                                        </Badge>
+                                    </div>
+                                </div>
+                                <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    onClick={handleRemoveMember}
+                                    className="mt-4 rounded-xl border-red-500/20 text-red-500 hover:bg-red-500 hover:text-white transition-all gap-2 font-bold text-[10px] uppercase tracking-wider h-8 px-4"
+                                >
+                                    <UserMinus className="h-3 w-3" />
+                                    Remove From Team
+                                </Button>
+                            </div>
+
+                            {/* Center: AI Skills & Proficiency */}
+                            <div className="flex-1 space-y-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="space-y-4">
+                                        <h3 className="text-sm font-black uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                                            <Zap className="h-4 w-4 text-amber-500" />
+                                            AI Capabilities
+                                        </h3>
+                                        <div className="space-y-3">
+                                            <div className="bg-background/40 p-4 rounded-2xl border border-border/50">
+                                                <p className="text-[10px] font-black uppercase text-muted-foreground mb-1">Primary Skill</p>
+                                                <div className="flex justify-between items-center">
+                                                    <p className="font-bold text-foreground">{selectedEmployee.aiProfile?.primaryAiSkill || 'N/A'}</p>
+                                                    <Badge className="bg-emerald-500/20 text-emerald-600 border-none">{selectedEmployee.aiProfile?.primaryAiSkillProficiency || 0}/5</Badge>
+                                                </div>
+                                            </div>
+                                            <div className="bg-background/40 p-4 rounded-2xl border border-border/50">
+                                                <p className="text-[10px] font-black uppercase text-muted-foreground mb-1">Secondary Skill</p>
+                                                <div className="flex justify-between items-center">
+                                                    <p className="font-bold text-foreground">{selectedEmployee.aiProfile?.secondaryAiSkill || 'N/A'}</p>
+                                                    <Badge className="bg-blue-500/20 text-blue-600 border-none">{selectedEmployee.aiProfile?.secondaryAiSkillProficiency || 0}/5</Badge>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-4">
+                                        <h3 className="text-sm font-black uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                                            <Wrench className="h-4 w-4 text-violet-500" />
+                                            Toolbox
+                                        </h3>
+                                        <div className="flex flex-wrap gap-2">
+                                            {selectedEmployee.aiProfile?.aiToolsUsed?.length > 0 ? (
+                                                selectedEmployee.aiProfile.aiToolsUsed.map((tool: string) => (
+                                                    <Badge key={tool} variant="outline" className="rounded-lg px-3 py-1 bg-background/50 border-violet-500/20 text-violet-600 dark:text-violet-400 font-bold">
+                                                        {tool}
+                                                    </Badge>
+                                                ))
+                                            ) : (
+                                                <p className="text-xs text-muted-foreground italic">No specific AI tools mapped</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Right: Key Stats */}
+                            <div className="flex flex-row lg:flex-col gap-4 lg:w-48">
+                                <div className="flex-1 bg-violet-600 p-6 rounded-[2rem] text-center text-white shadow-xl shadow-violet-600/20">
+                                    <p className="text-[10px] font-black uppercase opacity-80 mb-1">Overall AI Rank</p>
+                                    <p className="text-4xl font-black">{selectedEmployee.aiProfile?.overallAiProficiency || '0'}</p>
+                                    <p className="text-[10px] font-bold opacity-60">Top Performers Club</p>
+                                </div>
+                                <div className="flex-1 bg-background/60 backdrop-blur-md p-6 rounded-[2rem] text-center border border-border/50">
+                                    <p className="text-[10px] font-black uppercase text-muted-foreground mb-1">Experience</p>
+                                    <p className="text-3xl font-black text-foreground">{selectedEmployee.aiProfile?.experienceYears || 0}y</p>
+                                    <p className="text-[10px] font-bold text-muted-foreground">Professional Industry</p>
+                                </div>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
+
             {fence.isRestricted && (
                 <div className="flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400">
                     <Lock className="h-4 w-4 shrink-0" />
@@ -250,295 +397,193 @@ export function AnalyticsDashboard({
                 </div>
             )}
 
-
-            {/* Sprint KPI Summary Panel */}
-            <div className="rounded-[2.5rem] border-[1.5px] border-border/50 bg-gradient-to-b from-background/90 to-background/50 backdrop-blur-2xl shadow-xl overflow-hidden">
-                <div className="p-8 pb-4 flex items-center justify-between border-b border-border/10">
-                    <div>
-                        <h3 className="text-2xl font-black tracking-tight">Productivity &amp; Quality Metrics</h3>
-                        <p className="text-muted-foreground text-xs font-medium mt-1">Calculated from sprint data using standard engineering formulas — averaged across all sprints</p>
-                    </div>
-                    <div className="flex gap-3 text-[10px] font-black uppercase tracking-widest items-center">
-                        <Button 
-                            onClick={handleExportReport} 
-                            disabled={filteredMetrics.length === 0}
-                            variant="outline"
-                            className="h-8 rounded-full bg-primary/10 text-primary border-primary/20 hover:bg-primary/20 mr-2"
-                        >
-                            <Download className="h-3 w-3 mr-1.5" />
-                            Export CSV
-                        </Button>
-                        <span className="px-3 py-1.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">● On Target</span>
-                        <span className="px-3 py-1.5 rounded-full bg-amber-400/10 text-amber-400 border border-amber-400/20">● At Risk</span>
-                        <span className="px-3 py-1.5 rounded-full bg-red-500/10 text-red-500 border border-red-500/20">● Off Target</span>
-                    </div>
-                </div>
-                <div className="p-8">
-                    <SprintKPIPanel metrics={filteredMetrics} />
-                </div>
-            </div>
-
-            {/* Quick Stats Grid */}
+            {/* KPI Cards (Top Row) */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
                 <StatCard 
-                    title="Overall Health" 
-                    value={stats.avg} 
-                    unit="/ 5"
-                    icon={<Award className="h-6 w-6" />} 
-                    trend={stats.trend}
-                    description="Performance Rating"
+                    title="Avg Done to Said Ratio" 
+                    value={`${Number((kpi?.avgDoneToSaid || 0) > 1 ? kpi?.avgDoneToSaid : (kpi?.avgDoneToSaid || 0) * 100).toFixed(1)}%`} 
+                    icon={<Activity className="h-6 w-6" />} 
+                    description="Reliability Level"
+                    color="text-emerald-500"
                 />
                 <StatCard 
-                    title="Active Sources" 
-                    value={sourceChartData.length} 
-                    icon={<Users2 className="h-6 w-6" />} 
-                    description="Input channels"
+                    title="Technical Debt Index" 
+                    value={Number(kpi?.avgTechDebt || 0).toFixed(2)} 
+                    icon={<Layers className="h-6 w-6" />} 
+                    description="Debt Level Score"
+                    color="text-amber-500"
                 />
                 <StatCard 
-                    title="Total Entries" 
-                    value={stats.count} 
+                    title="Project Landscape" 
+                    value={kpi?.totalProjectCount || 0} 
                     icon={<Zap className="h-6 w-6" />} 
-                    description="Manual & CSV records"
+                    description={`${kpi?.aiProjectCount || 0} AI | ${kpi?.normalProjectCount || 0} Traditional`}
+                    color="text-purple-500"
                 />
                 <StatCard 
-                    title="Monitored Teams" 
-                    value={new Set(filteredMetrics.map((m: any) => m.teamId)).size} 
-                    icon={<PieChartIcon className="h-6 w-6" />} 
-                    trend={1.2}
-                    description="Teams with metric data"
+                    title="Avg Throughput" 
+                    value={Number(kpi?.avgThroughput || 0).toFixed(1)} 
+                    unit="Pts/Sprint"
+                    icon={<BarChart3 className="h-6 w-6" />} 
+                    description="Delivery Performance"
+                    color="text-blue-500"
                 />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Trend Chart */}
-                <Card className="rounded-[2.5rem] border-[1.5px] border-border/50 bg-gradient-to-b from-background/90 to-background/50 backdrop-blur-2xl shadow-xl lg:col-span-2 overflow-hidden hover:shadow-2xl hover:border-primary/20 transition-all duration-500 group">
-                    <CardHeader className="p-8 pb-4">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <CardTitle className="text-2xl font-black tracking-tight">Performance Trend</CardTitle>
-                                <CardDescription className="font-medium mt-1 text-xs">Average metric values over recent days</CardDescription>
+                {cards.map((card) => (
+                    <Card key={card.id} className={cn("rounded-[2.5rem] border-[1.5px] border-border/50 bg-background/50 backdrop-blur-2xl shadow-xl overflow-hidden group", card.span)}>
+                        <CardHeader className="p-8 pb-4 flex flex-row items-center justify-between">
+                            <div className="space-y-1">
+                                <CardTitle className="text-2xl font-black tracking-tight">{card.title}</CardTitle>
+                                <CardDescription className="font-medium text-xs">{card.description}</CardDescription>
                             </div>
-                            <div className="p-4 rounded-3xl bg-primary/10 text-primary border border-primary/20 shadow-inner group-hover:scale-110 transition-transform duration-500">
-                                <TrendingUp className="h-6 w-6" />
+                            <div className="flex items-center gap-2">
+                                <card.icon className="h-5 w-5 text-muted-foreground/40 group-hover:text-primary transition-colors" />
+                                <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    onClick={() => setExpandedCard(card.id)}
+                                    className="h-8 w-8 rounded-xl bg-muted/50 hover:bg-primary/10 hover:text-primary opacity-0 group-hover:opacity-100 transition-all duration-300"
+                                >
+                                    <Maximize2 className="h-4 w-4" />
+                                </Button>
                             </div>
-                        </div>
-                    </CardHeader>
-                    <CardContent className="p-6 h-[400px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={trendChartData} margin={{ top: 20, right: 20, left: -10, bottom: 0 }}>
-                                <defs>
-                                    <linearGradient id="colorTrend" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.6}/>
-                                        <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
-                                    </linearGradient>
-                                </defs>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.03)" />
-                                <XAxis 
-                                    dataKey="name" 
-                                    axisLine={false} 
-                                    tickLine={false} 
-                                    tick={{ fontSize: 11, fill: 'currentColor', fontWeight: 800, opacity: 0.5 }}
-                                    dy={15}
-                                />
-                                <YAxis 
-                                    axisLine={false} 
-                                    tickLine={false} 
-                                    tick={{ fontSize: 11, fill: 'currentColor', fontWeight: 800, opacity: 0.5 }}
-                                />
-                                <RechartsTooltip 
-                                    content={({ active, payload }) => {
-                                        if (active && payload && payload.length) {
-                                            return (
-                                                <div className="bg-background/95 backdrop-blur-2xl border border-primary/30 p-5 rounded-[1.5rem] shadow-2xl shadow-primary/20">
-                                                    <p className="text-xs font-black uppercase text-muted-foreground/80 mb-2 tracking-widest">{payload[0].payload.name}</p>
-                                                    <p className="text-4xl font-black text-primary drop-shadow-sm">{payload[0].value}</p>
-                                                    <p className="text-[10px] uppercase font-black text-primary/60 tracking-[0.2em] mt-2 border-t border-primary/10 pt-2">Daily Average Score</p>
-                                                </div>
-                                            );
-                                        }
-                                        return null;
-                                    }}
-                                />
-                                <Area 
-                                    type="monotone" 
-                                    dataKey="value" 
-                                    stroke="#8b5cf6" 
-                                    strokeWidth={4} 
-                                    fillOpacity={1} 
-                                    fill="url(#colorTrend)" 
-                                    animationDuration={2000}
-                                    activeDot={{ r: 6, strokeWidth: 0, fill: '#8b5cf6' }}
-                                />
-                            </AreaChart>
-                        </ResponsiveContainer>
-                    </CardContent>
-                </Card>
+                        </CardHeader>
+                        <CardContent className="p-6 h-[400px]">
+                            <card.component data={card.data} />
+                        </CardContent>
+                    </Card>
+                ))}
 
-                {/* Source Chart */}
-                <Card className="rounded-[2.5rem] border-[1.5px] border-border/50 bg-gradient-to-br from-background/90 to-background/50 backdrop-blur-2xl shadow-xl overflow-hidden hover:shadow-2xl hover:border-emerald-500/20 transition-all duration-500 group">
-                    <CardHeader className="p-8 pb-0">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <CardTitle className="text-2xl font-black tracking-tight">Data Sources</CardTitle>
-                                <CardDescription className="font-medium mt-1 text-xs">Manual vs CSV inputs</CardDescription>
-                            </div>
+                {/* Data Tables: Top Performing Roles by AI Skill */}
+                <Card className="rounded-[2.5rem] border-[1.5px] border-border/50 bg-background/50 backdrop-blur-2xl shadow-xl lg:col-span-2 overflow-hidden group">
+                    <CardHeader className="p-8 pb-4 flex flex-row items-center justify-between">
+                        <div className="space-y-1">
+                            <CardTitle className="text-2xl font-black tracking-tight">Top Roles by AI Skill</CardTitle>
+                            <CardDescription className="font-medium text-xs">Proficiency and resource distribution</CardDescription>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <TableIcon className="h-5 w-5 text-muted-foreground/40 group-hover:text-primary transition-colors" />
+                            <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                onClick={() => setExpandedCard('table')}
+                                className="h-8 w-8 rounded-xl bg-muted/50 hover:bg-primary/10 hover:text-primary opacity-0 group-hover:opacity-100 transition-all duration-300"
+                            >
+                                <Maximize2 className="h-4 w-4" />
+                            </Button>
                         </div>
                     </CardHeader>
-                    <CardContent className="p-8 h-[400px] flex flex-col items-center justify-center relative">
-                        {sourceChartData.length > 0 ? (
-                            <>
-                                <ResponsiveContainer width="100%" height="80%">
-                                    <PieChart>
-                                        <Pie
-                                            data={sourceChartData}
-                                            innerRadius={80}
-                                            outerRadius={105}
-                                            paddingAngle={8}
-                                            dataKey="value"
-                                            stroke="none"
-                                            animationDuration={2000}
-                                            cornerRadius={8}
-                                        >
-                                            {sourceChartData.map((entry, index) => (
-                                                <Cell key={`cell-${index}`} fill={SOURCE_COLORS[entry.source as keyof typeof SOURCE_COLORS] || COLORS[index % COLORS.length]} />
-                                            ))}
-                                        </Pie>
-                                        <RechartsTooltip 
-                                            content={({ active, payload }) => {
-                                                if (active && payload && payload.length) {
-                                                    const color = SOURCE_COLORS[payload[0].payload.source as keyof typeof SOURCE_COLORS] || COLORS[0];
-                                                    return (
-                                                        <div className="bg-background/95 backdrop-blur-2xl border border-border/50 p-5 rounded-[1.5rem] shadow-2xl min-w-[150px]" style={{ borderColor: `${color}60` }}>
-                                                            <p className="text-xs font-black text-muted-foreground/80 uppercase tracking-widest">{payload[0].name}</p>
-                                                            <p className="text-4xl font-black mt-2 drop-shadow-sm" style={{ color }}>{payload[0].value}</p>
-                                                            <p className="text-[10px] uppercase font-black tracking-[0.2em] mt-2 opacity-60 border-t border-border/50 pt-2">Total Records</p>
-                                                        </div>
-                                                    );
-                                                }
-                                                return null;
-                                            }}
-                                        />
-                                    </PieChart>
-                                </ResponsiveContainer>
-                                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-4">
-                                    <span className="text-[10px] uppercase font-black tracking-[0.2em] text-muted-foreground/60">Total volume</span>
-                                    <span className="text-5xl font-black text-gradient bg-gradient-to-br from-foreground to-foreground/50 bg-clip-text text-transparent mt-1">
-                                        {sourceChartData.reduce((acc, curr) => acc + curr.value, 0)}
-                                    </span>
-                                </div>
-                                <div className="flex gap-5 mt-8 border border-border/50 px-5 py-2.5 rounded-2xl bg-muted/20 backdrop-blur-sm">
-                                    {sourceChartData.map((entry, index) => (
-                                        <div key={index} className="flex items-center gap-2.5">
-                                            <div className="w-3 h-3 rounded-full shadow-inner shadow-black/20" style={{ backgroundColor: SOURCE_COLORS[entry.source as keyof typeof SOURCE_COLORS] || COLORS[index % COLORS.length] }} />
-                                            <span className="text-[11px] font-black uppercase tracking-widest opacity-80">{entry.name}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </>
-                        ) : (
-                            <div className="flex flex-col items-center opacity-30">
-                                <Database className="h-16 w-16 mb-5" />
-                                <p className="font-black text-sm uppercase tracking-widest">No Sources Active</p>
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
-            </div>
-            
-            <div className="grid grid-cols-1 gap-6">
-                {/* Category Dist Chart */}
-                <Card className="rounded-[2.5rem] border-[1.5px] border-border/50 bg-background/50 backdrop-blur-2xl shadow-xl overflow-hidden hover:shadow-2xl transition-all duration-500">
-                    <CardHeader className="p-8 pb-4">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <CardTitle className="text-2xl font-black tracking-tight">Top Categories</CardTitle>
-                                <CardDescription className="font-medium text-xs mt-1">Highest assigned performance categories</CardDescription>
-                            </div>
-                            <div className="p-4 rounded-3xl bg-amber-500/10 text-amber-500 border border-amber-500/20 shadow-inner hover:scale-110 transition-transform duration-500">
-                                <BarChart3 className="h-6 w-6" />
-                            </div>
-                        </div>
-                    </CardHeader>
-                    <CardContent className="p-8 h-[400px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={categoryChartData} margin={{ top: 20, right: 20, left: -20, bottom: 0 }}>
-                                <defs>
-                                    <linearGradient id="barGradient2" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="0%" stopColor="#f59e0b" stopOpacity={1} />
-                                        <stop offset="100%" stopColor="#d97706" stopOpacity={0.8} />
-                                    </linearGradient>
-                                </defs>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.03)" />
-                                <XAxis 
-                                    dataKey="name" 
-                                    axisLine={false} 
-                                    tickLine={false} 
-                                    tick={{ fontSize: 11, fill: 'currentColor', fontWeight: 800, opacity: 0.6 }}
-                                    dy={15}
-                                />
-                                <YAxis 
-                                    axisLine={false} 
-                                    tickLine={false} 
-                                    tick={{ fontSize: 11, fill: 'currentColor', fontWeight: 800, opacity: 0.5 }}
-                                    domain={[0, 5]}
-                                />
-                                <RechartsTooltip 
-                                    cursor={{ fill: 'rgba(245, 158, 11, 0.05)', radius: 12 }}
-                                    content={({ active, payload }) => {
-                                        if (active && payload && payload.length) {
-                                            return (
-                                                <div className="bg-background/95 backdrop-blur-2xl border border-amber-500/30 p-5 rounded-[1.5rem] shadow-2xl shadow-amber-500/20">
-                                                    <p className="text-xs font-black uppercase text-muted-foreground/80 mb-2 tracking-widest">{payload[0].payload.name}</p>
-                                                    <p className="text-4xl font-black text-amber-500 drop-shadow-sm">{payload[0].value}</p>
-                                                    <p className="text-[10px] uppercase font-black text-amber-500/60 tracking-[0.2em] mt-2 border-t border-amber-500/10 pt-2">Average Impact Score</p>
-                                                </div>
-                                            );
-                                        }
-                                        return null;
-                                    }}
-                                />
-                                <Bar 
-                                    dataKey="value" 
-                                    radius={[16, 16, 4, 4]} 
-                                    fill="url(#barGradient2)" 
-                                    barSize={72}
-                                    animationDuration={2000}
-                                />
-                            </BarChart>
-                        </ResponsiveContainer>
+                    <CardContent className="p-8 pt-0">
+                        <TopRolesTable data={roleProficiency} />
                     </CardContent>
                 </Card>
             </div>
 
+            <Dialog open={!!expandedCard} onOpenChange={() => setExpandedCard(null)}>
+                <DialogContent className="max-w-[98vw] sm:max-w-[95vw] w-full lg:w-[1400px] h-[90vh] rounded-[3rem] border-border/50 bg-background/95 backdrop-blur-3xl overflow-hidden p-0 shadow-2xl">
+                    <div className="flex flex-col h-full">
+                        <div className="p-10 pb-6 flex items-center justify-between border-b border-border/5">
+                            <div className="space-y-1">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-primary mb-2 flex items-center gap-2">
+                                    <Shield className="h-3 w-3" />
+                                    Detailed Analysis View
+                                </p>
+                                <DialogTitle className="text-4xl font-black tracking-tighter">
+                                    {expandedCard === 'table' ? 'Top Roles Analysis' : cards.find(c => c.id === expandedCard)?.title}
+                                </DialogTitle>
+                                <p className="text-muted-foreground font-medium">
+                                    {expandedCard === 'table' ? 'Full distribution of AI proficiency across organization roles' : cards.find(c => c.id === expandedCard)?.description}
+                                </p>
+                            </div>
+                            <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                onClick={() => setExpandedCard(null)}
+                                className="h-12 w-12 rounded-2xl bg-muted/50 hover:bg-red-500/10 hover:text-red-500 transition-all"
+                            >
+                                <X className="h-6 w-6" />
+                            </Button>
+                        </div>
+                        <div className="flex-1 p-10 overflow-y-auto">
+                            {expandedCard === 'table' ? (
+                                <TopRolesTable data={roleProficiency} fullView />
+                            ) : (
+                                (() => {
+                                    const card = cards.find(c => c.id === expandedCard);
+                                    return card ? <card.component data={card.data} /> : null;
+                                })()
+                            )}
+                        </div>
+                        <div className="p-6 px-10 border-t border-border/5 bg-muted/20 flex items-center justify-between">
+                            <div className="flex items-center gap-6">
+                                <div className="flex items-center gap-2">
+                                    <div className="h-2 w-2 rounded-full bg-emerald-500" />
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">System Active</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <Globe className="h-3 w-3 text-muted-foreground" />
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Global Scope</span>
+                                </div>
+                            </div>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-40">CTO Platform Analytics v2.0</p>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
 
-function StatCard({ title, value, unit, icon, trend, description }: any) {
+// --- TABLE COMPONENT ---
+
+const TopRolesTable = ({ data, fullView = false }: any) => (
+    <div className="overflow-x-auto">
+        <table className="w-full text-sm text-left">
+            <thead>
+                <tr className="border-b border-border/50">
+                    <th className="pb-4 font-black uppercase text-[10px] tracking-widest text-muted-foreground">Role</th>
+                    <th className="pb-4 font-black uppercase text-[10px] tracking-widest text-muted-foreground">Avg Proficiency</th>
+                    <th className="pb-4 font-black uppercase text-[10px] tracking-widest text-muted-foreground">Resources</th>
+                    <th className="pb-4 font-black uppercase text-[10px] tracking-widest text-muted-foreground">Progress</th>
+                </tr>
+            </thead>
+            <tbody className="divide-y divide-border/30">
+                {(fullView ? data : data?.slice(0, 7)).map((role: any, idx: number) => (
+                    <tr key={idx} className="group hover:bg-muted/50 transition-colors">
+                        <td className="py-4 font-bold">{role.role}</td>
+                        <td className="py-4 font-black text-primary">{role.avgSkill} / 5.0</td>
+                        <td className="py-4 font-medium text-muted-foreground">{role.resources}</td>
+                        <td className="py-4 min-w-[120px]">
+                            <div className="flex items-center gap-3">
+                                <Progress value={role.progress} className="h-2 bg-muted/50" indicatorClassName="bg-gradient-to-r from-purple-500 to-indigo-500" />
+                                {fullView && <span className="text-[10px] font-black w-8 text-right">{role.progress}%</span>}
+                            </div>
+                        </td>
+                    </tr>
+                ))}
+            </tbody>
+        </table>
+    </div>
+);
+
+function StatCard({ title, value, unit, icon, color, description }: any) {
     return (
-        <Card className="rounded-[2.5rem] border-[1.5px] border-border/50 bg-gradient-to-br from-background/90 to-background/40 backdrop-blur-2xl overflow-hidden shadow-lg hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 group">
-            <CardContent className="p-8">
-                <div className="flex items-start justify-between mb-8">
-                    <div className="p-4 rounded-[1.25rem] bg-muted/50 border border-border/50 text-foreground shadow-inner group-hover:bg-primary/10 group-hover:text-primary group-hover:border-primary/20 transition-all duration-500 group-hover:shadow-primary/10">
+        <Card className="rounded-[2.5rem] border-[1.5px] border-border/50 bg-background/50 backdrop-blur-2xl overflow-hidden shadow-lg hover:-translate-y-2 transition-all duration-500 group">
+            <CardContent className="p-6 md:p-8">
+                <div className="flex items-start justify-between mb-4 md:mb-8">
+                    <div className={cn("p-3 rounded-[1.25rem] bg-muted/50 border border-border/50 shadow-inner group-hover:scale-110 transition-transform duration-500", color)}>
                         {icon}
                     </div>
-                    {trend && (
-                        <Badge className={cn(
-                            "rounded-full gap-1.5 px-3.5 py-1.5 border-none font-black text-[11px] shadow-sm transform transition-all duration-500 group-hover:scale-110",
-                            trend > 0 ? "bg-emerald-500/15 text-emerald-500" : "bg-red-500/15 text-red-500"
-                        )}>
-                            {trend > 0 ? <ArrowUpRight className="h-4 w-4 stroke-[3]" /> : <ArrowDownRight className="h-4 w-4 stroke-[3]" />}
-                            {Math.abs(trend)}%
-                        </Badge>
-                    )}
                 </div>
                 <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60 mb-2">{title}</p>
+                    <p className="text-[10px] font-black uppercase tracking-[0.1em] text-muted-foreground/60 mb-2 truncate">{title}</p>
                     <div className="flex items-baseline gap-1.5">
-                        <h4 className="text-5xl font-black tracking-tighter bg-gradient-to-br from-foreground to-foreground/60 bg-clip-text text-transparent transform transition-all duration-500 group-hover:scale-105 origin-left">{value}</h4>
-                        {unit && <span className="text-xl font-bold text-muted-foreground/50 tracking-tight">{unit}</span>}
+                        <h4 className="text-3xl md:text-5xl font-black tracking-tighter truncate">{value}</h4>
+                        {unit && <span className="text-lg font-bold text-muted-foreground/50">{unit}</span>}
                     </div>
-                    <p className="text-[11px] text-muted-foreground/70 mt-3 font-bold">{description}</p>
+                    {description && <p className="text-[10px] text-muted-foreground/70 mt-2 font-bold truncate">{description}</p>}
                 </div>
             </CardContent>
         </Card>

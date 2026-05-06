@@ -41,7 +41,7 @@ import { useEmployees } from '@/hooks/use-employees';
 import { useOrgHierarchy } from '@/hooks/use-hierarchy';
 import { useProjects } from '@/hooks/use-projects';
 import { useEffect as useReactEffect, useMemo } from 'react';
-import { useBulkCreateMetrics, useTeamMetrics, useDeleteMetric, useSprintMetrics } from '@/hooks/use-metrics';
+import { useBulkCreateMetrics, useMetrics, useDeleteMetric, useSprintMetrics } from '@/hooks/use-metrics';
 import { useMetricDefinitions, useDeleteMetricDefinition, useCreateMetricDefinition } from '@/hooks/use-metric-definitions';
 import { useDataFence, useRole } from '@/contexts/role-context';
 import { SprintBulkUploadPanel } from './sprint-bulk-upload-panel';
@@ -80,28 +80,59 @@ const ragStyles = {
 export function ManualMetricsTab() {
     const [selectedProjectId, setSelectedProjectId] = useState<string>('all');
     const [selectedTeamId, setSelectedTeamId] = useState<string>('');
-    const [selectedMemberId, setSelectedMemberId] = useState<string>('');
     const [manualMetrics, setManualMetrics] = useState<ManualMetricDef[]>([]);
     const [editingValues, setEditingValues] = useState<Record<string, number>>({});
     const [isEditing, setIsEditing] = useState(false);
+    const [editingStrings, setEditingStrings] = useState<Record<string, string>>({});
     const [showBulkUpload, setShowBulkUpload] = useState(false);
-    
+
     // Auto-select initialization locks
     const [projInitialized, setProjInitialized] = useState(false);
     const [teamInitialized, setTeamInitialized] = useState(false);
-    
+
     // API Hooks
     const { data: liveEmployeesData } = useEmployees();
     const liveEmployees = liveEmployeesData || EMPTY_ARRAY;
-    
+
     const { data: fetchedProjectsData, isLoading: projectsLoading } = useProjects();
     const fetchedProjects = fetchedProjectsData || EMPTY_ARRAY;
-    
+
     const { data: hierarchy } = useOrgHierarchy();
-    
-    const { data: teamMetricsData, isLoading: metricsLoading } = useTeamMetrics(selectedTeamId);
-    const teamMetrics = teamMetricsData || EMPTY_ARRAY;
-    
+
+    const { data: fetchedMetricsData, isLoading: metricsLoading } = useMetrics({
+        projectId: selectedProjectId === 'all' ? undefined : selectedProjectId,
+        teamId: selectedTeamId || undefined
+    });
+    const fetchedMetrics = fetchedMetricsData || EMPTY_ARRAY;
+
+    const currentLevel = selectedTeamId ? 'team' 
+        : (selectedProjectId && selectedProjectId !== 'all') ? 'project' 
+        : 'none';
+
+    const currentMetrics = useMemo(() => {
+        let relevant = fetchedMetrics.filter((mt: any) => mt.source === 'manual');
+        
+        if (selectedTeamId) {
+            relevant = relevant.filter((mt: any) => mt.teamId === selectedTeamId && !mt.userId);
+        } else if (selectedProjectId !== 'all') {
+            relevant = relevant.filter((mt: any) => mt.projectId === selectedProjectId && !mt.teamId && !mt.userId);
+        } else {
+            relevant = [];
+        }
+
+        const latestMetricsMap = new Map();
+        relevant.forEach((mm: any) => {
+            if (!latestMetricsMap.has(mm.metricType)) {
+                latestMetricsMap.set(mm.metricType, { value: mm.value, id: mm.id });
+            }
+        });
+        const displayMetrics: { metricId: string; value: number; id?: string }[] = [];
+        Array.from(latestMetricsMap.entries()).forEach(([mType, data]: [string, any]) => {
+            displayMetrics.push({ metricId: mType, value: data.value, id: data.id });
+        });
+        return displayMetrics;
+    }, [fetchedMetrics, selectedTeamId, selectedProjectId]);
+
     const { data: dbMetricDefsData } = useMetricDefinitions();
     const dbMetricDefs = dbMetricDefsData || EMPTY_ARRAY;
 
@@ -192,76 +223,8 @@ export function ManualMetricsTab() {
         return teams;
     }, [hierarchy, selectedProjectId, fence.allowedTeamIds, resolvedAllowedProjectIds]);
 
-    // DERIVED MEMBERS STATE
-    const members = useMemo(() => {
-        const teamMembers: MemberWithMetrics[] = [];
 
-        if (selectedTeamId) {
-            const selectedTeam = availableTeams.find(t => t.id === selectedTeamId);
-            if (selectedTeam && selectedTeam.members) {
-                selectedTeam.members.forEach((m: any) => {
-                    const userId = m.userId || m.id;
-                    const employeeInfo = liveEmployees.find((e: any) => (e.id || e._id) === userId);
-                    const memberMetricsFromServer = teamMetrics.filter((mt: any) =>
-                        mt.userId === userId && mt.source === 'manual'
-                    );
-                    const latestMetricsMap = new Map();
-                    memberMetricsFromServer.forEach((mm: any) => {
-                        if (!latestMetricsMap.has(mm.metricType)) {
-                            latestMetricsMap.set(mm.metricType, { value: mm.value, id: mm.id });
-                        }
-                    });
-                    const displayMetrics: { metricId: string; value: number; id?: string }[] = [];
-                    Array.from(latestMetricsMap.entries()).forEach(([mType, data]: [string, any]) => {
-                        displayMetrics.push({ metricId: mType, value: data.value, id: data.id });
-                    });
-                    teamMembers.push({
-                        id: userId,
-                        name: employeeInfo?.user?.fullName || employeeInfo?.fullName || m.user?.fullName || m.fullName || 'Unknown',
-                        role: m.roleInTeam || m.role || employeeInfo?.role || 'Member',
-                        avatar: (employeeInfo?.fullName || m.fullName || 'U').charAt(0),
-                        team: selectedTeam.name,
-                        teamId: selectedTeam.id,
-                        metrics: displayMetrics
-                    });
-                });
-            }
-        }
-
-        // Also include employees who have sprint metrics but no team assignment
-        const existingIds = new Set(teamMembers.map(m => m.id));
-        (allSprintMetrics || []).forEach((sm: any) => {
-            if (!sm.userId || existingIds.has(sm.userId)) return;
-            const employeeInfo = liveEmployees.find((e: any) => (e.id || e._id) === sm.userId);
-            const name = employeeInfo?.user?.fullName || employeeInfo?.fullName || sm.userId;
-            teamMembers.push({
-                id: sm.userId,
-                name,
-                role: employeeInfo?.role || 'Member',
-                avatar: name.charAt(0),
-                team: '',
-                teamId: '',
-                metrics: []
-            });
-            existingIds.add(sm.userId);
-        });
-
-        // Deduplicate
-        const uniqueMap = new Map();
-        teamMembers.forEach(m => uniqueMap.set(m.id, m));
-        return Array.from(uniqueMap.values());
-    }, [selectedTeamId, availableTeams, liveEmployees, teamMetrics, allSprintMetrics]);
-
-    const filteredMembers = members;
-    
-
-    // Sync metric definitions from backend
     useReactEffect(() => {
-        // We want to show:
-        // 1. The 19 standard blueprints (as defaults/placeholders)
-        // 2. Any other metrics specifically provisioned to the current project/team in the DB
-        
-        // Map everything in DB relevant to current project/team
         const dbRelevant = dbMetricDefs
             .filter((dbDef: any) => {
                 const matchesProject = !selectedProjectId || selectedProjectId === 'all' || dbDef.projectId === selectedProjectId;
@@ -285,30 +248,23 @@ export function ManualMetricsTab() {
                     updateFrequency: dbDef.updateFrequency || standard?.updateFrequency || 'Sprint',
                     projectId: dbDef.projectId,
                     teamId: dbDef.teamId,
-                    memberId: dbDef.memberId,
                     description: dbDef.description || standard?.description || '',
                     type: standard?.type || 'rating' as const
                 };
             });
 
-        // Collect IDs of provisioned items
         const provisionedIds = new Set(dbRelevant.map((d: any) => d.id));
-
-        // Add standard metrics that aren't already represented in DB (as the 19 fallbacks)
         const finalMetrics = [...dbRelevant];
         PREDEFINED_MANUAL_METRICS.forEach((standard: any) => {
             if (!provisionedIds.has(standard.id)) {
                 finalMetrics.push(standard);
             }
         });
-
         setManualMetrics(finalMetrics);
     }, [dbMetricDefs, selectedProjectId, selectedTeamId]);
 
-    // Role-based auto-selection for Teams: Ensure a valid team is selected if restricted
     useReactEffect(() => {
         if (!fence.isRestricted || availableTeams.length === 0 || teamInitialized) return;
-
         const isCurrentValid = availableTeams.some(t => t.id === selectedTeamId);
         if (selectedTeamId === 'all' || selectedTeamId === '' || !isCurrentValid) {
             setSelectedTeamId(availableTeams[0].id);
@@ -316,85 +272,53 @@ export function ManualMetricsTab() {
         }
     }, [fence.isRestricted, availableTeams, selectedTeamId, teamInitialized]);
 
-
-    const selectedMember = filteredMembers.find((m: any) => m.id === selectedMemberId);
-
     const handleProjectChange = (val: string) => {
         setSelectedProjectId(val);
         setSelectedTeamId('');
-        setSelectedMemberId('');
-        setTeamInitialized(false); // allow team to auto-select again for new project
+        setTeamInitialized(false);
     };
 
     const handleTeamChange = (val: string) => {
         setSelectedTeamId(val);
-        setSelectedMemberId('');
     };
 
     const handleStartEdit = () => {
-        if (!selectedMember) return;
-        
         const values: Record<string, number> = {};
-        
-        // 1. Initialize with all available definitions (default to min)
         manualMetrics.forEach(def => {
             values[def.id] = def.min;
         });
-
-        // 2. Overwrite with existing recorded values
-        selectedMember.metrics.forEach((m: any) => {
+        currentMetrics.forEach((m: any) => {
             if (m.metricId in values) {
                 values[m.metricId] = m.value;
             }
         });
-
         setEditingValues(values);
         setEditingStrings({});
         setIsEditing(true);
     };
 
-    const [editingStrings, setEditingStrings] = useState<Record<string, string>>({});
-
     const handleValueChange = (metricId: string, newVal: string) => {
-        // Only allow numbers and decimal point
         if (newVal !== '' && !/^-?\d*\.?\d*$/.test(newVal)) return;
-
         const def = manualMetrics.find(d => d.id === metricId);
         const num = Number(newVal);
-
         if (!isNaN(num) && newVal !== '' && def) {
-            // Range check
-            if (num > def.max) {
-                toast.error(`${def.name} cannot exceed ${def.max}`);
-                return;
-            }
-            if (num < def.min && newVal.length > 3) { // Allow typing small numbers starting with 0. etc
-                // Just clamp on save for min, but warn
-            }
             setEditingValues((prev) => ({ ...prev, [metricId]: num }));
         }
-        
         setEditingStrings(prev => ({ ...prev, [metricId]: newVal }));
     };
 
     const handleSave = async () => {
-        if (!selectedMember) return;
-
         const metricsToSave = Object.entries(editingValues)
             .filter(([_, value]) => value !== undefined && value !== null && !isNaN(value))
             .map(([metricId, value]) => {
                 const def = manualMetrics.find(d => d.id === metricId);
                 const clampedValue = def ? Math.min(Math.max(value, def.min), def.max) : value;
-                
-                const team = availableTeams.find(t => t.id === (selectedMember.teamId || selectedTeamId));
-                // Explicitly prioritize project ID from team if available, fallback to selectedProjectId
+                const team = availableTeams.find(t => t.id === selectedTeamId);
                 const projectId = team?.projectId || (selectedProjectId !== 'all' ? selectedProjectId : '');
-                
                 return {
                     time: new Date().toISOString(),
-                    teamId: selectedMember.teamId || team?.id || null,
+                    teamId: selectedTeamId || null,
                     projectId: projectId || null,
-                    userId: selectedMember.id,
                     metricType: metricId,
                     value: clampedValue,
                     unit: def?.type === 'percentage' ? '%' : def?.type === 'integer' ? 'qty' : 'pts',
@@ -407,19 +331,15 @@ export function ManualMetricsTab() {
                     }
                 };
             });
-
         try {
             if (metricsToSave.length > 0) {
-                console.log('Saving metrics:', metricsToSave);
                 await bulkCreateMetrics(metricsToSave);
             }
-
             setIsEditing(false);
             setEditingValues({});
             setEditingStrings({});
             toast.success('Metrics saved to database successfully');
         } catch (error) {
-            console.error('Failed to save metrics:', error);
             toast.error('Failed to save metrics to database');
         }
     };
@@ -430,68 +350,6 @@ export function ManualMetricsTab() {
         setEditingStrings({});
     };
 
-    const handleCreateMetricDef = async () => {
-        if (!newMetricDef.name) {
-            toast.error('Please enter a metric name');
-            return;
-        }
-        
-        const metricType = newMetricDef.name.toLowerCase().replace(/\s+/g, '_');
-        
-        try {
-            const selectedProject = liveProjects.find(p => p.id === selectedProjectId);
-            const selectedTeam = availableTeams.find(t => t.id === selectedTeamId);
-            const selectedMember = filteredMembers.find(m => m.id === selectedMemberId);
-
-            await createMetricDef({
-                name: newMetricDef.name,
-                metricType,
-                metricClass: 'C',
-                threshold: newMetricDef.thresholds.green,
-                updateFrequency: 'weekly',
-                rangeMin: newMetricDef.min,
-                rangeMax: newMetricDef.max,
-                projectId: selectedProjectId !== 'all' ? selectedProjectId : undefined,
-                projectName: selectedProject?.name || '',
-                teamId: selectedTeamId || undefined,
-                teamName: selectedTeam?.name || '',
-                memberId: selectedMemberId || undefined,
-                memberName: selectedMember?.name || '',
-            });
-
-            toast.success(`Metric "${newMetricDef.name}" created and saved to database`);
-            setIsNewMetricDialogOpen(false);
-            setNewMetricDef({
-                name: '',
-                type: 'rating',
-                min: 1,
-                max: 5,
-                thresholds: { red: 2, amber: 3, green: 4 }
-            });
-        } catch (error) {
-            console.error('Failed to create metric definition:', error);
-            toast.error('Failed to save metric definition to database');
-        }
-    };
-
-    const handleDeleteMetric = async (def: ManualMetricDef) => {
-        if (!def.dbId) {
-            toast.error('Cannot delete: This metric does not have a database ID');
-            return;
-        }
-
-        if (confirm(`Are you sure you want to delete the metric "${def.name}"?`)) {
-            try {
-                await deleteMetricDef(def.dbId);
-                setManualMetrics(prev => prev.filter(d => d.dbId !== def.dbId));
-                toast.success(`Metric "${def.name}" deleted successfully`);
-            } catch (error) {
-                console.error('Failed to delete metric:', error);
-                toast.error('Failed to delete metric from database');
-            }
-        }
-    };
-
     const getDisplayValue = (metricId: string, originalValue: number) => {
         if (isEditing && metricId in editingValues) return editingValues[metricId];
         return originalValue;
@@ -499,7 +357,6 @@ export function ManualMetricsTab() {
 
     return (
         <div className="space-y-6">
-            {/* Data Fence Banner */}
             {fence.isRestricted && (
                 <div className="flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400">
                     <Lock className="h-4 w-4 shrink-0" />
@@ -507,7 +364,6 @@ export function ManualMetricsTab() {
                 </div>
             )}
 
-            {/* ── Bulk Upload Panel ─────────────────────────────────── */}
             <div className="rounded-2xl border border-border/50 bg-muted/10 overflow-hidden">
                 <button
                     onClick={() => setShowBulkUpload(v => !v)}
@@ -519,12 +375,10 @@ export function ManualMetricsTab() {
                         </div>
                         <div className="text-left">
                             <p className="text-sm font-bold text-foreground">Bulk Upload Sprint Data</p>
-                            <p className="text-[11px] text-muted-foreground">Upload CSV / Excel using employee_id — data stored directly to DB</p>
+                            <p className="text-[11px] text-muted-foreground">Upload CSV / Excel — data stored directly to DB</p>
                         </div>
                     </div>
-                    {showBulkUpload
-                        ? <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                        : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                    {showBulkUpload ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
                 </button>
                 {showBulkUpload && (
                     <div className="border-t border-border/40 px-5 py-5">
@@ -534,7 +388,6 @@ export function ManualMetricsTab() {
             </div>
 
             <div className="flex flex-wrap items-center gap-4">
-                {/* Project Selector */}
                 <div className="flex flex-col gap-1.5">
                     <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70 ml-1">
                         <LayoutGrid className="h-3 w-3" />
@@ -553,7 +406,6 @@ export function ManualMetricsTab() {
                     </Select>
                 </div>
 
-                {/* Team Selector */}
                 <div className="flex flex-col gap-1.5">
                     <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70 ml-1">
                         <Users className="h-3 w-3" />
@@ -571,46 +423,16 @@ export function ManualMetricsTab() {
                     </Select>
                 </div>
 
-                {/* Member Selector */}
-                <div className="flex flex-col gap-1.5">
-                    <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70 ml-1">
-                        <User className="h-3 w-3" />
-                        Team Member
-                    </div>
-                    <Select value={selectedMemberId} onValueChange={setSelectedMemberId}>
-                        <SelectTrigger className="w-[240px] rounded-xl bg-muted/20 border-border/50">
-                            <SelectValue placeholder="Choose a member..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {filteredMembers.map((member) => (
-                                <SelectItem key={member.id} value={member.id}>
-                                    <span className="flex items-center gap-2">
-                                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-[9px] font-bold text-primary">
-                                            {member.avatar}
-                                        </span>
-                                        {member.name}
-                                    </span>
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </div>
-
                 <div className="flex items-end gap-2 ml-auto self-end pb-0.5">
-                    {selectedMember && canEdit && !isEditing && (
-                        <>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className="rounded-xl gap-2 h-10 px-4 border-primary/20 hover:bg-primary/5 hover:text-primary transition-all"
-                                onClick={handleStartEdit}
-                            >
-
-                                Update Metrics
-                            </Button>
-
-                        {/* Removed New Metric button as per request to only show 19 standard metrics */}
-                        </>
+                    {currentLevel !== 'none' && canEdit && !isEditing && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="rounded-xl gap-2 h-10 px-4 border-primary/20 hover:bg-primary/5 hover:text-primary transition-all"
+                            onClick={handleStartEdit}
+                        >
+                            Update Metrics
+                        </Button>
                     )}
 
                     {isEditing && (
@@ -627,37 +449,35 @@ export function ManualMetricsTab() {
                 </div>
             </div>
 
-            {!selectedMember && (
-                <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-                    <User className="h-12 w-12 mb-3 opacity-30" />
-                    <p className="text-lg font-medium">Select a team member</p>
-                    <p className="text-sm">Choose a member above to view and edit their manual metrics</p>
-                </div>
-            )}
-
-            {/* ── Sprint Performance Records ─────────────────────── */}
-            {selectedMember && (() => {
-                const memberSprintData = (allSprintMetrics || [])
-                    .filter((sm: any) => sm.userId === selectedMember.id)
+            {currentLevel !== 'none' && (() => {
+                const entitySprintData = (allSprintMetrics || [])
+                    .filter((sm: any) => {
+                        if (currentLevel === 'team') return sm.teamId === selectedTeamId;
+                        if (currentLevel === 'project') return sm.projectId === selectedProjectId;
+                        return false;
+                    })
                     .sort((a: any, b: any) => a.sprintNumber - b.sprintNumber);
 
-                if (memberSprintData.length === 0) return null;
+                if (entitySprintData.length === 0) return null;
+
+                const selectedProject = liveProjects.find(p => p.id === selectedProjectId);
+                const selectedTeam = availableTeams.find(t => t.id === selectedTeamId);
+                const entityName = currentLevel === 'team' ? selectedTeam?.name : selectedProject?.name;
 
                 return <SprintMetricsSection
-                    memberSprintData={memberSprintData}
-                    memberName={selectedMember.name}
-                    userId={selectedMember.id}
+                    memberSprintData={entitySprintData}
+                    memberName={entityName || 'Selected Entity'}
+                    userId={currentLevel === 'team' ? selectedTeamId : selectedProjectId}
                 />;
             })()}
 
-            {/* Metrics Grid */}
-            {selectedMember && (
+            {currentLevel !== 'none' && (
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     {manualMetrics.map((def) => {
-                        const memberMetric = selectedMember.metrics.find(
+                        const currentMetric = currentMetrics.find(
                             (m: any) => m.metricId === def.id
                         );
-                        const value = getDisplayValue(def.id, memberMetric?.value ?? def.min);
+                        const value = getDisplayValue(def.id, currentMetric?.value ?? def.min);
                         const rag = getRAGColor(value, def.thresholds);
                         const styles = ragStyles[rag];
 
@@ -705,15 +525,15 @@ export function ManualMetricsTab() {
                                                 </p>
                                                 {def.updateFrequency && (
                                                     <span className="text-[9px] text-muted-foreground/50 border-l border-border/50 pl-2 uppercase font-bold tracking-tighter">
-                                                       Cycle: {def.updateFrequency}
+                                                        Cycle: {def.updateFrequency}
                                                     </span>
                                                 )}
                                             </div>
                                         </div>
-                                         <Badge variant="outline" className={cn('rounded-full text-[10px] px-2 py-0.5', styles.badge)}>
+                                        <Badge variant="outline" className={cn('rounded-full text-[10px] px-2 py-0.5', styles.badge)}>
                                             {rag === 'green' ? '● Good' : rag === 'amber' ? '● Fair' : '● Needs Improvement'}
                                         </Badge>
-                                        
+
                                         {/* Removed Delete button as per request to show only standard metrics */}
                                     </div>
 

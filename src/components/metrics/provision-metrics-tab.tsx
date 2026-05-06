@@ -488,7 +488,7 @@ export function ProvisionMetricsTab() {
     // Map Project ID -> Hierarchy Metadata (Market, Account)
     const projectMetadataMap = useMemo(() => {
         const map = new Map<string, { accountName: string; accountId: string; marketName: string }>();
-        hierarchy?.markets.forEach(market => {
+        hierarchy?.markets?.forEach(market => {
             market.accounts.forEach(acc => {
                 acc.teams.forEach(t => {
                     if (t.project) {

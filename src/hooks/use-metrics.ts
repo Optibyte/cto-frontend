@@ -120,3 +120,15 @@ export function useSprintMetrics() {
         retry: 1,
     });
 }
+
+export function useSprintAnalytics(filters?: {
+    org?: string; country?: string; market?: string;
+    account?: string; project?: string; team?: string;
+}) {
+    return useQuery({
+        queryKey: ['sprint-analytics', filters],
+        queryFn: () => sprintMetricsAPI.getAnalytics(filters),
+        retry: 1,
+        staleTime: 30_000,
+    });
+}

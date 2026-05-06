@@ -37,15 +37,29 @@ async function apiFetch(url: string, options?: RequestInit) {
     return Array.isArray(data) ? data : (data.data || data);
 }
 
+// ── Organizations ───────────────────────────────────────────
+const ORGANIZATIONS_URL = `${API_BASE_URL}/api/v1/organizations`;
+
+export const adminOrganizationsAPI = {
+    getAll: (page?: number, limit?: number) => apiFetch(page && limit ? `${ORGANIZATIONS_URL}?page=${page}&limit=${limit}` : ORGANIZATIONS_URL),
+    getOne: (id: string) => apiFetch(`${ORGANIZATIONS_URL}/${id}`),
+    create: (data: { name: string; country?: string[] }) =>
+        apiFetch(ORGANIZATIONS_URL, { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: string, data: { name?: string; country?: string[] }) =>
+        apiFetch(`${ORGANIZATIONS_URL}/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    delete: (id: string) =>
+        apiFetch(`${ORGANIZATIONS_URL}/${id}`, { method: 'DELETE' }),
+};
+
 // ── Markets ───────────────────────────────────────────────
 const MARKETS_URL = `${API_BASE_URL}/api/v1/markets`;
 
 export const marketsAPI = {
     getAll: (page?: number, limit?: number) => apiFetch(page && limit ? `${MARKETS_URL}?page=${page}&limit=${limit}` : MARKETS_URL),
     getOne: (id: string) => apiFetch(`${MARKETS_URL}/${id}`),
-    create: (data: { name: string; regionCode: string }) =>
+    create: (data: { name: string; country?: string[]; orgId?: string }) =>
         apiFetch(MARKETS_URL, { method: 'POST', body: JSON.stringify(data) }),
-    update: (id: string, data: { name?: string; regionCode?: string }) =>
+    update: (id: string, data: { name?: string; country?: string[]; orgId?: string }) =>
         apiFetch(`${MARKETS_URL}/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     delete: (id: string) =>
         apiFetch(`${MARKETS_URL}/${id}`, { method: 'DELETE' }),
@@ -69,7 +83,19 @@ export const adminAccountsAPI = {
 const PROJECTS_URL = `${API_BASE_URL}/api/v1/projects`;
 
 export const adminProjectsAPI = {
-    getAll: (page?: number, limit?: number) => apiFetch(page && limit ? `${PROJECTS_URL}?page=${page}&limit=${limit}` : PROJECTS_URL),
+    getAll: (page?: number, limit?: number, aiEnabled?: boolean) => {
+        const params = new URLSearchParams();
+        if (page && limit) { params.set('page', String(page)); params.set('limit', String(limit)); }
+        if (aiEnabled !== undefined) { params.set('aiEnabled', String(aiEnabled)); }
+        const qs = params.toString();
+        return apiFetch(qs ? `${PROJECTS_URL}?${qs}` : PROJECTS_URL);
+    },
+    getAiProjects: (page?: number, limit?: number) => {
+        return apiFetch(`${PROJECTS_URL}/ai`);
+    },
+    getNormalProjects: (page?: number, limit?: number) => {
+        return apiFetch(`${PROJECTS_URL}?aiEnabled=false`);
+    },
     getOne: (id: string) => apiFetch(`${PROJECTS_URL}/${id}`),
     create: (data: any) =>
         apiFetch(PROJECTS_URL, { method: 'POST', body: JSON.stringify(data) }),
@@ -131,7 +157,13 @@ export const adminTeamMembersAPI = {
 const USERS_URL = `${API_BASE_URL}/api/v1/users`;
 
 export const adminUsersAPI = {
-    getAll: (page?: number, limit?: number) => apiFetch(page && limit ? `${USERS_URL}?page=${page}&limit=${limit}` : USERS_URL),
+    getAll: (page?: number, limit?: number, search?: string) => {
+        const params = new URLSearchParams();
+        if (page && limit) { params.set('page', String(page)); params.set('limit', String(limit)); }
+        if (search) params.set('search', search);
+        const qs = params.toString();
+        return apiFetch(qs ? `${USERS_URL}?${qs}` : USERS_URL);
+    },
     getOne: (id: string) => apiFetch(`${USERS_URL}/${id}`),
     create: (data: any) =>
         apiFetch(USERS_URL, { method: 'POST', body: JSON.stringify(data) }),
@@ -141,33 +173,42 @@ export const adminUsersAPI = {
         apiFetch(`${USERS_URL}/${id}`, { method: 'DELETE' }),
 };
 
+// ── File upload helper (shared for both bulk APIs) ─────────
+const fileBulkUpload = async (endpoint: string, file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const headers: Record<string, string> = {};
+    if (typeof window !== 'undefined') {
+        const token = localStorage.getItem('access_token');
+        const userId = localStorage.getItem('current_user_id');
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        if (userId) headers['x-user-id'] = userId;
+    }
+
+    const response = await fetch(endpoint, {
+        method: 'POST',
+        headers,
+        body: formData,
+    });
+
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.message || `Bulk upload failed: ${response.status}`);
+    }
+    return response.json();
+};
+
 // ── Employees Bulk Upload ──────────────────────────────────
 const EMPLOYEES_URL = `${API_BASE_URL}/api/v1/employees`;
 
 export const adminEmployeesAPI = {
-    bulkUpload: async (file: File) => {
-        const formData = new FormData();
-        formData.append('file', file);
-
-        const headers: Record<string, string> = {};
-        if (typeof window !== 'undefined') {
-            const token = localStorage.getItem('access_token');
-            const userId = localStorage.getItem('current_user_id');
-            if (token) headers['Authorization'] = `Bearer ${token}`;
-            if (userId) headers['x-user-id'] = userId;
-        }
-
-        const response = await fetch(`${EMPLOYEES_URL}/bulk-upload`, {
-            method: 'POST',
-            headers,
-            body: formData,
-        });
-
-        if (!response.ok) {
-            const err = await response.json().catch(() => ({}));
-            throw new Error(err.message || `Bulk upload failed: ${response.status}`);
-        }
-        return response.json();
-    },
+    bulkUpload: (file: File) => fileBulkUpload(`${EMPLOYEES_URL}/bulk-upload`, file),
 };
 
+// ── Sprint Metrics Bulk Upload ─────────────────────────────
+const SPRINT_METRICS_URL = `${API_BASE_URL}/api/v1/sprint-metrics`;
+
+export const adminSprintMetricsAPI = {
+    bulkUpload: (file: File) => fileBulkUpload(`${SPRINT_METRICS_URL}/bulk-upload`, file),
+};

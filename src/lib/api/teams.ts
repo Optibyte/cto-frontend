@@ -27,4 +27,6 @@ export const teamsAPI = {
         api.post(`/${teamId}/members`, { userId, roleInTeam }),
     removeMember: (teamId: string, employeeIds: string[]) =>
         api.delete('/members', { data: { id: teamId, employeeIds } }),
+    removeSingleMember: (teamId: string, userId: string) =>
+        api.delete(`/${teamId}/members/${userId}`),
 };

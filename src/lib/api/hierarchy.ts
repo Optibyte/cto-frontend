@@ -105,8 +105,9 @@ export interface HierarchyProject {
 }
 
 export interface FullHierarchy {
-    organizations: any[];
-    markets: HierarchyMarket[];
+    organizations?: any[];
+    markets?: HierarchyMarket[];
+    name?: string;
 }
 
 export const hierarchyAPI = {

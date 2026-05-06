@@ -45,7 +45,7 @@ export function AddMetricForm() {
     // Simplified Project mapping — extract all unique projects from hierarchy
     const availableProjects = useMemo(() => {
         const projectsMap = new Map();
-        hierarchy?.markets.forEach(m => {
+        hierarchy?.markets?.forEach(m => {
             m.accounts?.forEach(acc => {
                 acc.teams?.forEach(t => {
                     if (t.project) {
