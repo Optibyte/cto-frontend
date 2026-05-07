@@ -327,7 +327,7 @@ const PROJECTS_API_URL = `${API_BASE_URL}/api/v1/projects`;
 const EMPLOYEES_API_URL = `${API_BASE_URL}/api/v1/employees`;
 const TEAM_LEADERS_API_URL = `${API_BASE_URL}/api/v1/team-leads`;
 const MANAGERS_API_URL = `${API_BASE_URL}/api/v1/project-managers`;
-const AUDIT_API_URL = `${API_BASE_URL}/api/v1/audit`;
+const AUDIT_API_URL = `${API_BASE_URL}/api/v1/audit-logs`;
 const METRIC_DEFINITIONS_API_URL = `${API_BASE_URL}/api/v1/metric-definitions`;
 const METRICS_API_URL = `${API_BASE_URL}/api/v1/metrics`;
 
@@ -694,7 +694,7 @@ export const auditAPI = {
             });
             if (!response.ok) throw new Error('Failed to fetch audit logs');
             const data = await response.json();
-            return { data };
+            return { data: Array.isArray(data) ? data : (data.data || []) };
         } catch (error) {
             console.error('Audit API Error (getAll):', error);
             throw error;
@@ -723,6 +723,21 @@ export const auditAPI = {
             return { data };
         } catch (error) {
             console.error('Audit API Error (getByEntity):', error);
+            throw error;
+        }
+    },
+    create: async (data: any) => {
+        try {
+            const response = await fetch(AUDIT_API_URL, {
+                method: 'POST',
+                headers: getHeaders(),
+                body: JSON.stringify(data)
+            });
+            if (!response.ok) throw new Error('Failed to create audit log');
+            const result = await response.json();
+            return { data: result };
+        } catch (error) {
+            console.error('Audit API Error (create):', error);
             throw error;
         }
     }

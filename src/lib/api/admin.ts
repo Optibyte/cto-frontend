@@ -212,3 +212,20 @@ const SPRINT_METRICS_URL = `${API_BASE_URL}/api/v1/sprint-metrics`;
 export const adminSprintMetricsAPI = {
     bulkUpload: (file: File) => fileBulkUpload(`${SPRINT_METRICS_URL}/bulk-upload`, file),
 };
+
+// ── Audit Logs ─────────────────────────────────────────────
+const AUDIT_LOGS_URL = `${API_BASE_URL}/api/v1/audit-logs`;
+
+export const auditLogsAPI = {
+    getAll: (page: number = 1, limit: number = 10) => {
+        const offset = (page - 1) * limit;
+        return apiFetch(`${AUDIT_LOGS_URL}?limit=${limit}&offset=${offset}`);
+    },
+    logActivity: (data: { entityType: string, entityId: string, action: string, oldValue?: any, newValue?: any }) => apiFetch(AUDIT_LOGS_URL, {
+        method: 'POST',
+        body: JSON.stringify(data),
+    }),
+};
+
+
+

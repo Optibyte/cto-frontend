@@ -1196,7 +1196,6 @@ export function ProvisionMetricsTab() {
                                                     </div>
                                                     <div>
                                                         <p className="text-sm font-bold tracking-tight">{d.name}</p>
-                                                        <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-tighter">ID: {d.metricType}</p>
                                                     </div>
                                                 </div>
                                             </TableCell>

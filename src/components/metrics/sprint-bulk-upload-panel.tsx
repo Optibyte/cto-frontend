@@ -1,5 +1,6 @@
 'use client';
 
+import * as XLSX from 'xlsx';
 import { useRef, useState, useCallback } from 'react';
 import { Upload, FileSpreadsheet, CheckCircle2, XCircle, AlertCircle, Download, X, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -11,13 +12,45 @@ import { sprintMetricsAPI } from '@/lib/api/client';
 interface UploadResult {
     total: number;
     processed: number;
-    errors: { row: number; employeeId: string; error: string }[];
+    errors: { row: number; team: string; error: string }[];
+    provisioned?: {
+        orgs: number;
+        markets: number;
+        accounts: number;
+        projects: number;
+        teams: number;
+    };
 }
 
-const TEMPLATE_CSV = `employee_id,sprint_number,sprint_name,throughput_points,quality_score,velocity_points,done_to_said_ratio,technical_debt_index,user_stories_delivered
-E1001,1,Sprint-1,32.2,92.8,55.2,1.02,14.6,10
-E1002,1,Sprint-1,42.2,94.1,54.2,0.97,16.1,14
-E1003,2,Sprint-2,40.9,94.1,49.3,0.94,17.1,11`;
+const TEMPLATE_HEADERS = [
+    'org', 'country', 'market', 'account', 'project', 'team', 'team_size',
+    'project_ai_enabled', 'project_ai_tool_licenses', 'project_ai_tools_used',
+    'sprint_number', 'sprint_name', 'throughput_points', 'quality_score',
+    'velocity_points', 'done_to_said_ratio', 'technical_debt_index', 'user_stories_delivered'
+];
+
+const SAMPLE_DATA = [
+    {
+        org: 'Acme Digital Engineering',
+        country: 'US',
+        market: 'US-Payer',
+        account: 'Aetna Health',
+        project: 'Claims Mod',
+        team: 'Claims Mod Team',
+        team_size: 11,
+        project_ai_enabled: 'YES',
+        project_ai_tool_licenses: 12,
+        project_ai_tools_used: 'Codex',
+        sprint_number: 1,
+        sprint_name: 'Sprint-1',
+        throughput_points: 32.2,
+        quality_score: 92.8,
+        velocity_points: 55.2,
+        done_to_said_ratio: 1.02,
+        technical_debt_index: 14.6,
+        user_stories_delivered: 10
+    }
+];
 
 export function SprintBulkUploadPanel() {
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -82,13 +115,12 @@ export function SprintBulkUploadPanel() {
     };
 
     const downloadTemplate = () => {
-        const blob = new Blob([TEMPLATE_CSV], { type: 'text/csv' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'sprint_upload_template.csv';
-        a.click();
-        URL.revokeObjectURL(url);
+        const worksheet = XLSX.utils.json_to_sheet(SAMPLE_DATA, { header: TEMPLATE_HEADERS });
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'SprintTemplate');
+        
+        // Generate buffer and trigger download
+        XLSX.writeFile(workbook, 'sprint_metrics_template.xlsx');
     };
 
     const successCount = result?.processed ?? 0;
@@ -101,7 +133,7 @@ export function SprintBulkUploadPanel() {
                 <div>
                     <h3 className="text-sm font-bold text-foreground">Bulk Sprint Data Upload</h3>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                        Upload a CSV / Excel file using <span className="font-semibold text-primary">employee_id</span> to store sprint metrics in DB
+                        Upload CSV / Excel — <span className="font-semibold text-primary">Teams and Projects</span> will be auto-provisioned
                     </p>
                 </div>
                 <Button
@@ -120,9 +152,8 @@ export function SprintBulkUploadPanel() {
                 <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Required CSV Columns</p>
                 <div className="flex flex-wrap gap-1.5">
                     {[
-                        'employee_id', 'sprint_number', 'sprint_name',
-                        'throughput_points', 'quality_score', 'velocity_points',
-                        'done_to_said_ratio', 'technical_debt_index', 'user_stories_delivered'
+                        'org', 'project', 'team', 'sprint_number', 'throughput_points', 
+                        'quality_score', 'velocity_points', 'done_to_said_ratio', 'technical_debt_index'
                     ].map(col => (
                         <Badge
                             key={col}
@@ -132,6 +163,7 @@ export function SprintBulkUploadPanel() {
                             {col}
                         </Badge>
                     ))}
+                    <span className="text-[10px] text-muted-foreground italic px-1">+ all hierarchy fields</span>
                 </div>
             </div>
 
@@ -267,7 +299,7 @@ export function SprintBulkUploadPanel() {
                                             <XCircle className="h-3.5 w-3.5 text-red-500 mt-0.5 shrink-0" />
                                             <div className="text-xs">
                                                 <span className="font-semibold text-foreground">Row {e.row}</span>
-                                                {e.employeeId && <span className="text-muted-foreground"> · {e.employeeId}</span>}
+                                                {e.team && <span className="text-muted-foreground"> · {e.team}</span>}
                                                 <span className="text-red-500 ml-1">— {e.error}</span>
                                             </div>
                                         </div>

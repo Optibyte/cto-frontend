@@ -55,7 +55,7 @@ export default function AdminPage() {
 
     // Filter tabs based on role
     const filteredTabs = TABS.filter(tab => {
-        if (role === 'ORG') return true;
+        if (role === 'ORG' || role === 'CTO') return true;
         if (role === 'MARKET') return ['markets', 'accounts', 'ai-projects', 'teams', 'members', 'users'].includes(tab.key);
         if (role === 'ACCOUNT') return ['accounts', 'ai-projects', 'teams', 'members', 'users'].includes(tab.key);
         if (role === 'PROJECT_MANAGER' || role === 'PROJECT') return ['projects', 'ai-projects', 'teams', 'members', 'users'].includes(tab.key);
@@ -399,29 +399,29 @@ export default function AdminPage() {
                                         {pagedData.map(item => (
                                             <tr key={item.id} className="border-b border-border/20 last:border-0 hover:bg-accent/30 group transition-colors">
                                                 {renderRow(activeTab, item)}
-                                                <td className="py-3 text-right pr-2">
-                                                    <div className="flex gap-1.5 justify-end opacity-0 group-hover:opacity-100 transition-all">
-                                                        {!(role === 'TEAM_LEAD' && activeTab !== 'members') && (
-                                                            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg bg-primary/10 text-primary hover:bg-primary/20" onClick={() => handleEdit(item)}>
-                                                                <Pencil className="h-3.5 w-3.5" />
-                                                            </Button>
-                                                        )}
-                                                        {(activeTab === 'teams') && (
-                                                            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20"
-                                                                onClick={() => {
-                                                                    setActiveTab('members');
-                                                                    handleCreate({ teamId: item.id });
-                                                                }}>
-                                                                <UserPlus className="h-3.5 w-3.5" />
-                                                            </Button>
-                                                        )}
-                                                        {!(role === 'TEAM_LEAD' && (activeTab === 'teams' || activeTab === 'users')) && (
-                                                            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20" onClick={() => setDeleteConfirm(item.id)}>
-                                                                <Trash2 className="h-3.5 w-3.5" />
-                                                            </Button>
-                                                        )}
-                                                    </div>
-                                                </td>
+                                                    <td className="py-3 text-right pr-2">
+                                                        <div className="flex gap-1.5 justify-end opacity-0 group-hover:opacity-100 transition-all">
+                                                            {!(role === 'TEAM_LEAD' && activeTab !== 'members') && (
+                                                                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg bg-primary/10 text-primary hover:bg-primary/20" onClick={() => handleEdit(item)}>
+                                                                    <Pencil className="h-3.5 w-3.5" />
+                                                                </Button>
+                                                            )}
+                                                            {(activeTab === 'teams') && (
+                                                                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20"
+                                                                    onClick={() => {
+                                                                        setActiveTab('members');
+                                                                        handleCreate({ teamId: item.id });
+                                                                    }}>
+                                                                    <UserPlus className="h-3.5 w-3.5" />
+                                                                </Button>
+                                                            )}
+                                                            {!(role === 'TEAM_LEAD' && (activeTab === 'teams' || activeTab === 'users')) && (
+                                                                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20" onClick={() => setDeleteConfirm(item.id)}>
+                                                                    <Trash2 className="h-3.5 w-3.5" />
+                                                                </Button>
+                                                            )}
+                                                        </div>
+                                                    </td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -645,16 +645,10 @@ function renderRow(tab: TabKey, item: any) {
                     'bg-emerald-500/10 text-emerald-500 border-emerald-500/20': item.role === 'ACCOUNT',
                     'bg-amber-500/10 text-amber-500 border-amber-500/20': item.role === 'PROJECT_MANAGER',
                     'bg-indigo-500/10 text-indigo-500 border-indigo-500/20': item.role === 'PROJECT',
-                    'bg-orange-500/10 text-orange-500 border-orange-500/20': item.role === 'TEAM_LEAD',
-                    'bg-pink-500/10 text-pink-500 border-pink-500/20': item.role === 'CTO',
-                    'bg-rose-500/10 text-rose-500 border-rose-500/20': item.role === 'TEAM',
-                })} variant="outline">
-                    {item.role === 'PROJECT_MANAGER' ? 'PROJECT MANAGER' :
-                        item.role === 'TEAM_LEAD' ? 'TEAM LEAD' :
-                            item.role === 'TEAM' ? 'TEAM MEMBER' :
-                                item.role === 'CTO' ? 'CTO' : item.role}
-                </Badge></td>
-                <td className="py-3 text-sm text-muted-foreground font-mono text-[11px]">{item.employeeId || '—'}</td>
+                    'bg-cyan-500/10 text-cyan-500 border-cyan-500/20': item.role === 'TEAM_LEAD',
+                    'bg-slate-500/10 text-slate-500 border-slate-500/20': item.role === 'TEAM',
+                })} variant="outline">{item.role}</Badge></td>
+                <td className="py-3 text-sm text-muted-foreground">{item.employeeId || '—'}</td>
                 <td className="py-3 text-sm text-muted-foreground">{item.jobRole || '—'}</td>
                 <td className="py-3">{item.isActive ? <Badge className="bg-emerald-500/10 text-emerald-500 rounded-full text-[10px]" variant="outline">Active</Badge> : <Badge variant="outline" className="rounded-full text-[10px]">Inactive</Badge>}</td>
             </>);
@@ -683,6 +677,56 @@ function EntityDialog({ open, onOpenChange, tab, editItem, onSave, organizations
     const [form, setForm] = useState<Record<string, any>>({});
     const [saving, setSaving] = useState(false);
     const [userSearch, setUserSearch] = useState('');
+    
+    // Unique data lists to prevent duplicate dropdown entries
+    const uniqueOrgs = useMemo(() => {
+        const seen = new Set();
+        return organizations
+            .filter(o => {
+                if (!o.id || seen.has(o.id)) return false;
+                seen.add(o.id);
+                return true;
+            })
+            .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    }, [organizations]);
+
+    const uniqueMarkets = useMemo(() => {
+        const seen = new Set();
+        return markets
+            .filter(m => {
+                if (!m.id || seen.has(m.id)) return false;
+                seen.add(m.id);
+                return true;
+            })
+            .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    }, [markets]);
+
+    const uniqueAccounts = useMemo(() => {
+        const seen = new Set();
+        return accounts.filter(a => {
+            if (!a.id || seen.has(a.id)) return false;
+            seen.add(a.id);
+            return true;
+        });
+    }, [accounts]);
+
+    const uniqueProjects = useMemo(() => {
+        const seen = new Set();
+        return projects.filter(p => {
+            if (!p.id || seen.has(p.id)) return false;
+            seen.add(p.id);
+            return true;
+        });
+    }, [projects]);
+
+    const uniqueUsers = useMemo(() => {
+        const seen = new Set();
+        return users.filter(u => {
+            if (!u.id || seen.has(u.id)) return false;
+            seen.add(u.id);
+            return true;
+        });
+    }, [users]);
 
     useEffect(() => {
         if (open) {
@@ -732,11 +776,35 @@ function EntityDialog({ open, onOpenChange, tab, editItem, onSave, organizations
 
     // Filter orgs by the currently selected country (for Markets form)
     const orgsForCountry = form.country
-        ? organizations.filter((o: any) => {
+        ? uniqueOrgs.filter((o: any) => {
             const countries = Array.isArray(o.country) ? o.country : [o.country];
             return countries.some((c: string) => (Array.isArray(form.country) ? form.country : [form.country]).includes(c));
         })
-        : organizations;
+        : uniqueOrgs;
+
+    const handleOrgChange = async (id: string) => {
+        const val = id === 'none' ? '' : id;
+        set('orgId', val);
+        
+        if (val) {
+            try {
+                // Fetch full org details by ID to get accurate country mapping
+                const org = await adminOrganizationsAPI.getOne(val);
+                const countries = Array.isArray(org.country) ? org.country : (org.country ? [org.country] : []);
+                
+                // If org has only one country, auto-select it for the market
+                if (countries.length === 1) {
+                    set('country', countries);
+                } else {
+                    set('country', []);
+                }
+            } catch (err) {
+                console.error("Failed to fetch organization details:", err);
+            }
+        } else {
+            set('country', []);
+        }
+    };
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -780,38 +848,46 @@ function EntityDialog({ open, onOpenChange, tab, editItem, onSave, organizations
                         </>)}
 
                         {tab === 'markets' && (<>
-                            <div className="space-y-2"><Label>Name *</Label><Input className="rounded-xl" value={form.name || ''} onChange={e => set('name', e.target.value)} placeholder="e.g. North America" /></div>
+                            <div className="space-y-2"><Label>Market Name *</Label><Input className="rounded-xl" value={form.name || ''} onChange={e => set('name', e.target.value)} placeholder="e.g. North America" /></div>
                             <div className="space-y-2">
-                                <Label>Country *</Label>
+                                <Label>Organization *</Label>
                                 <Select
-                                    value={form.country || ''}
-                                    onValueChange={v => {
-                                        set('country', v);
-                                        set('orgId', ''); // reset org when country changes
-                                    }}
+                                    value={form.orgId || ''}
+                                    onValueChange={handleOrgChange}
                                 >
-                                    <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select country" /></SelectTrigger>
-                                    <SelectContent className="max-h-60">
-                                        {existingCountries.length > 0
-                                            ? existingCountries.map((c: string) => <SelectItem key={c} value={c}>{c}</SelectItem>)
-                                            : <SelectItem value="__none__" disabled>No countries found — type them in Organizations first</SelectItem>
-                                        }
+                                    <SelectTrigger className="rounded-xl">
+                                        <SelectValue placeholder="Select organization" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="none">None</SelectItem>
+                                        {uniqueOrgs.map((o: any) => (
+                                            <SelectItem key={o.id} value={o.id}>
+                                                {o.name} {o.country && (Array.isArray(o.country) ? o.country.length > 0 : !!o.country) ? `(${Array.isArray(o.country) ? o.country[0] : o.country})` : `[ID: ${o.id.slice(0, 4)}]`}
+                                            </SelectItem>
+                                        ))}
                                     </SelectContent>
                                 </Select>
                             </div>
                             <div className="space-y-2">
-                                <Label>Organization</Label>
+                                <Label>Country *</Label>
                                 <Select
-                                    value={form.orgId || ''}
-                                    onValueChange={v => set('orgId', v === 'none' ? '' : v)}
-                                    disabled={!form.country}
+                                    value={Array.isArray(form.country) ? form.country[0] : form.country || ''}
+                                    onValueChange={v => set('country', [v])}
+                                    disabled={!form.orgId}
                                 >
                                     <SelectTrigger className="rounded-xl">
-                                        <SelectValue placeholder={form.country ? 'Select organization' : 'Select a country first'} />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="none">None</SelectItem>
-                                        {orgsForCountry.map((o: any) => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}
+                                        <SelectValue placeholder={form.orgId ? "Select country" : "Select organization first"} /></SelectTrigger>
+                                    <SelectContent className="max-h-60">
+                                        {(() => {
+                                            const selectedOrg = uniqueOrgs.find(o => o.id === form.orgId);
+                                            const availableCountries = selectedOrg 
+                                                ? (Array.isArray(selectedOrg.country) ? selectedOrg.country : [selectedOrg.country])
+                                                : [];
+                                            
+                                            return availableCountries.length > 0
+                                                ? availableCountries.map((c: string) => <SelectItem key={c} value={c}>{c}</SelectItem>)
+                                                : <SelectItem value="__none__" disabled>No countries defined for this organization</SelectItem>;
+                                        })()}
                                     </SelectContent>
                                 </Select>
                             </div>
@@ -823,7 +899,7 @@ function EntityDialog({ open, onOpenChange, tab, editItem, onSave, organizations
                                 <Label>Market *</Label>
                                 <Select value={form.marketId || ''} onValueChange={v => set('marketId', v)}>
                                     <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select market" /></SelectTrigger>
-                                    <SelectContent>{markets.map((m: any) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}</SelectContent>
+                                    <SelectContent>{uniqueMarkets.map((m: any) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}</SelectContent>
                                 </Select>
                             </div>
                             <div className="space-y-2">
@@ -831,7 +907,7 @@ function EntityDialog({ open, onOpenChange, tab, editItem, onSave, organizations
                                 <Select value={form.accountManagerId || ''} onValueChange={v => set('accountManagerId', v)}>
                                     <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select managers" /></SelectTrigger>
                                     <SelectContent>
-                                        {users.filter((u: any) => u.role === 'ACCOUNT').map((u: any) => (
+                                        {uniqueUsers.filter((u: any) => u.role === 'ACCOUNT').map((u: any) => (
                                             <SelectItem key={u.id} value={u.id}>{u.fullName} ({u.email})</SelectItem>
                                         ))}
                                     </SelectContent>
@@ -1134,7 +1210,7 @@ function EntityDialog({ open, onOpenChange, tab, editItem, onSave, organizations
 function getDefaultForm(tab: TabKey): Record<string, any> {
     switch (tab) {
         case 'organizations': return { name: '', country: [] };
-        case 'markets': return { name: '', regionCode: '', country: '' };
+        case 'markets': return { name: '', country: [], orgId: '' };
         case 'accounts': return { name: '', marketId: '', accountManagerId: '' };
         case 'projects': return { name: '', startDate: '', enddate: '', status: 'PLANNED', teamSize: 0, progress: 0, jiraProjectKey: '', jiraBoardId: '', githubRepoId: '', githubToken: '', license: '', isDigitalTransformation: false, digitalTransformationStartDate: '', digitalTransformationEndDate: '', aiEnabled: false, aiToolLicenses: 0, aiToolsUsed: [] };
         case 'ai-projects': return { name: '', startDate: '', enddate: '', status: 'PLANNED', teamSize: 0, progress: 0, jiraProjectKey: '', jiraBoardId: '', githubRepoId: '', githubToken: '', license: '', isDigitalTransformation: false, digitalTransformationStartDate: '', digitalTransformationEndDate: '', aiEnabled: true, aiToolLicenses: 0, aiToolsUsed: [] };
@@ -1150,7 +1226,11 @@ function buildPayload(tab: TabKey, form: Record<string, any>, isEdit: boolean): 
             name: form.name,
             country: Array.isArray(form.country) ? form.country : (form.country ? [form.country] : [])
         };
-        case 'markets': return { name: form.name, regionCode: form.regionCode, country: form.country };
+        case 'markets': return { 
+            name: form.name, 
+            orgId: form.orgId,
+            country: Array.isArray(form.country) ? form.country : (form.country ? [form.country] : [])
+        };
         case 'accounts': return { name: form.name, marketId: form.marketId, accountManagerId: form.accountManagerId };
         case 'projects':
         case 'ai-projects': {

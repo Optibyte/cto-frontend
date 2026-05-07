@@ -181,9 +181,18 @@ export default function AuditPage() {
                                                 </div>
                                             </td>
                                             <td className="py-5 px-6">
-                                                <p className="text-sm text-muted-foreground font-medium truncate max-w-[200px]">
-                                                    {log.action === 'CREATE' ? 'Successfully created' : 'Modified entity records'} ID: {log.entityId.substring(0, 8)}...
-                                                </p>
+                                                <div className="text-sm text-muted-foreground font-medium max-w-[300px] line-clamp-2">
+                                                    {(() => {
+                                                        if (log.action === 'LOGIN') return 'User authenticated successfully';
+                                                        if (log.action === 'CREATE') return `New ${log.entityType.toLowerCase()} created: ${log.newValue?.name || log.newValue?.fullName || log.entityId.substring(0, 8)}`;
+                                                        if (log.action === 'UPDATE') {
+                                                            const changes = Object.keys(log.newValue || {}).filter(k => log.oldValue?.[k] !== log.newValue?.[k]);
+                                                            return `Updated: ${changes.join(', ') || 'Metadata refreshed'}`;
+                                                        }
+                                                        if (log.action === 'DELETE') return `Entity removed from system`;
+                                                        return 'System activity recorded';
+                                                    })()}
+                                                </div>
                                             </td>
                                             <td className="py-5 px-6 text-right">
                                                 <div className="flex flex-col items-end">

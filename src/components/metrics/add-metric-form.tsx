@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from '@/components/ui/select';
-import { Plus, Loader2, Check, Target, Layers, Workflow, Info, Building2 } from 'lucide-react';
+import { Plus, Loader2, Check, Target, Layers, Workflow, Info, Building2, Activity } from 'lucide-react';
 import { MetricDefinition } from '@/lib/types';
 import { getNextMetricId } from '@/lib/mock-data/learning-metrics';
 import { useMemo } from 'react';
@@ -155,8 +155,8 @@ export function AddMetricForm() {
                             <div className="grid grid-cols-1 gap-4">
                                 <div className="space-y-2">
                                     <Label className="text-xs font-semibold uppercase tracking-wider opacity-60">Target Project *</Label>
-                                    <Select 
-                                        value={formData.projectId} 
+                                    <Select
+                                        value={formData.projectId}
                                         onValueChange={handleProjectChange}
                                     >
                                         <SelectTrigger className="h-12 rounded-xl border-border/50 bg-background/50 backdrop-blur-sm focus:ring-primary/20 transition-all">
@@ -298,8 +298,8 @@ export function AddMetricForm() {
                             <Card key={m.id} className="border-border/40 bg-card/30 backdrop-blur-sm hover:border-primary/30 transition-all group">
                                 <CardContent className="p-4 flex items-center justify-between">
                                     <div className="flex items-center gap-4">
-                                        <div className="h-10 w-10 rounded-xl bg-primary/5 flex items-center justify-center font-mono text-xs font-bold text-primary group-hover:bg-primary/10 transition-colors">
-                                            {m.id.split('-').pop()}
+                                        <div className="h-10 w-10 rounded-xl bg-primary/5 flex items-center justify-center text-primary group-hover:bg-primary/10 transition-colors">
+                                            <Activity className="h-5 w-5" />
                                         </div>
                                         <div>
                                             <div className="flex items-center gap-2">
