@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { pivotData, newPlotConfig, X_AXIS_OPTIONS, METRICS_FIELDS, type PlotConfig } from './powerbi-engine';
 import { PowerBIChart } from './powerbi-chart';
 import { PlotEditorDialog } from './powerbi-editor';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PDFReportGenerator } from './pdf-report-generator';
 
 // Default starter plots
@@ -34,6 +35,18 @@ const STARTER_PLOTS: PlotConfig[] = [
         aiFilter: 'all', sprintRange: [1, 10], xAxis: 'market', legend: 'none', chartType: 'BarChart',
         metrics: [{ key: 'throughputPoints', agg: 'sum', color: '#10b981', type: 'bar' }, { key: 'velocityPoints', agg: 'sum', color: '#f59e0b', type: 'bar' }], span: 1,
     },
+    {
+        id: 'starter-4', title: 'Manual Assessment Overview', subtitle: 'Average scores from manual audits',
+        dataSource: 'manual_metrics', scopeOrgs: [], scopeMarkets: [], scopeAccounts: [], scopeProjects: [], scopeTeams: [],
+        aiFilter: 'all', sprintRange: [1, 10], xAxis: 'market', legend: 'none', chartType: 'BarChart',
+        metrics: [{ key: 'value', agg: 'avg', color: '#f59e0b', type: 'bar' }], span: 1,
+    },
+    {
+        id: 'starter-5', title: 'Sprint Velocity Stability', subtitle: 'Sum of velocity points by project',
+        dataSource: 'team_productivity', scopeOrgs: [], scopeMarkets: [], scopeAccounts: [], scopeProjects: [], scopeTeams: [],
+        aiFilter: 'all', sprintRange: [1, 10], xAxis: 'project', legend: 'none', chartType: 'AreaChart',
+        metrics: [{ key: 'velocityPoints', agg: 'sum', color: '#ec4899', type: 'area' }], span: 1,
+    },
 ];
 
 function StatCard({ title, value, unit, icon, color }: any) {
@@ -55,13 +68,18 @@ function StatCard({ title, value, unit, icon, color }: any) {
 
 export function AnalyticsDashboard({ filters, onFilterChange }: { filters: any; onFilterChange?: (key: any, value: string) => void }) {
     const { data: analytics, isLoading: isLoadingAnalytics } = useSprintAnalytics(filters);
-    const { data: rawMetricsData, isLoading: isLoadingRaw } = useSprintMetrics();
-    const { data: manualMetricsData, isLoading: isLoadingManual } = useMetrics({ source: 'manual' });
+    const { data: rawMetricsData, isLoading: isLoadingRaw } = useSprintMetrics(filters);
+    const { data: manualMetricsData, isLoading: isLoadingManual } = useMetrics({ ...filters, source: 'manual' });
 
     const [editMode, setEditMode] = useState(false);
     const [plots, setPlots] = useState<PlotConfig[]>(STARTER_PLOTS);
     const [editingPlot, setEditingPlot] = useState<PlotConfig | null>(null);
     const [expandingPlot, setExpandingPlot] = useState<PlotConfig | null>(null);
+
+    // Standard Analytics State
+    const [showStandard, setShowStandard] = useState(true);
+    const [standardMetric, setStandardMetric] = useState('throughputPoints');
+    const [standardDim, setStandardDim] = useState('project');
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [isExpandOpen, setIsExpandOpen] = useState(false);
 
@@ -90,6 +108,29 @@ export function AnalyticsDashboard({ filters, onFilterChange }: { filters: any; 
     const manualData = Array.isArray(manualMetricsData) ? manualMetricsData : [];
     const maxSprint = rawData.length ? Math.max(...rawData.map((r: any) => r.sprintNumber || 1)) : 10;
 
+    // Build Standard Plots
+    const selectedMetric = METRICS_FIELDS.find(m => m.id === standardMetric) || METRICS_FIELDS[0];
+    const trendConfig: PlotConfig = {
+        id: 'std-trend', title: `${selectedMetric.label} Trend`, subtitle: 'Across all sprints',
+        dataSource: 'team_productivity', scopeOrgs: [], scopeMarkets: [], scopeAccounts: [], scopeProjects: [], scopeTeams: [],
+        aiFilter: 'all', sprintRange: [1, maxSprint], xAxis: 'sprintNumber', legend: 'none', chartType: 'LineChart',
+        metrics: [{ key: standardMetric, agg: 'avg', color: '#8b5cf6', type: 'line' }], span: 1
+    };
+    const compConfig: PlotConfig = {
+        id: 'std-comp', title: `${selectedMetric.label} by ${X_AXIS_OPTIONS.find(x => x.id === standardDim)?.label || 'Dimension'}`, subtitle: 'Current aggregate comparison',
+        dataSource: 'team_productivity', scopeOrgs: [], scopeMarkets: [], scopeAccounts: [], scopeProjects: [], scopeTeams: [],
+        aiFilter: 'all', sprintRange: [1, maxSprint], xAxis: standardDim, legend: 'none', chartType: 'BarChart',
+        metrics: [{ key: standardMetric, agg: 'sum', color: '#3b82f6', type: 'bar' }], span: 1
+    };
+    const aiCompConfig: PlotConfig = {
+        id: 'std-ai', title: `AI vs Traditional: ${selectedMetric.label}`, subtitle: 'Performance impact analysis',
+        dataSource: 'team_productivity', scopeOrgs: [], scopeMarkets: [], scopeAccounts: [], scopeProjects: [], scopeTeams: [],
+        aiFilter: 'all', sprintRange: [1, maxSprint], xAxis: 'sprintNumber', legend: 'aiEnabled', chartType: 'ComposedChart',
+        metrics: [{ key: standardMetric, agg: 'avg', color: '#10b981', type: 'bar' }], span: 1
+    };
+
+    const standardPlots = [trendConfig, compConfig, aiCompConfig];
+
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-1000 pb-10">
             {/* KPI Cards */}
@@ -99,6 +140,64 @@ export function AnalyticsDashboard({ filters, onFilterChange }: { filters: any; 
                 <StatCard title="Project Landscape" value={analytics?.kpi?.totalProjectCount || analytics?.kpi?.projectCount || 0} icon={<Zap className="h-5 w-5" />} color="text-purple-500" />
                 <StatCard title="Avg Throughput" value={Number(analytics?.kpi?.avgThroughput || 0).toFixed(1)} unit="Pts" icon={<BarChart3 className="h-5 w-5" />} color="text-blue-500" />
             </div>
+            {/* Standard Analytics Section */}
+            <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
+                            <BarChart3 className="h-5 w-5" />
+                        </div>
+                        <div>
+                            <h2 className="text-xl font-black tracking-tight">Standard Insights</h2>
+                            <p className="text-xs text-muted-foreground">Pre-configured analytical perspectives</p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Select value={standardMetric} onValueChange={setStandardMetric}>
+                            <SelectTrigger className="w-[180px] h-9 rounded-xl border-border/50 bg-background/50 backdrop-blur-sm">
+                                <SelectValue placeholder="Select Metric" />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-xl border-border/50">
+                                {METRICS_FIELDS.map(m => <SelectItem key={m.id} value={m.id} className="text-xs">{m.label}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                        <Select value={standardDim} onValueChange={setStandardDim}>
+                            <SelectTrigger className="w-[150px] h-9 rounded-xl border-border/50 bg-background/50 backdrop-blur-sm">
+                                <SelectValue placeholder="Compare By" />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-xl border-border/50">
+                                {X_AXIS_OPTIONS.filter(o => o.id !== 'sprintNumber').map(o => <SelectItem key={o.id} value={o.id} className="text-xs">{o.label}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                        <Button variant="ghost" size="sm" onClick={() => setShowStandard(!showStandard)} className="rounded-xl text-xs font-bold uppercase tracking-wider">
+                            {showStandard ? 'Collapse' : 'Expand Insights'}
+                        </Button>
+                    </div>
+                </div>
+
+                {showStandard && (
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in slide-in-from-top-4 duration-500 pb-4">
+                        {standardPlots.map(plot => (
+                            <div key={plot.id} className="relative group transition-all duration-300">
+                                <div className="absolute top-3 right-3 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
+                                     <Button size="icon" variant="secondary" className="h-7 w-7 rounded-lg shadow-md bg-background/80 backdrop-blur-sm" onClick={() => { setExpandingPlot(plot); setIsExpandOpen(true); }}><Maximize2 className="w-3.5 h-3.5" /></Button>
+                                </div>
+                                <Card className="h-full rounded-[2rem] border-border/50 bg-background/50 backdrop-blur-2xl shadow-xl overflow-hidden hover:border-primary/20 transition-colors">
+                                    <CardHeader className="p-6 pb-2 text-center sm:text-left">
+                                        <CardTitle className="text-lg font-black tracking-tight">{plot.title}</CardTitle>
+                                        <CardDescription className="text-[10px] font-medium opacity-70">{plot.subtitle}</CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="p-5 pt-2 h-[300px]">
+                                        <PowerBIChart data={pivotData(rawData, plot)} config={plot} />
+                                    </CardContent>
+                                </Card>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            <div className="border-t border-border/10 pt-2" />
 
             {/* BI Canvas Header */}
             <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-3xl bg-white/50 dark:bg-black/20 border border-border/50 backdrop-blur-xl shadow-sm">

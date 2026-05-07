@@ -99,15 +99,31 @@ export function cascadeOptions(rawData: any[], scope: Partial<PlotConfig>) {
 }
 
 // Get dimension value from a row
-function getDimValue(row: any, dim: string): string {
+// Get dimension value from a row based on data source
+function getDimValue(row: any, dim: string, dataSource: string): string {
+  if (dataSource === 'manual_metrics') {
+    switch (dim) {
+      case 'sprintNumber': return `Period ${row.period || row.sprint || 1}`;
+      case 'org': return row.org || 'Unknown';
+      case 'country': return row.country || 'Unknown';
+      case 'market': return row.market || 'Unknown';
+      case 'account': return row.account || 'Unknown';
+      case 'project': return row.project || 'Unknown';
+      case 'team': return row.team || 'Unknown';
+      case 'aiEnabled': return row.aiEnabled ? 'AI-Enabled' : 'Traditional';
+      default: return 'All';
+    }
+  }
+
+  // team_productivity structure
   switch (dim) {
     case 'sprintNumber': return `Sprint ${row.sprintNumber}`;
-    case 'org': return row.team?.account_rel?.org?.name || 'Unknown';
-    case 'country': return row.team?.account_rel?.market?.country || 'Unknown';
-    case 'market': return row.team?.account_rel?.market?.name || 'Unknown';
-    case 'account': return row.team?.account_rel?.name || 'Unknown';
-    case 'project': return row.team?.project?.name || 'Unknown';
-    case 'team': return row.team?.name || 'Unknown';
+    case 'org': return row.team?.account_rel?.org?.name || row.org || 'Unknown';
+    case 'country': return row.team?.account_rel?.market?.country || row.country || 'Unknown';
+    case 'market': return row.team?.account_rel?.market?.name || row.market || 'Unknown';
+    case 'account': return row.team?.account_rel?.name || row.account || 'Unknown';
+    case 'project': return row.team?.project?.name || row.project || 'Unknown';
+    case 'team': return row.team?.name || row.teamName || 'Unknown';
     case 'aiEnabled': return row.team?.project?.aiEnabled ? 'AI-Enabled' : 'Traditional';
     default: return 'All';
   }
@@ -119,14 +135,26 @@ export function pivotData(rawData: any[], config: PlotConfig): any[] {
 
   // 1. Apply scope filters
   let data = rawData;
-  if (config.scopeOrgs?.length) data = data.filter(r => config.scopeOrgs.includes(r.team?.account_rel?.org?.name));
-  if (config.scopeMarkets?.length) data = data.filter(r => config.scopeMarkets.includes(r.team?.account_rel?.market?.name));
-  if (config.scopeAccounts?.length) data = data.filter(r => config.scopeAccounts.includes(r.team?.account_rel?.name));
-  if (config.scopeProjects?.length) data = data.filter(r => config.scopeProjects.includes(r.team?.project?.name));
-  if (config.scopeTeams?.length) data = data.filter(r => config.scopeTeams.includes(r.team?.name));
-  if (config.aiFilter === 'ai') data = data.filter(r => r.team?.project?.aiEnabled);
-  if (config.aiFilter === 'non-ai') data = data.filter(r => !r.team?.project?.aiEnabled);
-  if (config.sprintRange) data = data.filter(r => r.sprintNumber >= config.sprintRange[0] && r.sprintNumber <= config.sprintRange[1]);
+  const isManual = config.dataSource === 'manual_metrics';
+
+  if (isManual) {
+    if (config.scopeOrgs?.length) data = data.filter(r => config.scopeOrgs.includes(r.org));
+    if (config.scopeMarkets?.length) data = data.filter(r => config.scopeMarkets.includes(r.market));
+    if (config.scopeAccounts?.length) data = data.filter(r => config.scopeAccounts.includes(r.account));
+    if (config.scopeProjects?.length) data = data.filter(r => config.scopeProjects.includes(r.project));
+    if (config.scopeTeams?.length) data = data.filter(r => config.scopeTeams.includes(r.team));
+    if (config.aiFilter === 'ai') data = data.filter(r => r.aiEnabled);
+    if (config.aiFilter === 'non-ai') data = data.filter(r => !r.aiEnabled);
+  } else {
+    if (config.scopeOrgs?.length) data = data.filter(r => config.scopeOrgs.includes(r.team?.account_rel?.org?.name));
+    if (config.scopeMarkets?.length) data = data.filter(r => config.scopeMarkets.includes(r.team?.account_rel?.market?.name));
+    if (config.scopeAccounts?.length) data = data.filter(r => config.scopeAccounts.includes(r.team?.account_rel?.name));
+    if (config.scopeProjects?.length) data = data.filter(r => config.scopeProjects.includes(r.team?.project?.name));
+    if (config.scopeTeams?.length) data = data.filter(r => config.scopeTeams.includes(r.team?.name));
+    if (config.aiFilter === 'ai') data = data.filter(r => r.team?.project?.aiEnabled);
+    if (config.aiFilter === 'non-ai') data = data.filter(r => !r.team?.project?.aiEnabled);
+    if (config.sprintRange) data = data.filter(r => r.sprintNumber >= config.sprintRange[0] && r.sprintNumber <= config.sprintRange[1]);
+  }
 
   if (!data.length) return [];
 
@@ -134,15 +162,17 @@ export function pivotData(rawData: any[], config: PlotConfig): any[] {
   const hasLegend = config.legend && config.legend !== 'none';
 
   data.forEach(row => {
-    const xKey = getDimValue(row, config.xAxis);
+    const xKey = getDimValue(row, config.xAxis, config.dataSource);
     if (!groups[xKey]) {
-      groups[xKey] = { group: xKey, _sortKey: config.xAxis === 'sprintNumber' ? row.sprintNumber : xKey, _counts: {}, _totals: {} };
+      const sortKey = config.xAxis === 'sprintNumber' 
+        ? (isManual ? (row.period || row.sprint || 0) : row.sprintNumber) 
+        : xKey;
+      groups[xKey] = { group: xKey, _sortKey: sortKey, _counts: {}, _totals: {} };
     }
     const g = groups[xKey];
 
     if (hasLegend) {
-      // ONE metric, broken down by legend series
-      const lKey = getDimValue(row, config.legend);
+      const lKey = getDimValue(row, config.legend, config.dataSource);
       const m = config.metrics[0];
       if (m) {
         if (!g._totals[lKey]) { g._totals[lKey] = 0; g._counts[lKey] = 0; }
@@ -150,7 +180,6 @@ export function pivotData(rawData: any[], config: PlotConfig): any[] {
         g._counts[lKey]++;
       }
     } else {
-      // Multiple metrics, no legend
       config.metrics.forEach(m => {
         if (!g._totals[m.key]) { g._totals[m.key] = 0; g._counts[m.key] = 0; }
         g._totals[m.key] += Number(row[m.key] || 0);

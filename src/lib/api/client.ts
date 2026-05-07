@@ -746,9 +746,10 @@ export const auditAPI = {
 const SPRINT_METRICS_API_URL = `${API_BASE_URL}/api/v1/sprint-metrics`;
 
 export const sprintMetricsAPI = {
-    getAll: async () => {
+    getAll: async (filters?: any) => {
         try {
-            const response = await fetch(SPRINT_METRICS_API_URL, {
+            const queryParams = filters ? new URLSearchParams(filters).toString() : '';
+            const response = await fetch(`${SPRINT_METRICS_API_URL}${queryParams ? `?${queryParams}` : ''}`, {
                 headers: getHeaders(),
             });
             if (!response.ok) return { data: [] };

@@ -110,11 +110,11 @@ export function useUpdateGlobalBaseline() {
     });
 }
 
-export function useSprintMetrics() {
+export function useSprintMetrics(filters?: any) {
     return useQuery({
-        queryKey: ['sprint-metrics'],
+        queryKey: ['sprint-metrics', filters],
         queryFn: async () => {
-            const { data } = await sprintMetricsAPI.getAll();
+            const { data } = await sprintMetricsAPI.getAll(filters);
             return data;
         },
         retry: 1,
