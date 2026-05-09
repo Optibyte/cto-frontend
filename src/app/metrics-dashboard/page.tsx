@@ -168,7 +168,7 @@ export default function MetricsDashboardPage() {
 
     const clearFilters = () => {
         setFilters({
-            org: isOrgScoped && fixedOrgName ? fixedOrgName : 'all', 
+            org: 'all', 
             country: 'all', 
             market: isMarketScoped && fixedMarketName ? fixedMarketName : 'all', 
             account: isAccountScoped && fixedAccountName ? fixedAccountName : 'all',
@@ -183,7 +183,7 @@ export default function MetricsDashboardPage() {
         const f: Record<string, string> = {};
         Object.entries(filters).forEach(([k, v]) => { if (v !== 'all') f[k] = v; });
 
-        if (isOrgScoped && fixedOrgName && !f.org) f.org = fixedOrgName;
+
         if (isMarketScoped && fixedMarketName && !f.market) f.market = fixedMarketName;
         if (isAccountScoped && fixedAccountName && !f.account) f.account = fixedAccountName;
         if (isProjectScoped && fixedProjectName && !f.project) f.project = fixedProjectName;
@@ -214,7 +214,7 @@ export default function MetricsDashboardPage() {
 
         if (isOrgScoped) {
             return [
-                { key: 'org', label: 'Org', options: [], locked: true, lockedValue: fixedOrgName },
+                { key: 'org', label: 'Org', options: hierarchyFilterOptions.orgs, locked: false },
                 { key: 'country', label: 'Country', options: hierarchyFilterOptions.countries, locked: false },
                 { key: 'market', label: 'Market', options: hierarchyFilterOptions.markets, locked: false },
                 { key: 'account', label: 'Account', options: hierarchyFilterOptions.accounts, locked: false },
