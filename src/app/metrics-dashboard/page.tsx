@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { AnalyticsDashboard } from '@/components/metrics/analytics-dashboard';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useOrgHierarchy } from '@/hooks/use-hierarchy';
-import { Filter, Lock } from 'lucide-react';
+import { Filter, Lock, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useRole, useDataFence } from '@/contexts/role-context';
 import { Badge } from '@/components/ui/badge';
@@ -244,9 +244,7 @@ export default function MetricsDashboardPage() {
         }
 
         if (isProjectScoped) {
-            // PM sees: their project (locked) + teams within it
             const teamsInProject = scopedTeams.map((t: any) => t.name);
-            
             const scopedMembers = new Set<string>();
             scopedTeams.forEach((t: any) => {
                 if (filters.team !== 'all' && t.name !== filters.team) return;
@@ -261,7 +259,6 @@ export default function MetricsDashboardPage() {
             ];
         }
 
-        // Team-scoped: only team (locked) + member
         if (isTeamScoped) {
             const scopedMembers = new Set<string>();
             scopedTeams.forEach((t: any) => {
@@ -318,9 +315,9 @@ export default function MetricsDashboardPage() {
                                 {locked && <Lock className="h-2.5 w-2.5 text-violet-400" />}
                             </span>
                             {locked ? (
-                                <div className="w-full rounded-xl bg-violet-50 dark:bg-violet-500/10 border border-violet-200 dark:border-violet-500/20 h-10 px-3 flex items-center gap-2">
-                                    <Lock className="h-3 w-3 text-violet-500 flex-shrink-0" />
-                                    <span className="text-xs font-bold text-violet-700 dark:text-violet-400 truncate">{lockedValue || 'Locked'}</span>
+                                <div className="w-full rounded-xl bg-background/50 border border-border/50 h-10 px-3 flex items-center justify-between text-xs font-bold text-foreground opacity-75 cursor-not-allowed select-none">
+                                    <span className="truncate">{lockedValue || 'Locked'}</span>
+                                    <ChevronDown className="h-4 w-4 opacity-50 flex-shrink-0 ml-2" />
                                 </div>
                             ) : (
                                 <Select value={filters[key as keyof typeof filters]} onValueChange={(val) => updateFilter(key as keyof typeof filters, val)}>
@@ -338,11 +335,9 @@ export default function MetricsDashboardPage() {
                         </div>
                     ))}
 
-                    {!isProjectScoped && !isTeamScoped && (
-                        <Button variant="ghost" onClick={clearFilters} className="mt-5 h-10 rounded-xl text-xs font-bold hover:bg-red-500/10 hover:text-red-500 transition-colors">
-                            Clear
-                        </Button>
-                    )}
+                    <Button variant="ghost" onClick={clearFilters} className="mt-5 h-10 rounded-xl text-xs font-bold hover:bg-red-500/10 hover:text-red-500 transition-colors">
+                        Clear
+                    </Button>
                 </div>
             </div>
 
