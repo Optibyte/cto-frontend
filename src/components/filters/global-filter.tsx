@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { Filter, X, Check, ChevronDown, Landmark, Globe, Briefcase, Users, User } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { Filter, X, Check, ChevronDown, Landmark, Globe, Briefcase, Users, User, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -30,7 +30,6 @@ import { useOrgHierarchy } from '@/hooks/use-hierarchy';
 import { useProjects } from '@/hooks/use-projects';
 import { marketsAPI, adminAccountsAPI, adminProjectsAPI, adminTeamsAPI, adminTeamMembersAPI } from '@/lib/api/admin';
 import { jiraMetricsAPI } from '@/lib/api/jira-metrics';
-import { useEffect } from 'react';
 import { useRole } from '@/contexts/role-context';
 
 export function GlobalFilter() {
@@ -43,6 +42,15 @@ export function GlobalFilter() {
         selectedTeam,
         selectedMember,
     } = useAppSelector((s) => s.dashboard);
+
+    const { user } = useRole();
+    const isProjectScoped = ['PROJECT_MANAGER', 'PROJECT'].includes(role);
+    const isTeamScoped = ['TEAM_LEAD', 'TEAM', 'MEMBER'].includes(role);
+    
+    // Unwrap nested user object
+    const u = user?.user ?? user;
+    const fixedProjectId: string = u?.projectId || '';
+    const fixedTeamId: string = u?.teamId || '';
 
     const [open, setOpen] = useState(false);
 
@@ -76,6 +84,39 @@ export function GlobalFilter() {
     const [dynamicProjects, setDynamicProjects] = useState<any[]>([]);
     const [dynamicTeams, setDynamicTeams] = useState<any[]>([]);
     const [dynamicMembers, setDynamicMembers] = useState<any[]>([]);
+
+    // Convert fixed IDs to names since backend expects names
+    const fixedProjectName = useMemo(() => {
+        if (!fixedProjectId) return '';
+        if (hierarchyProjects.length > 0) {
+            return hierarchyProjects.find(p => p.id === fixedProjectId)?.name || fixedProjectId;
+        }
+        if (dynamicProjects.length > 0) {
+            return dynamicProjects.find(p => p.id === fixedProjectId)?.name || fixedProjectId;
+        }
+        return u?.project?.name || fixedProjectId;
+    }, [fixedProjectId, hierarchyProjects, dynamicProjects, u]);
+
+    const fixedTeamName = useMemo(() => {
+        if (!fixedTeamId) return '';
+        if (hierarchyTeams.length > 0) {
+            return hierarchyTeams.find(t => t.id === fixedTeamId)?.name || fixedTeamId;
+        }
+        if (dynamicTeams.length > 0) {
+            return dynamicTeams.find(t => t.id === fixedTeamId)?.name || fixedTeamId;
+        }
+        return u?.team?.name || fixedTeamId;
+    }, [fixedTeamId, hierarchyTeams, dynamicTeams, u]);
+
+    // Enforce default redux state for locked users
+    useEffect(() => {
+        if (isProjectScoped && fixedProjectName && selectedProject !== fixedProjectName) {
+            dispatch(setSelectedProject(fixedProjectName));
+        }
+        if (isTeamScoped && fixedTeamName && selectedTeam !== fixedTeamName) {
+            dispatch(setSelectedTeam(fixedTeamName));
+        }
+    }, [isProjectScoped, fixedProjectName, isTeamScoped, fixedTeamName, selectedProject, selectedTeam, dispatch]);
 
     useEffect(() => {
         if (!open) return;
@@ -141,13 +182,16 @@ export function GlobalFilter() {
     };
 
     const handleReset = () => {
-        dispatch(setSelectedProject('all'));
+        dispatch(setSelectedProject(isProjectScoped && fixedProjectName ? fixedProjectName : 'all'));
+        if (isTeamScoped && fixedTeamName) {
+             dispatch(setSelectedTeam(fixedTeamName));
+        }
         // Cascading resets are handled in the slice
     };
 
     // Role-based visibility logic (hierarchical)
     const showProject = true; // Project is the new top-level entry point
-    const showTeam = role === 'ORG' || role === 'MARKET' || role === 'ACCOUNT' || role === 'PROJECT';
+    const showTeam = role === 'ORG' || role === 'MARKET' || role === 'ACCOUNT' || role === 'PROJECT' || role === 'PROJECT_MANAGER' || role === 'CTO' || role === 'TEAM_LEAD' || role === 'TEAM';
     const showMember = true; // Everyone can filter members in their scope
 
     return (
@@ -184,18 +228,20 @@ export function GlobalFilter() {
                         <div className="space-y-2">
                             <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
                                 <Briefcase className="h-3 w-3" /> Select Project
+                                {isProjectScoped && fixedProjectName && <Lock className="h-3 w-3 ml-1 text-violet-400" />}
                             </label>
                             <Select
                                 value={selectedProject}
                                 onValueChange={(v) => dispatch(setSelectedProject(v))}
+                                disabled={isProjectScoped && !!fixedProjectName}
                             >
-                                <SelectTrigger className="rounded-xl border-border/50 bg-card/50 focus:ring-primary/20">
+                                <SelectTrigger className="rounded-xl border-border/50 bg-card/50 focus:ring-primary/20 disabled:opacity-80 disabled:cursor-not-allowed">
                                     <SelectValue placeholder="All Projects" />
                                 </SelectTrigger>
                                 <SelectContent className="rounded-xl border-border/50 shadow-xl">
-                                    <SelectItem value="all">All Projects</SelectItem>
+                                    {!isProjectScoped && <SelectItem value="all">All Projects</SelectItem>}
                                     {projectsDeduped.map((p) => (
-                                        <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                                        <SelectItem key={p.name} value={p.name}>{p.name}</SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
@@ -207,18 +253,20 @@ export function GlobalFilter() {
                         <div className="space-y-2">
                             <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
                                 <Users className="h-3 w-3" /> Select Team
+                                {isTeamScoped && fixedTeamName && <Lock className="h-3 w-3 ml-1 text-violet-400" />}
                             </label>
                             <Select
                                 value={selectedTeam}
                                 onValueChange={(v) => dispatch(setSelectedTeam(v))}
+                                disabled={isTeamScoped && !!fixedTeamName}
                             >
-                                <SelectTrigger className="rounded-xl border-border/50 bg-card/50 focus:ring-primary/20">
+                                <SelectTrigger className="rounded-xl border-border/50 bg-card/50 focus:ring-primary/20 disabled:opacity-80 disabled:cursor-not-allowed">
                                     <SelectValue placeholder="All Teams" />
                                 </SelectTrigger>
                                 <SelectContent className="rounded-xl border-border/50 shadow-xl">
-                                    <SelectItem value="all">All Teams</SelectItem>
+                                    {!isTeamScoped && <SelectItem value="all">All Teams</SelectItem>}
                                     {teamsDeduped.map((t) => (
-                                        <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                                        <SelectItem key={t.name} value={t.name}>{t.name}</SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
@@ -241,7 +289,7 @@ export function GlobalFilter() {
                                 <SelectContent className="rounded-xl border-border/50 shadow-xl">
                                     <SelectItem value="all">All Members</SelectItem>
                                     {members.map((m) => (
-                                        <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                                        <SelectItem key={m.name} value={m.name}>{m.name}</SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>

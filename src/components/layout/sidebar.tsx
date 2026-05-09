@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useRole } from '@/contexts/role-context';
-import { ROUTE_FEATURE_MAP, ROLE_PERMISSIONS, canAccess } from '@/lib/permissions';
+import { ROUTE_FEATURE_MAP, canAccess } from '@/lib/permissions';
 import {
     LayoutDashboard,
     Users,
@@ -27,7 +27,7 @@ import {
     Activity,
     Settings2,
 } from 'lucide-react';
-import { title } from 'process';
+import { useState, useEffect } from 'react';
 
 interface NavItem {
     title: string;
@@ -37,17 +37,11 @@ interface NavItem {
 }
 
 const navigationItems: NavItem[] = [
-    // {
-    //     title: ' jira Dashboard',
-    //     icon: LayoutDashboard,
-    //     href: '/',
-    // },
     {
         title: 'Metrics Dashboard',
         icon: LayoutDashboard,
         href: '/metrics-dashboard',
     },
-
     {
         title: 'Project Management',
         icon: Layers,
@@ -58,7 +52,6 @@ const navigationItems: NavItem[] = [
         icon: BarChart3,
         href: '/metrics',
     },
-
     {
         title: 'Integrations',
         icon: Puzzle,
@@ -66,18 +59,10 @@ const navigationItems: NavItem[] = [
     },
 
     {
-        title: 'Import',
-        icon: Upload,
-        href: '/import',
-    },
-
-
-    {
         title: 'Admin Console',
         icon: Settings2,
         href: '/admin',
     },
-    
     {
         title: 'Reports',
         icon: FileText,
@@ -92,7 +77,8 @@ const navigationItems: NavItem[] = [
         title: 'GitHub Metrics',
         icon: Activity,
         href: '/github-metrics',
-    }, {
+    },
+    {
         title: 'Audit Logs',
         icon: FileSearch,
         href: '/audit',
@@ -104,21 +90,30 @@ const ROLE_LABELS: Record<string, string> = {
     MARKET: 'Market',
     ACCOUNT: 'Account',
     PROJECT_MANAGER: 'Project Manager',
-    PROJECT: 'Project Access',
+
     TEAM_LEAD: 'Team Lead',
     TEAM: 'Developer',
+    CTO: 'CTO',
 };
 
 export function Sidebar() {
     const pathname = usePathname();
     const { role } = useRole();
 
-    // Filter nav items based on current role permissions
-    const permittedItems = navigationItems.filter((item) => {
-        const feature = ROUTE_FEATURE_MAP[item.href];
-        if (!feature) return true;
-        return canAccess(role, feature);
-    });
+    // Defer permission filtering to client to avoid SSR hydration mismatch.
+    // localStorage is only available client-side, so we must not filter during SSR.
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => { setMounted(true); }, []);
+
+    // On the server (or before mount), show all items so HTML matches.
+    // After mount, filter by the user's actual permissions read from localStorage.
+    const permittedItems = mounted
+        ? navigationItems.filter((item) => {
+            const feature = ROUTE_FEATURE_MAP[item.href];
+            if (!feature) return true;
+            return canAccess(role, feature);
+        })
+        : navigationItems;
 
     return (
         <aside className="fixed left-0 top-0 z-40 h-screen w-64 border-r border-border/30 bg-card/95 backdrop-blur-sm shadow-xl shadow-black/5 dark:shadow-black/20">

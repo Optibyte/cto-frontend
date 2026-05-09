@@ -6,7 +6,7 @@ import {
     BarChart3, FolderKanban, Users, UserPlus, Settings2, Plus, Trash2,
     Save, RotateCcw, Lock, Unlock, CheckSquare, Square, Info,
     Activity, LayoutDashboard, FileText, Puzzle, Upload, FileSearch,
-    Bell, Layers, Star, Zap, Globe, Database, Key, Eye, Edit3,
+    Bell, Layers, Star, Zap, Globe, Database, Key, Eye, Edit3, User,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,6 +19,7 @@ import {
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { adminUsersAPI } from '@/lib/api/admin';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 type RoleKey = 'ORG' | 'MARKET' | 'ACCOUNT' | 'PROJECT_MANAGER' | 'PROJECT' | 'TEAM_LEAD' | 'TEAM' | 'MEMBER' | 'CTO';
@@ -46,7 +47,7 @@ const ROLES: { key: RoleKey; label: string; description: string; color: string; 
     { key: 'MARKET', label: 'Market', description: 'Market-level manager', color: 'from-cyan-500 to-blue-500', icon: BarChart3 },
     { key: 'ACCOUNT', label: 'Account', description: 'Account-level manager', color: 'from-teal-500 to-cyan-500', icon: Database },
     { key: 'PROJECT_MANAGER', label: 'Project Manager', description: 'Manages specific projects', color: 'from-emerald-500 to-teal-500', icon: FolderKanban },
-    { key: 'PROJECT', label: 'Project Access', description: 'Project-level access', color: 'from-amber-500 to-orange-500', icon: Layers },
+
     { key: 'TEAM_LEAD', label: 'Team Lead', description: 'Leads one or more teams', color: 'from-orange-500 to-red-500', icon: Users },
     { key: 'TEAM', label: 'Team Member', description: 'General team member', color: 'from-rose-500 to-pink-500', icon: UserPlus },
     { key: 'MEMBER', label: 'Member', description: 'Basic member access', color: 'from-pink-500 to-fuchsia-500', icon: Key },
@@ -121,6 +122,19 @@ export default function RoleFeaturesPage() {
     const [isSaving, setIsSaving] = useState(false);
     const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
+    // ── User-level permissions ──────────────────────────────────────────────
+    const [sidebarMode, setSidebarMode] = useState<'roles' | 'users'>('roles');
+    const [allUsers, setAllUsers] = useState<any[]>([]);
+    const [userSearch, setUserSearch] = useState('');
+    const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+    const USER_PERMS_KEY = 'user_feature_permissions';
+    const [userPermissions, setUserPermissions] = useState<Record<string, string[]>>(() => {
+        if (typeof window !== 'undefined') {
+            try { return JSON.parse(localStorage.getItem(USER_PERMS_KEY) || '{}'); } catch { return {}; }
+        }
+        return {};
+    });
+
     const { role } = useRole();
     const router = useRouter();
 
@@ -146,6 +160,15 @@ export default function RoleFeaturesPage() {
                 setSavedPermissions(parsed);
             } catch { /* ignore */ }
         }
+    }, [role]);
+
+    // Fetch all users for user-level permission panel
+    useEffect(() => {
+        if (role !== 'ORG' && role !== 'CTO') return;
+        adminUsersAPI.getAll().then((res: any) => {
+            const arr = Array.isArray(res) ? res : (res?.data || []);
+            setAllUsers(arr);
+        }).catch(() => {});
     }, [role]);
 
     if (role !== 'ORG' && role !== 'CTO') {
@@ -176,41 +199,23 @@ export default function RoleFeaturesPage() {
         return items;
     }, [allFeatures, selectedCategory, featureSearch]);
 
-    const currentPermissions = permissions[selectedRole] ?? [];
 
-    const isGranted = (featureId: string) => currentPermissions.includes(featureId);
-
-    const toggleFeature = (featureId: string) => {
-        setPermissions(prev => {
-            const current = prev[selectedRole] ?? [];
-            const updated = current.includes(featureId)
-                ? current.filter(f => f !== featureId)
-                : [...current, featureId];
-            return { ...prev, [selectedRole]: updated };
-        });
-        setHasChanges(true);
-    };
-
-    const toggleCategoryAll = (categoryId: string) => {
-        const categoryFeatures = allFeatures.filter(f => f.category === categoryId).map(f => f.id);
-        const allGranted = categoryFeatures.every(id => currentPermissions.includes(id));
-        setPermissions(prev => {
-            const current = prev[selectedRole] ?? [];
-            const updated = allGranted
-                ? current.filter(id => !categoryFeatures.includes(id))
-                : [...new Set([...current, ...categoryFeatures])];
-            return { ...prev, [selectedRole]: updated };
-        });
-        setHasChanges(true);
-    };
 
     const grantAll = () => {
-        setPermissions(prev => ({ ...prev, [selectedRole]: allFeatures.map(f => f.id) }));
+        if (sidebarMode === 'users' && selectedUserId) {
+            setUserPermissions(prev => ({ ...prev, [selectedUserId]: allFeatures.map(f => f.id) }));
+        } else {
+            setPermissions(prev => ({ ...prev, [selectedRole]: allFeatures.map(f => f.id) }));
+        }
         setHasChanges(true);
     };
 
     const revokeAll = () => {
-        setPermissions(prev => ({ ...prev, [selectedRole]: [] }));
+        if (sidebarMode === 'users' && selectedUserId) {
+            setUserPermissions(prev => ({ ...prev, [selectedUserId]: [] }));
+        } else {
+            setPermissions(prev => ({ ...prev, [selectedRole]: [] }));
+        }
         setHasChanges(true);
     };
 
@@ -218,11 +223,12 @@ export default function RoleFeaturesPage() {
         setIsSaving(true);
         await new Promise(r => setTimeout(r, 600));
         localStorage.setItem(STORAGE_KEY, JSON.stringify(permissions));
+        localStorage.setItem(USER_PERMS_KEY, JSON.stringify(userPermissions));
         setSavedPermissions({ ...permissions });
         setHasChanges(false);
         setIsSaving(false);
-        toast.success('Role permissions saved successfully!', {
-            description: `Updated access matrix for all ${ROLES.length} roles.`,
+        toast.success('Permissions saved successfully!', {
+            description: `Role matrix and user overrides updated.`,
         });
     };
 
@@ -238,8 +244,71 @@ export default function RoleFeaturesPage() {
         toast.info('Permissions reset to system defaults. Save to apply.');
     };
 
+    // Active permissions: user override if in users mode, else role permissions
+    const activePermissions = useMemo(() => {
+        if (sidebarMode === 'users' && selectedUserId) {
+            // If user has explicit overrides use them, otherwise inherit from their role
+            const selectedUser = allUsers.find(u => u.id === selectedUserId);
+            const rolePerms = selectedUser ? (permissions[selectedUser.role as RoleKey] ?? []) : [];
+            return userPermissions[selectedUserId] ?? rolePerms;
+        }
+        return permissions[selectedRole] ?? [];
+    }, [sidebarMode, selectedUserId, userPermissions, permissions, selectedRole, allUsers]);
+
+    const toggleFeatureActive = (featureId: string) => {
+        if (sidebarMode === 'users' && selectedUserId) {
+            setUserPermissions(prev => {
+                const current = prev[selectedUserId] ?? activePermissions;
+                const updated = current.includes(featureId)
+                    ? current.filter(f => f !== featureId)
+                    : [...current, featureId];
+                return { ...prev, [selectedUserId]: updated };
+            });
+        } else {
+            setPermissions(prev => {
+                const current = prev[selectedRole] ?? [];
+                const updated = current.includes(featureId)
+                    ? current.filter(f => f !== featureId)
+                    : [...current, featureId];
+                return { ...prev, [selectedRole]: updated };
+            });
+        }
+        setHasChanges(true);
+    };
+
+    const toggleCategoryAllActive = (categoryId: string) => {
+        const categoryFeatures = allFeatures.filter(f => f.category === categoryId).map(f => f.id);
+        const allGranted = categoryFeatures.every(id => activePermissions.includes(id));
+        if (sidebarMode === 'users' && selectedUserId) {
+            setUserPermissions(prev => {
+                const current = prev[selectedUserId] ?? activePermissions;
+                const updated = allGranted
+                    ? current.filter(id => !categoryFeatures.includes(id))
+                    : [...new Set([...current, ...categoryFeatures])];
+                return { ...prev, [selectedUserId]: updated };
+            });
+        } else {
+            setPermissions(prev => {
+                const current = prev[selectedRole] ?? [];
+                const updated = allGranted
+                    ? current.filter(id => !categoryFeatures.includes(id))
+                    : [...new Set([...current, ...categoryFeatures])];
+                return { ...prev, [selectedRole]: updated };
+            });
+        }
+        setHasChanges(true);
+    };
+
+    const filteredUsers = useMemo(() =>
+        allUsers.filter(u =>
+            u.fullName?.toLowerCase().includes(userSearch.toLowerCase()) ||
+            u.email?.toLowerCase().includes(userSearch.toLowerCase()) ||
+            u.role?.toLowerCase().includes(userSearch.toLowerCase())
+        ), [allUsers, userSearch]);
+
     const selectedRoleInfo = ROLES.find(r => r.key === selectedRole)!;
-    const grantedCount = currentPermissions.length;
+    const selectedUser = allUsers.find(u => u.id === selectedUserId);
+    const grantedCount = activePermissions.length;
     const totalCount = allFeatures.length;
     const coveragePercent = Math.round((grantedCount / totalCount) * 100);
 
@@ -301,129 +370,211 @@ export default function RoleFeaturesPage() {
             </div>
 
             <div className="flex h-[calc(100vh-73px)]">
-                {/* ── Left: Role Sidebar ── */}
+                {/* ── Left: Sidebar ── */}
                 <aside className="w-72 border-r border-border/30 bg-card/60 flex flex-col flex-shrink-0 overflow-hidden">
-                    <div className="p-4 border-b border-border/20">
+                    {/* Mode toggle */}
+                    <div className="p-3 border-b border-border/20 space-y-2">
+                        <div className="flex rounded-xl border border-border/30 overflow-hidden">
+                            <button
+                                onClick={() => setSidebarMode('roles')}
+                                className={cn('flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold transition-all',
+                                    sidebarMode === 'roles' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted/50')}
+                            >
+                                <Shield className="h-3.5 w-3.5" /> Roles
+                            </button>
+                            <button
+                                onClick={() => setSidebarMode('users')}
+                                className={cn('flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold transition-all',
+                                    sidebarMode === 'users' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted/50')}
+                            >
+                                <User className="h-3.5 w-3.5" /> Users
+                                {allUsers.length > 0 && <span className="ml-1 text-[10px] bg-white/20 px-1 rounded-full">{allUsers.length}</span>}
+                            </button>
+                        </div>
                         <div className="relative">
                             <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-                            <Input
-                                placeholder="Search roles…"
-                                value={roleSearch}
-                                onChange={e => setRoleSearch(e.target.value)}
-                                className="pl-8 h-9 rounded-xl text-sm bg-muted/30 border-border/30 focus-visible:ring-primary/20"
-                            />
+                            {sidebarMode === 'roles' ? (
+                                <Input
+                                    placeholder="Search roles…"
+                                    value={roleSearch}
+                                    onChange={e => setRoleSearch(e.target.value)}
+                                    className="pl-8 h-9 rounded-xl text-sm bg-muted/30 border-border/30 focus-visible:ring-primary/20"
+                                />
+                            ) : (
+                                <Input
+                                    placeholder="Search users…"
+                                    value={userSearch}
+                                    onChange={e => setUserSearch(e.target.value)}
+                                    className="pl-8 h-9 rounded-xl text-sm bg-muted/30 border-border/30 focus-visible:ring-primary/20"
+                                />
+                            )}
                         </div>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto p-3 space-y-1">
-                        {filteredRoles.map(role => {
-                            const perms = permissions[role.key] ?? [];
-                            const pct = Math.round((perms.length / totalCount) * 100);
-                            const isSelected = selectedRole === role.key;
-
-                            return (
-                                <button
-                                    key={role.key}
-                                    onClick={() => setSelectedRole(role.key)}
-                                    className={cn(
-                                        'w-full text-left p-3 rounded-2xl transition-all duration-200 group border',
-                                        isSelected
-                                            ? 'bg-primary/10 border-primary/30 shadow-sm'
-                                            : 'border-transparent hover:bg-muted/50 hover:border-border/30'
-                                    )}
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <div className={cn(
-                                            'h-9 w-9 rounded-xl flex items-center justify-center text-white shadow-md flex-shrink-0',
-                                            `bg-gradient-to-br ${role.color}`
-                                        )}>
-                                            <role.icon className="h-4 w-4" />
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center justify-between">
-                                                <p className={cn('text-sm font-semibold truncate', isSelected ? 'text-primary' : 'text-foreground')}>
-                                                    {role.label}
-                                                </p>
-                                                <span className={cn('text-[10px] font-bold ml-1', pct === 100 ? 'text-emerald-500' : pct === 0 ? 'text-rose-500' : 'text-muted-foreground')}>
-                                                    {pct}%
-                                                </span>
+                    {/* Roles list */}
+                    {sidebarMode === 'roles' && (
+                        <div className="flex-1 overflow-y-auto p-3 space-y-1">
+                            {filteredRoles.map(role => {
+                                const perms = permissions[role.key] ?? [];
+                                const pct = Math.round((perms.length / totalCount) * 100);
+                                const isSelected = selectedRole === role.key;
+                                return (
+                                    <button
+                                        key={role.key}
+                                        onClick={() => setSelectedRole(role.key)}
+                                        className={cn(
+                                            'w-full text-left p-3 rounded-2xl transition-all duration-200 group border',
+                                            isSelected ? 'bg-primary/10 border-primary/30 shadow-sm' : 'border-transparent hover:bg-muted/50 hover:border-border/30'
+                                        )}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <div className={cn('h-9 w-9 rounded-xl flex items-center justify-center text-white shadow-md flex-shrink-0', `bg-gradient-to-br ${role.color}`)}>
+                                                <role.icon className="h-4 w-4" />
                                             </div>
-                                            <p className="text-[11px] text-muted-foreground truncate">{role.description}</p>
-                                            {/* Mini progress bar */}
-                                            <div className="mt-1.5 h-1 w-full bg-muted/50 rounded-full overflow-hidden">
-                                                <div
-                                                    className={cn(
-                                                        'h-full rounded-full transition-all duration-500',
-                                                        pct === 100 ? 'bg-emerald-500' : pct === 0 ? 'bg-rose-400/50' : 'bg-primary/60'
-                                                    )}
-                                                    style={{ width: `${pct}%` }}
-                                                />
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center justify-between">
+                                                    <p className={cn('text-sm font-semibold truncate', isSelected ? 'text-primary' : 'text-foreground')}>{role.label}</p>
+                                                    <span className={cn('text-[10px] font-bold ml-1', pct === 100 ? 'text-emerald-500' : pct === 0 ? 'text-rose-500' : 'text-muted-foreground')}>{pct}%</span>
+                                                </div>
+                                                <p className="text-[11px] text-muted-foreground truncate">{role.description}</p>
+                                                <div className="mt-1.5 h-1 w-full bg-muted/50 rounded-full overflow-hidden">
+                                                    <div className={cn('h-full rounded-full transition-all duration-500', pct === 100 ? 'bg-emerald-500' : pct === 0 ? 'bg-rose-400/50' : 'bg-primary/60')} style={{ width: `${pct}%` }} />
+                                                </div>
                                             </div>
+                                            {isSelected && <ChevronRight className="h-4 w-4 text-primary flex-shrink-0" />}
                                         </div>
-                                        {isSelected && <ChevronRight className="h-4 w-4 text-primary flex-shrink-0" />}
-                                    </div>
-                                </button>
-                            );
-                        })}
-                    </div>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
 
-                    {/* Reset to defaults */}
-                    <div className="p-3 border-t border-border/20">
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={handleResetToDefaults}
-                            className="w-full rounded-xl h-8 text-xs text-muted-foreground hover:text-foreground gap-1.5"
-                        >
-                            <RotateCcw className="h-3 w-3" /> Reset All to Defaults
-                        </Button>
+                    {/* Users list */}
+                    {sidebarMode === 'users' && (
+                        <div className="flex-1 overflow-y-auto p-3 space-y-1">
+                            {filteredUsers.length === 0 && (
+                                <div className="py-12 text-center text-muted-foreground text-xs">
+                                    <User className="h-8 w-8 mx-auto mb-2 opacity-20" />
+                                    {allUsers.length === 0 ? 'No users found. Create users in the Admin Console.' : 'No users match your search.'}
+                                </div>
+                            )}
+                            {filteredUsers.map(u => {
+                                const uPerms = userPermissions[u.id];
+                                const rolePerms = permissions[u.role as RoleKey] ?? [];
+                                const effectivePerms = uPerms ?? rolePerms;
+                                const pct = Math.round((effectivePerms.length / totalCount) * 100);
+                                const isSelected = selectedUserId === u.id;
+                                const hasOverride = !!uPerms;
+                                return (
+                                    <button
+                                        key={u.id}
+                                        onClick={() => setSelectedUserId(u.id)}
+                                        className={cn(
+                                            'w-full text-left p-3 rounded-2xl transition-all duration-200 border',
+                                            isSelected ? 'bg-primary/10 border-primary/30 shadow-sm' : 'border-transparent hover:bg-muted/50 hover:border-border/30'
+                                        )}
+                                    >
+                                        <div className="flex items-center gap-2.5">
+                                            <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-slate-400 to-slate-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                                                {(u.fullName || u.email || 'U')[0].toUpperCase()}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-1">
+                                                    <p className={cn('text-xs font-semibold truncate', isSelected ? 'text-primary' : 'text-foreground')}>{u.fullName || u.email}</p>
+                                                    {hasOverride && <span className="text-[9px] bg-violet-500/20 text-violet-600 px-1 rounded font-bold flex-shrink-0">CUSTOM</span>}
+                                                </div>
+                                                <div className="flex items-center gap-1 mt-0.5">
+                                                    <Badge variant="outline" className="text-[9px] h-4 px-1 rounded-md">{u.role}</Badge>
+                                                    <span className="text-[10px] text-muted-foreground">{pct}%</span>
+                                                </div>
+                                            </div>
+                                            {isSelected && <ChevronRight className="h-3.5 w-3.5 text-primary flex-shrink-0" />}
+                                        </div>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
+
+                    {/* Footer */}
+                    <div className="p-3 border-t border-border/20 space-y-1">
+                        {sidebarMode === 'roles' && (
+                            <Button variant="ghost" size="sm" onClick={handleResetToDefaults} className="w-full rounded-xl h-8 text-xs text-muted-foreground hover:text-foreground gap-1.5">
+                                <RotateCcw className="h-3 w-3" /> Reset All to Defaults
+                            </Button>
+                        )}
+                        {sidebarMode === 'users' && selectedUserId && userPermissions[selectedUserId] && (
+                            <Button variant="ghost" size="sm"
+                                onClick={() => { setUserPermissions(prev => { const n = { ...prev }; delete n[selectedUserId]; return n; }); setHasChanges(true); toast.info('User override cleared — will inherit role permissions.'); }}
+                                className="w-full rounded-xl h-8 text-xs text-rose-500 hover:text-rose-600 hover:bg-rose-500/5 gap-1.5">
+                                <RotateCcw className="h-3 w-3" /> Clear User Override
+                            </Button>
+                        )}
                     </div>
                 </aside>
 
                 {/* ── Right: Feature Matrix ── */}
                 <div className="flex-1 flex flex-col overflow-hidden">
-                    {/* Role Stats Bar */}
-                    <div className={cn(
-                        'px-6 py-4 border-b border-border/20 bg-gradient-to-r to-transparent',
-                        `from-${selectedRoleInfo.color.split(' ')[0].replace('from-', '')}/5`
-                    )}>
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                                <div className={cn(
-                                    'h-12 w-12 rounded-2xl flex items-center justify-center text-white shadow-lg',
-                                    `bg-gradient-to-br ${selectedRoleInfo.color}`
-                                )}>
-                                    <selectedRoleInfo.icon className="h-6 w-6" />
+                    {/* Stats Bar — context-aware */}
+                    {sidebarMode === 'users' && !selectedUserId ? (
+                        <div className="px-6 py-12 border-b border-border/20 flex flex-col items-center justify-center gap-3 text-muted-foreground">
+                            <User className="h-12 w-12 opacity-20" />
+                            <p className="font-semibold">Select a user from the left panel</p>
+                            <p className="text-sm text-center max-w-sm">Choose a user to view and configure their individual feature access. Overrides inherit from their assigned role by default.</p>
+                        </div>
+                    ) : (
+                        <div className="px-6 py-4 border-b border-border/20 bg-gradient-to-r from-primary/5 to-transparent">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-4">
+                                    {sidebarMode === 'users' && selectedUser ? (
+                                        <>
+                                            <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-slate-500 to-slate-700 flex items-center justify-center text-white text-lg font-bold shadow-lg">
+                                                {(selectedUser.fullName || selectedUser.email || 'U')[0].toUpperCase()}
+                                            </div>
+                                            <div>
+                                                <div className="flex items-center gap-2">
+                                                    <h2 className="text-lg font-bold">{selectedUser.fullName || selectedUser.email}</h2>
+                                                    {userPermissions[selectedUser.id] && (
+                                                        <Badge className="bg-violet-500/10 text-violet-600 border-violet-500/20 text-[10px]">CUSTOM OVERRIDE</Badge>
+                                                    )}
+                                                </div>
+                                                <div className="flex items-center gap-2 mt-0.5">
+                                                    <Badge variant="outline" className="text-[10px] h-5">{selectedUser.role}</Badge>
+                                                    {selectedUser.projectId && <span className="text-xs text-muted-foreground">📁 Project scoped</span>}
+                                                    {selectedUser.accountId && <span className="text-xs text-muted-foreground">🏢 Account scoped</span>}
+                                                    {selectedUser.marketId && <span className="text-xs text-muted-foreground">🌍 Market scoped</span>}
+                                                    {selectedUser.teamId && <span className="text-xs text-muted-foreground">👥 Team scoped</span>}
+                                                    {!userPermissions[selectedUser.id] && <span className="text-xs text-muted-foreground italic">Inheriting role defaults</span>}
+                                                </div>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <div className={cn('h-12 w-12 rounded-2xl flex items-center justify-center text-white shadow-lg', `bg-gradient-to-br ${selectedRoleInfo.color}`)}>
+                                                <selectedRoleInfo.icon className="h-6 w-6" />
+                                            </div>
+                                            <div>
+                                                <h2 className="text-lg font-bold">{selectedRoleInfo.label}</h2>
+                                                <p className="text-sm text-muted-foreground">{selectedRoleInfo.description}</p>
+                                            </div>
+                                        </>
+                                    )}
+                                    <div className="ml-4 px-4 py-2 rounded-2xl bg-muted/40 border border-border/30 text-center">
+                                        <p className="text-2xl font-black leading-none">{coveragePercent}<span className="text-sm font-medium text-muted-foreground">%</span></p>
+                                        <p className="text-[10px] text-muted-foreground mt-0.5">{grantedCount}/{totalCount} granted</p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <h2 className="text-lg font-bold">{selectedRoleInfo.label}</h2>
-                                    <p className="text-sm text-muted-foreground">{selectedRoleInfo.description}</p>
+                                <div className="flex items-center gap-2">
+                                    <Button variant="outline" size="sm" onClick={revokeAll} className="rounded-xl h-9 gap-1.5 border-rose-500/20 text-rose-600 hover:bg-rose-500/10">
+                                        <Lock className="h-3.5 w-3.5" /> Revoke All
+                                    </Button>
+                                    <Button variant="outline" size="sm" onClick={grantAll} className="rounded-xl h-9 gap-1.5 border-emerald-500/20 text-emerald-600 hover:bg-emerald-500/10">
+                                        <Unlock className="h-3.5 w-3.5" /> Grant All
+                                    </Button>
                                 </div>
-                                <div className="ml-4 px-4 py-2 rounded-2xl bg-muted/40 border border-border/30 text-center">
-                                    <p className="text-2xl font-black leading-none">{coveragePercent}<span className="text-sm font-medium text-muted-foreground">%</span></p>
-                                    <p className="text-[10px] text-muted-foreground mt-0.5">{grantedCount}/{totalCount} granted</p>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={revokeAll}
-                                    className="rounded-xl h-9 gap-1.5 border-rose-500/20 text-rose-600 hover:bg-rose-500/10"
-                                >
-                                    <Lock className="h-3.5 w-3.5" /> Revoke All
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={grantAll}
-                                    className="rounded-xl h-9 gap-1.5 border-emerald-500/20 text-emerald-600 hover:bg-emerald-500/10"
-                                >
-                                    <Unlock className="h-3.5 w-3.5" /> Grant All
-                                </Button>
                             </div>
                         </div>
-                    </div>
+                    )}
 
                     {/* Search + Category Filter */}
                     <div className="px-6 py-3 border-b border-border/20 flex items-center gap-3 bg-muted/10">
@@ -470,8 +621,8 @@ export default function RoleFeaturesPage() {
                     <div className="flex-1 overflow-y-auto p-6 space-y-6">
                         {featuresByCategory.map(cat => {
                             const catFeatures = cat.features;
-                            const allChecked = catFeatures.every(f => currentPermissions.includes(f.id));
-                            const someChecked = catFeatures.some(f => currentPermissions.includes(f.id));
+                            const allChecked = catFeatures.every(f => activePermissions.includes(f.id));
+                            const someChecked = catFeatures.some(f => activePermissions.includes(f.id));
 
                             return (
                                 <div key={cat.id} className="space-y-3">
@@ -483,12 +634,12 @@ export default function RoleFeaturesPage() {
                                                 {cat.label}
                                             </h3>
                                             <Badge variant="outline" className="rounded-lg text-[10px] px-1.5 py-0 border-border/30">
-                                                {catFeatures.filter(f => currentPermissions.includes(f.id)).length}/{catFeatures.length}
+                                                {catFeatures.filter(f => activePermissions.includes(f.id)).length}/{catFeatures.length}
                                             </Badge>
                                         </div>
                                         {/* Category toggle checkbox */}
                                         <button
-                                            onClick={() => toggleCategoryAll(cat.id)}
+                                            onClick={() => toggleCategoryAllActive(cat.id)}
                                             className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
                                         >
                                             {allChecked ? (
@@ -507,11 +658,11 @@ export default function RoleFeaturesPage() {
                                     {/* Feature Grid */}
                                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2.5">
                                         {catFeatures.map(feature => {
-                                            const granted = currentPermissions.includes(feature.id);
+                                            const granted = activePermissions.includes(feature.id);
                                             return (
                                                 <button
                                                     key={feature.id}
-                                                    onClick={() => toggleFeature(feature.id)}
+                                                    onClick={() => toggleFeatureActive(feature.id)}
                                                     className={cn(
                                                         'relative flex items-start gap-3 p-3.5 rounded-2xl border text-left transition-all duration-150 group',
                                                         granted

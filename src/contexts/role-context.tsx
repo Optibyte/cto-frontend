@@ -13,6 +13,7 @@ interface RoleContextType {
     setUser: (user: any | null) => void;
     setToken: (token: string | null) => void;
     logout: () => void;
+    isInitializing: boolean;
 }
 
 const RoleContext = createContext<RoleContextType | undefined>(undefined);
@@ -22,6 +23,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     const [isAuthenticated, setIsAuthenticatedState] = useState(false);
     const [user, setUserState] = useState<any | null>(null);
     const [token, setTokenState] = useState<string | null>(null);
+    const [isInitializing, setIsInitializing] = useState(true);
 
     // Load from localStorage on mount
     useEffect(() => {
@@ -34,6 +36,8 @@ export function RoleProvider({ children }: { children: ReactNode }) {
         if (savedUser) setUserState(JSON.parse(savedUser));
         if (savedAuth === 'true') setIsAuthenticatedState(true);
         if (savedToken) setTokenState(savedToken);
+        
+        setIsInitializing(false);
     }, []);
 
     const setRole = (newRole: UserRole) => {
@@ -85,7 +89,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     };
 
     return (
-        <RoleContext.Provider value={{ role, isAuthenticated, user, token, setRole, setIsAuthenticated, setUser, setToken, logout }}>
+        <RoleContext.Provider value={{ role, isAuthenticated, user, token, setRole, setIsAuthenticated, setUser, setToken, logout, isInitializing }}>
             {children}
         </RoleContext.Provider>
     );

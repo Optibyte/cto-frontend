@@ -1163,20 +1163,123 @@ function EntityDialog({ open, onOpenChange, tab, editItem, onSave, organizations
                             <div className="space-y-2"><Label>Email *</Label><Input type="email" className="rounded-xl" value={form.email || ''} onChange={e => set('email', e.target.value)} placeholder="john@example.com" /></div>
                             <div className="space-y-2">
                                 <Label>Access Role *</Label>
-                                <Select value={form.role || 'TEAM'} onValueChange={v => set('role', v)}>
+                                <Select value={form.role || 'TEAM'} onValueChange={v => { set('role', v); set('scopeOrgId', ''); set('scopeMarketId', ''); set('scopeAccountId', ''); set('scopeProjectId', ''); set('scopeTeamId', ''); }}>
                                     <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="ORG">Organization</SelectItem>
                                         <SelectItem value="MARKET">Market</SelectItem>
                                         <SelectItem value="ACCOUNT">Account</SelectItem>
                                         <SelectItem value="PROJECT_MANAGER">Project Manager</SelectItem>
-                                        <SelectItem value="PROJECT">Project Access</SelectItem>
                                         <SelectItem value="TEAM_LEAD">Team Lead</SelectItem>
                                         <SelectItem value="CTO">CTO</SelectItem>
                                         <SelectItem value="TEAM">Team Member</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
+
+                            {/* ── DATA FENCING SCOPE SELECTOR ── */}
+                            {form.role && form.role !== 'CTO' && (
+                                <div className="p-4 rounded-2xl border border-violet-500/20 bg-violet-500/5 space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                                    <div className="flex items-center gap-2">
+                                        <div className="h-5 w-5 rounded-lg bg-violet-500/20 flex items-center justify-center">
+                                            <svg className="h-3 w-3 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                                        </div>
+                                        <p className="text-xs font-bold text-violet-700 uppercase tracking-wider">Data Fence Scope</p>
+                                        <span className="text-[10px] text-violet-500 font-medium">— limits what this user can see after login</span>
+                                    </div>
+
+                                    {/* ORG role: select organization */}
+                                    {form.role === 'ORG' && (
+                                        <div className="space-y-1.5">
+                                            <Label className="text-xs text-violet-700 font-semibold">Organization Scope *</Label>
+                                            <Select value={form.scopeOrgId || ''} onValueChange={v => set('scopeOrgId', v)}>
+                                                <SelectTrigger className="rounded-xl border-violet-300 bg-white">
+                                                    <SelectValue placeholder="Select organization to scope to" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {uniqueOrgs.map((o: any) => (
+                                                        <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                            <p className="text-[10px] text-violet-500">User will only see data within this organization.</p>
+                                        </div>
+                                    )}
+
+                                    {/* MARKET role: select market */}
+                                    {form.role === 'MARKET' && (
+                                        <div className="space-y-1.5">
+                                            <Label className="text-xs text-violet-700 font-semibold">Market Scope *</Label>
+                                            <Select value={form.scopeMarketId || ''} onValueChange={v => set('scopeMarketId', v)}>
+                                                <SelectTrigger className="rounded-xl border-violet-300 bg-white">
+                                                    <SelectValue placeholder="Select market to scope to" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {uniqueMarkets.map((m: any) => (
+                                                        <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                            <p className="text-[10px] text-violet-500">User will only see accounts, projects & teams within this market.</p>
+                                        </div>
+                                    )}
+
+                                    {/* ACCOUNT role: select account */}
+                                    {form.role === 'ACCOUNT' && (
+                                        <div className="space-y-1.5">
+                                            <Label className="text-xs text-violet-700 font-semibold">Account Scope *</Label>
+                                            <Select value={form.scopeAccountId || ''} onValueChange={v => set('scopeAccountId', v)}>
+                                                <SelectTrigger className="rounded-xl border-violet-300 bg-white">
+                                                    <SelectValue placeholder="Select account to scope to" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {uniqueAccounts.map((a: any) => (
+                                                        <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                            <p className="text-[10px] text-violet-500">User will only see projects & teams within this account.</p>
+                                        </div>
+                                    )}
+
+                                    {/* PROJECT_MANAGER / PROJECT role: select project */}
+                                    {(form.role === 'PROJECT_MANAGER' || form.role === 'PROJECT') && (
+                                        <div className="space-y-1.5">
+                                            <Label className="text-xs text-violet-700 font-semibold">Project Scope *</Label>
+                                            <Select value={form.scopeProjectId || ''} onValueChange={v => set('scopeProjectId', v)}>
+                                                <SelectTrigger className="rounded-xl border-violet-300 bg-white">
+                                                    <SelectValue placeholder="Select project to scope to" />
+                                                </SelectTrigger>
+                                                <SelectContent className="max-h-60">
+                                                    {uniqueProjects.map((p: any) => (
+                                                        <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                            <p className="text-[10px] text-violet-500">User will only see teams & data within this project.</p>
+                                        </div>
+                                    )}
+
+                                    {/* TEAM_LEAD / TEAM role: select team */}
+                                    {(form.role === 'TEAM_LEAD' || form.role === 'TEAM') && (
+                                        <div className="space-y-1.5">
+                                            <Label className="text-xs text-violet-700 font-semibold">Team Scope *</Label>
+                                            <Select value={form.scopeTeamId || ''} onValueChange={v => set('scopeTeamId', v)}>
+                                                <SelectTrigger className="rounded-xl border-violet-300 bg-white">
+                                                    <SelectValue placeholder="Select team to scope to" />
+                                                </SelectTrigger>
+                                                <SelectContent className="max-h-60">
+                                                    {teams.map((t: any) => (
+                                                        <SelectItem key={t.id} value={t.id}>{t.name}{t.project?.name ? ` (${t.project.name})` : ''}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                            <p className="text-[10px] text-violet-500">User will only access data for this team.</p>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2"><Label>Job Role / Designation</Label><Input className="rounded-xl" value={form.jobRole || ''} onChange={e => set('jobRole', e.target.value)} placeholder="e.g. Senior Software Engineer" /></div>
                                 <div className="space-y-2"><Label>Employee ID</Label><Input className="rounded-xl" value={form.employeeId || ''} onChange={e => set('employeeId', e.target.value)} placeholder="e.g. EMP-1234" /></div>
@@ -1216,7 +1319,7 @@ function getDefaultForm(tab: TabKey): Record<string, any> {
         case 'ai-projects': return { name: '', startDate: '', enddate: '', status: 'PLANNED', teamSize: 0, progress: 0, jiraProjectKey: '', jiraBoardId: '', githubRepoId: '', githubToken: '', license: '', isDigitalTransformation: false, digitalTransformationStartDate: '', digitalTransformationEndDate: '', aiEnabled: true, aiToolLicenses: 0, aiToolsUsed: [] };
         case 'teams': return { name: '', description: '', teamLeadId: '', accountId: '', projectId: '' };
         case 'members': return { teamId: '', userIds: [], roleInTeam: 'Member' };
-        case 'users': return { fullName: '', email: '', role: 'TEAM', jobRole: '', employeeId: '', auth0Id: '', jiraAccountId: '', githubEmail: '' };
+        case 'users': return { fullName: '', email: '', role: 'TEAM', jobRole: '', employeeId: '', auth0Id: '', jiraAccountId: '', githubEmail: '', scopeOrgId: '', scopeMarketId: '', scopeAccountId: '', scopeProjectId: '', scopeTeamId: '' };
     }
 }
 
@@ -1271,6 +1374,21 @@ function buildPayload(tab: TabKey, form: Record<string, any>, isEdit: boolean): 
             if (form.employeeId) u.employeeId = form.employeeId.trim();
             if (form.jiraAccountId) u.jiraAccountId = form.jiraAccountId.trim();
             if (form.githubEmail) u.githubEmail = form.githubEmail.trim();
+
+            // ── DATA FENCING: set scope IDs based on role ──────────────────
+            const role = form.role || 'TEAM';
+            if (role === 'ORG' && form.scopeOrgId) {
+                u.orgId = form.scopeOrgId;
+            } else if (role === 'MARKET' && form.scopeMarketId) {
+                u.marketId = form.scopeMarketId;
+            } else if (role === 'ACCOUNT' && form.scopeAccountId) {
+                u.accountId = form.scopeAccountId;
+            } else if ((role === 'PROJECT_MANAGER' || role === 'PROJECT') && form.scopeProjectId) {
+                u.projectId = form.scopeProjectId;
+            } else if ((role === 'TEAM_LEAD' || role === 'TEAM') && form.scopeTeamId) {
+                u.teamId = form.scopeTeamId;
+            }
+
             if (!isEdit) {
                 u.email = form.email;
                 u.auth0Id = `auth0|${form.email}`;
@@ -1418,7 +1536,6 @@ function BulkUploadDialog({ open, onOpenChange, type, onSuccess }: BulkUploadDia
                                 <div className="flex justify-between border-b border-border/10 pb-0.5"><span className="text-muted-foreground">Team Lead</span> <span className="font-bold text-violet-600">TEAM_LEAD</span></div>
                                 <div className="flex justify-between border-b border-border/10 pb-0.5"><span className="text-muted-foreground">Team Member</span> <span className="font-bold text-violet-600">TEAM</span></div>
                                 <div className="flex justify-between border-b border-border/10 pb-0.5"><span className="text-muted-foreground">CTO</span> <span className="font-bold text-violet-600">CTO</span></div>
-                                <div className="flex justify-between border-b border-border/10 pb-0.5"><span className="text-muted-foreground">Project Access</span> <span className="font-bold text-violet-600">PROJECT</span></div>
                             </div>
                         </div>
                     </div>

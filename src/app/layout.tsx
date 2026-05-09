@@ -8,6 +8,7 @@ import { Inter } from 'next/font/google';
 import { Toaster } from "@/components/ui/sonner";
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { RouteGuard } from '@/components/auth/route-guard';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -23,21 +24,23 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className} suppressHydrationWarning>
         <Providers>
-          <div className="flex h-screen">
-            {!isAuthPage && <Sidebar />}
-            <div className={cn(
-              "flex flex-1 flex-col overflow-x-hidden",
-              !isAuthPage && "pl-64"
-            )}>
-              {!isAuthPage && <Header />}
-              <main className={cn(
-                "flex-1 overflow-y-auto bg-background",
-                !isAuthPage ? "p-6" : "p-0"
+          <RouteGuard>
+            <div className="flex h-screen">
+              {!isAuthPage && <Sidebar />}
+              <div className={cn(
+                "flex flex-1 flex-col overflow-x-hidden",
+                !isAuthPage && "pl-64"
               )}>
-                {children}
-              </main>
+                {!isAuthPage && <Header />}
+                <main className={cn(
+                  "flex-1 overflow-y-auto bg-background",
+                  !isAuthPage ? "p-6" : "p-0"
+                )}>
+                  {children}
+                </main>
+              </div>
             </div>
-          </div>
+          </RouteGuard>
           <Toaster />
         </Providers>
       </body>

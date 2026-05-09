@@ -3,6 +3,14 @@ import { UserRole } from './types';
 export type Feature = string;
 
 export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
+    CTO: [
+        'dashboard.view',
+        'projects.view', 'projects.create', 'projects.edit', 'projects.drilldown',
+        'teams.view', 'teams.create', 'teams.add_member', 'teams.manage',
+        'metrics.view', 'metrics.create', 'metrics.edit', 'metrics.github',
+        'reports.view', 'reports.export',
+        'admin.access_control', 'admin.audit_logs', 'admin.integrations', 'admin.import', 'admin.console', 'admin.role_features'
+    ],
     ORG: [
         'dashboard.view',
         'projects.view', 'projects.create', 'projects.edit', 'projects.drilldown',
@@ -11,20 +19,53 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
         'reports.view', 'reports.export',
         'admin.access_control', 'admin.audit_logs', 'admin.integrations', 'admin.import', 'admin.console', 'admin.role_features'
     ],
-    MARKET: ['dashboard.view', 'metrics.view'],
-    ACCOUNT: ['dashboard.view', 'metrics.view'],
-    PROJECT: ['dashboard.view', 'metrics.view'],
-    PROJECT_MANAGER: ['dashboard.view', 'metrics.view'],
-    TEAM_LEAD: ['dashboard.view', 'metrics.view'],
-    TEAM: ['dashboard.view', 'metrics.view'],
-    MEMBER: ['dashboard.view', 'metrics.view'],
-    CTO: [
+    MARKET: [
         'dashboard.view',
-        'projects.view', 'projects.create', 'projects.edit', 'projects.drilldown',
-        'teams.view', 'teams.create', 'teams.add_member', 'teams.manage',
+        'projects.view', 'projects.drilldown',
+        'teams.view',
+        'metrics.view', 'metrics.github',
+        'reports.view', 'reports.export',
+        'admin.audit_logs',
+    ],
+    ACCOUNT: [
+        'dashboard.view',
+        'projects.view', 'projects.drilldown',
+        'teams.view',
+        'metrics.view', 'metrics.github',
+        'reports.view', 'reports.export',
+        'admin.audit_logs',
+    ],
+    PROJECT_MANAGER: [
+        'dashboard.view',
+        'projects.view', 'projects.drilldown', 'projects.edit',
+        'teams.view', 'teams.add_member',
         'metrics.view', 'metrics.create', 'metrics.edit', 'metrics.github',
         'reports.view', 'reports.export',
-        'admin.access_control', 'admin.audit_logs', 'admin.integrations', 'admin.import', 'admin.console', 'admin.role_features'
+        'admin.audit_logs',
+    ],
+    PROJECT: [
+        'dashboard.view',
+        'projects.view', 'projects.drilldown',
+        'teams.view',
+        'metrics.view', 'metrics.github',
+        'reports.view',
+    ],
+    TEAM_LEAD: [
+        'dashboard.view',
+        'projects.view', 'projects.drilldown',
+        'teams.view', 'teams.add_member',
+        'metrics.view', 'metrics.create', 'metrics.edit', 'metrics.github',
+        'reports.view',
+    ],
+    TEAM: [
+        'dashboard.view',
+        'projects.view', 'projects.drilldown',
+        'teams.view',
+        'metrics.view',
+    ],
+    MEMBER: [
+        'dashboard.view',
+        'metrics.view',
     ],
 };
 
@@ -48,16 +89,29 @@ export const ROUTE_FEATURE_MAP: Record<string, string> = {
 
 export function getRolePermissions(role: UserRole): string[] {
     if (typeof window !== 'undefined') {
-        const saved = localStorage.getItem('role_feature_permissions');
-        if (saved) {
+        // 1. Check per-user overrides first (set in Role Features → Users tab)
+        const userId = localStorage.getItem('current_user_id');
+        if (userId) {
             try {
-                const parsed = JSON.parse(saved);
-                if (parsed[role]) return parsed[role];
-            } catch (e) {
-                console.error('Failed to parse role permissions from localStorage', e);
-            }
+                const userPerms = JSON.parse(localStorage.getItem('user_feature_permissions') || '{}');
+                if (userPerms[userId] && Array.isArray(userPerms[userId])) {
+                    return userPerms[userId];
+                }
+            } catch { /* ignore */ }
         }
+
+        // 2. Check role-level overrides (set in Role Features → Roles tab)
+        try {
+            const saved = localStorage.getItem('role_feature_permissions');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                if (parsed[role] && Array.isArray(parsed[role])) {
+                    return parsed[role];
+                }
+            }
+        } catch { /* ignore */ }
     }
+    // 3. Fall back to hardcoded defaults
     return ROLE_PERMISSIONS[role] || [];
 }
 

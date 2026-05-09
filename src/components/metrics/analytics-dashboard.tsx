@@ -204,7 +204,7 @@ export function AnalyticsDashboard({ filters, onFilterChange }: { filters: any; 
                 <div className="flex items-center gap-3">
                     <div className="p-2 rounded-xl bg-violet-500/10 text-violet-600"><LayoutGrid className="w-5 h-5" /></div>
                     <div>
-                        <h2 className="text-lg font-black tracking-tight leading-none">Power BI Canvas</h2>
+                        <h2 className="text-lg font-black tracking-tight leading-none">Canvas</h2>
                         <p className="text-[10px] text-muted-foreground font-medium mt-0.5">Fully customizable — scope any hierarchy, plot any metric, compare anything</p>
                     </div>
                 </div>
