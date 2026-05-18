@@ -382,7 +382,7 @@ export function ManualMetricsTab() {
                 </button>
                 {showBulkUpload && (
                     <div className="border-t border-border/40 px-5 py-5">
-                        <SprintBulkUploadPanel />
+                        <SprintBulkUploadPanel availableTeams={availableTeams} />
                     </div>
                 )}
             </div>

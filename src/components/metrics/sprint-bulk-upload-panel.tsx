@@ -23,25 +23,12 @@ interface UploadResult {
 }
 
 const TEMPLATE_HEADERS = [
-    'org', 'country', 'market', 'account', 'project', 'team', 'team_size',
-    'project_ai_enabled', 'project_ai_tool_licenses', 'project_ai_tools_used',
-    'sprint_number', 'sprint_name', 'throughput_points', 'quality_score',
+    'sprint_name', 'throughput_points', 'quality_score',
     'velocity_points', 'done_to_said_ratio', 'technical_debt_index', 'user_stories_delivered'
 ];
 
 const SAMPLE_DATA = [
     {
-        org: 'Acme Digital Engineering',
-        country: 'US',
-        market: 'US-Payer',
-        account: 'Aetna Health',
-        project: 'Claims Mod',
-        team: 'Claims Mod Team',
-        team_size: 11,
-        project_ai_enabled: 'YES',
-        project_ai_tool_licenses: 12,
-        project_ai_tools_used: 'Codex',
-        sprint_number: 1,
         sprint_name: 'Sprint-1',
         throughput_points: 32.2,
         quality_score: 92.8,
@@ -52,8 +39,13 @@ const SAMPLE_DATA = [
     }
 ];
 
-export function SprintBulkUploadPanel() {
+interface SprintBulkUploadPanelProps {
+    availableTeams?: { id: string; name: string }[];
+}
+
+export function SprintBulkUploadPanel({ availableTeams = [] }: SprintBulkUploadPanelProps) {
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const [selectedTeamId, setSelectedTeamId] = useState('');
     const [isDragging, setIsDragging] = useState(false);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [isUploading, setIsUploading] = useState(false);
@@ -91,10 +83,14 @@ export function SprintBulkUploadPanel() {
 
     const handleUpload = async () => {
         if (!selectedFile) return;
+        if (!selectedTeamId) {
+            toast.error('Please select a team before uploading');
+            return;
+        }
         setIsUploading(true);
         setResult(null);
         try {
-            const res = await sprintMetricsAPI.bulkUpload(selectedFile);
+            const res = await sprintMetricsAPI.bulkUpload(selectedFile, selectedTeamId);
             setResult(res);
             if (res.errors?.length === 0) {
                 toast.success(`✅ ${res.processed} sprint records uploaded successfully!`);
@@ -152,8 +148,8 @@ export function SprintBulkUploadPanel() {
                 <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Required CSV Columns</p>
                 <div className="flex flex-wrap gap-1.5">
                     {[
-                        'org', 'project', 'team', 'sprint_number', 'throughput_points', 
-                        'quality_score', 'velocity_points', 'done_to_said_ratio', 'technical_debt_index'
+                        'sprint_name', 'throughput_points', 
+                        'quality_score', 'velocity_points', 'done_to_said_ratio', 'technical_debt_index', 'user_stories_delivered'
                     ].map(col => (
                         <Badge
                             key={col}
@@ -163,8 +159,22 @@ export function SprintBulkUploadPanel() {
                             {col}
                         </Badge>
                     ))}
-                    <span className="text-[10px] text-muted-foreground italic px-1">+ all hierarchy fields</span>
                 </div>
+            </div>
+
+            {/* Team Selection */}
+            <div className="flex flex-col gap-2">
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">Select Team</label>
+                <select
+                    className="w-full sm:w-[300px] h-10 px-3 py-2 rounded-xl bg-muted/20 border border-border/50 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    value={selectedTeamId}
+                    onChange={(e) => setSelectedTeamId(e.target.value)}
+                >
+                    <option value="" disabled>Select Team...</option>
+                    {availableTeams.map(t => (
+                        <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                </select>
             </div>
 
             {/* Drop Zone */}

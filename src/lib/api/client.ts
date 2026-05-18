@@ -786,9 +786,10 @@ export const sprintMetricsAPI = {
         return response.json();
     },
 
-    bulkUpload: async (file: File) => {
+    bulkUpload: async (file: File, teamId: string) => {
         const formData = new FormData();
         formData.append('file', file);
+        formData.append('teamId', teamId);
 
         const headers: Record<string, string> = {};
         if (typeof window !== 'undefined') {
