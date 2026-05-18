@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Maximize2, X, Activity, Layers, Zap, BarChart3, LayoutGrid, Download, Edit3, Check, Settings2, Plus, Trash2, Shield, Globe, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSprintAnalytics, useSprintMetrics, useMetrics } from '@/hooks/use-metrics';
@@ -14,38 +14,72 @@ import { PowerBIChart } from './powerbi-chart';
 import { PlotEditorDialog } from './powerbi-editor';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PDFReportGenerator } from './pdf-report-generator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 // Default starter plots
 const STARTER_PLOTS: PlotConfig[] = [
     {
-        id: 'starter-1', title: 'Velocity Trend (All Teams)', subtitle: 'Avg velocity across sprints',
+        id: 'starter-1', title: 'Velocity Trend (Consolidated)', subtitle: 'Total velocity across sprints',
         dataSource: 'team_productivity', scopeOrgs: [], scopeMarkets: [], scopeAccounts: [], scopeProjects: [], scopeTeams: [],
         aiFilter: 'all', sprintRange: [1, 10], xAxis: 'sprintNumber', legend: 'none', chartType: 'LineChart',
-        metrics: [{ key: 'velocityPoints', agg: 'avg', color: '#8b5cf6', type: 'line' }], span: 1,
+        metrics: [{ key: 'velocityPoints', agg: 'sum', color: '#8b5cf6', type: 'line' }], span: 1,
     },
     {
-        id: 'starter-2', title: 'AI vs Traditional Quality', subtitle: 'Quality score comparison',
+        id: 'starter-2', title: 'Throughput Trend (Consolidated)', subtitle: 'Total throughput across sprints',
         dataSource: 'team_productivity', scopeOrgs: [], scopeMarkets: [], scopeAccounts: [], scopeProjects: [], scopeTeams: [],
-        aiFilter: 'all', sprintRange: [1, 10], xAxis: 'sprintNumber', legend: 'aiEnabled', chartType: 'BarChart',
-        metrics: [{ key: 'qualityScore', agg: 'avg', color: '#3b82f6', type: 'bar' }], span: 1,
+        aiFilter: 'all', sprintRange: [1, 10], xAxis: 'sprintNumber', legend: 'none', chartType: 'LineChart',
+        metrics: [{ key: 'throughputPoints', agg: 'sum', color: '#3b82f6', type: 'line' }], span: 1,
     },
     {
-        id: 'starter-3', title: 'Throughput by Market', subtitle: 'Total throughput per market',
+        id: 'starter-3', title: 'Quality Trend (Consolidated)', subtitle: 'Avg quality score across sprints',
         dataSource: 'team_productivity', scopeOrgs: [], scopeMarkets: [], scopeAccounts: [], scopeProjects: [], scopeTeams: [],
-        aiFilter: 'all', sprintRange: [1, 10], xAxis: 'market', legend: 'none', chartType: 'BarChart',
-        metrics: [{ key: 'throughputPoints', agg: 'sum', color: '#10b981', type: 'bar' }, { key: 'velocityPoints', agg: 'sum', color: '#f59e0b', type: 'bar' }], span: 1,
+        aiFilter: 'all', sprintRange: [1, 10], xAxis: 'sprintNumber', legend: 'none', chartType: 'LineChart',
+        metrics: [{ key: 'qualityScore', agg: 'avg', color: '#10b981', type: 'line' }], span: 1,
     },
     {
-        id: 'starter-4', title: 'Manual Assessment Overview', subtitle: 'Average scores from manual audits',
-        dataSource: 'manual_metrics', scopeOrgs: [], scopeMarkets: [], scopeAccounts: [], scopeProjects: [], scopeTeams: [],
-        aiFilter: 'all', sprintRange: [1, 10], xAxis: 'market', legend: 'none', chartType: 'BarChart',
-        metrics: [{ key: 'value', agg: 'avg', color: '#f59e0b', type: 'bar' }], span: 1,
-    },
-    {
-        id: 'starter-5', title: 'Sprint Velocity Stability', subtitle: 'Sum of velocity points by project',
+        id: 'starter-4', title: 'Done-to-Said Trend (Consolidated)', subtitle: 'Avg done-to-said ratio across sprints',
         dataSource: 'team_productivity', scopeOrgs: [], scopeMarkets: [], scopeAccounts: [], scopeProjects: [], scopeTeams: [],
-        aiFilter: 'all', sprintRange: [1, 10], xAxis: 'project', legend: 'none', chartType: 'AreaChart',
-        metrics: [{ key: 'velocityPoints', agg: 'sum', color: '#ec4899', type: 'area' }], span: 1,
+        aiFilter: 'all', sprintRange: [1, 10], xAxis: 'sprintNumber', legend: 'none', chartType: 'LineChart',
+        metrics: [{ key: 'doneToSaidRatio', agg: 'avg', color: '#f59e0b', type: 'line' }], span: 1,
+    },
+    {
+        id: 'starter-5', title: 'Tech Debt Trend (Consolidated)', subtitle: 'Avg tech debt index across sprints',
+        dataSource: 'team_productivity', scopeOrgs: [], scopeMarkets: [], scopeAccounts: [], scopeProjects: [], scopeTeams: [],
+        aiFilter: 'all', sprintRange: [1, 10], xAxis: 'sprintNumber', legend: 'none', chartType: 'LineChart',
+        metrics: [{ key: 'technicalDebtIndex', agg: 'avg', color: '#ec4899', type: 'line' }], span: 1,
+    },
+];
+
+const AI_MONITOR_PLOTS: PlotConfig[] = [
+    {
+        id: 'ai-1', title: 'Velocity (AI vs Baseline)', subtitle: 'Average velocity comparison',
+        dataSource: 'team_productivity', scopeOrgs: [], scopeMarkets: [], scopeAccounts: [], scopeProjects: [], scopeTeams: [],
+        aiFilter: 'all', sprintRange: [1, 10], xAxis: 'sprintNumber', legend: 'aiBaseline', chartType: 'LineChart',
+        metrics: [{ key: 'velocityPoints', agg: 'avg', color: '#3b82f6', type: 'line' }], span: 1,
+    },
+    {
+        id: 'ai-2', title: 'Throughput (AI vs Baseline)', subtitle: 'Average throughput comparison',
+        dataSource: 'team_productivity', scopeOrgs: [], scopeMarkets: [], scopeAccounts: [], scopeProjects: [], scopeTeams: [],
+        aiFilter: 'all', sprintRange: [1, 10], xAxis: 'sprintNumber', legend: 'aiBaseline', chartType: 'LineChart',
+        metrics: [{ key: 'throughputPoints', agg: 'avg', color: '#3b82f6', type: 'line' }], span: 1,
+    },
+    {
+        id: 'ai-3', title: 'Quality (AI vs Baseline)', subtitle: 'Quality score comparison',
+        dataSource: 'team_productivity', scopeOrgs: [], scopeMarkets: [], scopeAccounts: [], scopeProjects: [], scopeTeams: [],
+        aiFilter: 'all', sprintRange: [1, 10], xAxis: 'sprintNumber', legend: 'aiBaseline', chartType: 'LineChart',
+        metrics: [{ key: 'qualityScore', agg: 'avg', color: '#3b82f6', type: 'line' }], span: 1,
+    },
+    {
+        id: 'ai-4', title: 'Done-to-Said (AI vs Baseline)', subtitle: 'Done-to-said ratio comparison',
+        dataSource: 'team_productivity', scopeOrgs: [], scopeMarkets: [], scopeAccounts: [], scopeProjects: [], scopeTeams: [],
+        aiFilter: 'all', sprintRange: [1, 10], xAxis: 'sprintNumber', legend: 'aiBaseline', chartType: 'LineChart',
+        metrics: [{ key: 'doneToSaidRatio', agg: 'avg', color: '#3b82f6', type: 'line' }], span: 1,
+    },
+    {
+        id: 'ai-5', title: 'Tech Debt (AI vs Baseline)', subtitle: 'Tech debt index comparison',
+        dataSource: 'team_productivity', scopeOrgs: [], scopeMarkets: [], scopeAccounts: [], scopeProjects: [], scopeTeams: [],
+        aiFilter: 'all', sprintRange: [1, 10], xAxis: 'sprintNumber', legend: 'aiBaseline', chartType: 'LineChart',
+        metrics: [{ key: 'technicalDebtIndex', agg: 'avg', color: '#3b82f6', type: 'line' }], span: 1,
     },
 ];
 
@@ -73,19 +107,20 @@ export function AnalyticsDashboard({ filters, onFilterChange }: { filters: any; 
 
     const [editMode, setEditMode] = useState(false);
     const [plots, setPlots] = useState<PlotConfig[]>(STARTER_PLOTS);
+    const [aiPlots, setAiPlots] = useState<PlotConfig[]>(AI_MONITOR_PLOTS);
     const [editingPlot, setEditingPlot] = useState<PlotConfig | null>(null);
     const [expandingPlot, setExpandingPlot] = useState<PlotConfig | null>(null);
 
     // Standard Analytics State
-    const [showStandard, setShowStandard] = useState(true);
-    const [standardMetric, setStandardMetric] = useState('throughputPoints');
-    const [standardDim, setStandardDim] = useState('project');
+    const [activeTab, setActiveTab] = useState('consolidated');
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [isExpandOpen, setIsExpandOpen] = useState(false);
+    const [isPdfDialogOpen, setIsPdfDialogOpen] = useState(false);
+    const [pdfSelectedIds, setPdfSelectedIds] = useState<Set<string>>(new Set());
 
     useEffect(() => {
         try {
-            const saved = localStorage.getItem('powerbi_plots_v2');
+            const saved = localStorage.getItem('powerbi_plots_v3');
             if (saved) {
                 const parsed = JSON.parse(saved);
                 if (Array.isArray(parsed) && parsed.length && parsed[0].scopeOrgs !== undefined) {
@@ -97,39 +132,45 @@ export function AnalyticsDashboard({ filters, onFilterChange }: { filters: any; 
 
     const savePlots = (next: PlotConfig[]) => {
         setPlots(next);
-        localStorage.setItem('powerbi_plots_v2', JSON.stringify(next));
+        localStorage.setItem('powerbi_plots_v3', JSON.stringify(next));
     };
 
-    if (isLoadingAnalytics || isLoadingRaw || isLoadingManual) {
-        return <div className="flex justify-center py-20 animate-pulse text-muted-foreground font-black tracking-widest uppercase">Loading BI Engine...</div>;
-    }
+    const saveAiPlots = (next: PlotConfig[]) => {
+        setAiPlots(next);
+    };
+
+    const openPdfDialog = () => {
+        const allPlots = [...plots, ...aiPlots, ...dynamicBarPlots];
+        setPdfSelectedIds(new Set(allPlots.map(p => p.id)));
+        setIsPdfDialogOpen(true);
+    };
 
     const rawData = Array.isArray(rawMetricsData) ? rawMetricsData : [];
     const manualData = Array.isArray(manualMetricsData) ? manualMetricsData : [];
     const maxSprint = rawData.length ? Math.max(...rawData.map((r: any) => r.sprintNumber || 1)) : 10;
 
-    // Build Standard Plots
-    const selectedMetric = METRICS_FIELDS.find(m => m.id === standardMetric) || METRICS_FIELDS[0];
-    const trendConfig: PlotConfig = {
-        id: 'std-trend', title: `${selectedMetric.label} Trend`, subtitle: 'Across all sprints',
-        dataSource: 'team_productivity', scopeOrgs: [], scopeMarkets: [], scopeAccounts: [], scopeProjects: [], scopeTeams: [],
-        aiFilter: 'all', sprintRange: [1, maxSprint], xAxis: 'sprintNumber', legend: 'none', chartType: 'LineChart',
-        metrics: [{ key: standardMetric, agg: 'avg', color: '#8b5cf6', type: 'line' }], span: 1
-    };
-    const compConfig: PlotConfig = {
-        id: 'std-comp', title: `${selectedMetric.label} by ${X_AXIS_OPTIONS.find(x => x.id === standardDim)?.label || 'Dimension'}`, subtitle: 'Current aggregate comparison',
-        dataSource: 'team_productivity', scopeOrgs: [], scopeMarkets: [], scopeAccounts: [], scopeProjects: [], scopeTeams: [],
-        aiFilter: 'all', sprintRange: [1, maxSprint], xAxis: standardDim, legend: 'none', chartType: 'BarChart',
-        metrics: [{ key: standardMetric, agg: 'sum', color: '#3b82f6', type: 'bar' }], span: 1
-    };
-    const aiCompConfig: PlotConfig = {
-        id: 'std-ai', title: `AI vs Traditional: ${selectedMetric.label}`, subtitle: 'Performance impact analysis',
-        dataSource: 'team_productivity', scopeOrgs: [], scopeMarkets: [], scopeAccounts: [], scopeProjects: [], scopeTeams: [],
-        aiFilter: 'all', sprintRange: [1, maxSprint], xAxis: 'sprintNumber', legend: 'aiEnabled', chartType: 'ComposedChart',
-        metrics: [{ key: standardMetric, agg: 'avg', color: '#10b981', type: 'bar' }], span: 1
-    };
+    const dynamicDim = useMemo(() => {
+        if (filters.project && filters.project !== 'all') return 'team';
+        if (filters.account && filters.account !== 'all') return 'project';
+        if (filters.market && filters.market !== 'all') return 'account';
+        if (filters.org && filters.org !== 'all') return 'market';
+        return 'market'; // Default when no filter
+    }, [filters]);
 
-    const standardPlots = [trendConfig, compConfig, aiCompConfig];
+    const dynamicBarPlots = useMemo(() => {
+        return METRICS_FIELDS.map((m, i) => ({
+            id: `dyn-bar-${m.id}`,
+            title: `${m.label} by ${X_AXIS_OPTIONS.find(x => x.id === dynamicDim)?.label || dynamicDim}`,
+            subtitle: `Comparison across ${dynamicDim}s`,
+            dataSource: 'team_productivity' as const, scopeOrgs: [], scopeMarkets: [], scopeAccounts: [], scopeProjects: [], scopeTeams: [],
+            aiFilter: 'all' as const, sprintRange: [1, maxSprint] as [number, number], xAxis: dynamicDim, legend: 'none', chartType: 'BarChart',
+            metrics: [{ key: m.id, agg: m.defaultAgg, color: ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ec4899'][i % 5], type: 'bar' }], span: 1
+        }));
+    }, [dynamicDim, maxSprint]);
+
+    if (isLoadingAnalytics || isLoadingRaw || isLoadingManual) {
+        return <div className="flex justify-center py-20 animate-pulse text-muted-foreground font-black tracking-widest uppercase">Loading BI Engine...</div>;
+    }
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-1000 pb-10">
@@ -140,66 +181,15 @@ export function AnalyticsDashboard({ filters, onFilterChange }: { filters: any; 
                 <StatCard title="Project Landscape" value={analytics?.kpi?.totalProjectCount || analytics?.kpi?.projectCount || 0} icon={<Zap className="h-5 w-5" />} color="text-purple-500" />
                 <StatCard title="Avg Throughput" value={Number(analytics?.kpi?.avgThroughput || 0).toFixed(1)} unit="Pts" icon={<BarChart3 className="h-5 w-5" />} color="text-blue-500" />
             </div>
-            {/* Standard Analytics Section */}
-            <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
-                            <BarChart3 className="h-5 w-5" />
-                        </div>
-                        <div>
-                            <h2 className="text-xl font-black tracking-tight">Standard Insights</h2>
-                            <p className="text-xs text-muted-foreground">Pre-configured analytical perspectives</p>
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <Select value={standardMetric} onValueChange={setStandardMetric}>
-                            <SelectTrigger className="w-[180px] h-9 rounded-xl border-border/50 bg-background/50 backdrop-blur-sm">
-                                <SelectValue placeholder="Select Metric" />
-                            </SelectTrigger>
-                            <SelectContent className="rounded-xl border-border/50">
-                                {METRICS_FIELDS.map(m => <SelectItem key={m.id} value={m.id} className="text-xs">{m.label}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                        <Select value={standardDim} onValueChange={setStandardDim}>
-                            <SelectTrigger className="w-[150px] h-9 rounded-xl border-border/50 bg-background/50 backdrop-blur-sm">
-                                <SelectValue placeholder="Compare By" />
-                            </SelectTrigger>
-                            <SelectContent className="rounded-xl border-border/50">
-                                {X_AXIS_OPTIONS.filter(o => o.id !== 'sprintNumber').map(o => <SelectItem key={o.id} value={o.id} className="text-xs">{o.label}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                        <Button variant="ghost" size="sm" onClick={() => setShowStandard(!showStandard)} className="rounded-xl text-xs font-bold uppercase tracking-wider">
-                            {showStandard ? 'Collapse' : 'Expand Insights'}
-                        </Button>
-                    </div>
-                </div>
 
-                {showStandard && (
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in slide-in-from-top-4 duration-500 pb-4">
-                        {standardPlots.map(plot => (
-                            <div key={plot.id} className="relative group transition-all duration-300">
-                                <div className="absolute top-3 right-3 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
-                                     <Button size="icon" variant="secondary" className="h-7 w-7 rounded-lg shadow-md bg-background/80 backdrop-blur-sm" onClick={() => { setExpandingPlot(plot); setIsExpandOpen(true); }}><Maximize2 className="w-3.5 h-3.5" /></Button>
-                                </div>
-                                <Card className="h-full rounded-[2rem] border-border/50 bg-background/50 backdrop-blur-2xl shadow-xl overflow-hidden hover:border-primary/20 transition-colors">
-                                    <CardHeader className="p-6 pb-2 text-center sm:text-left">
-                                        <CardTitle className="text-lg font-black tracking-tight">{plot.title}</CardTitle>
-                                        <CardDescription className="text-[10px] font-medium opacity-70">{plot.subtitle}</CardDescription>
-                                    </CardHeader>
-                                    <CardContent className="p-5 pt-2 h-[300px]">
-                                        <PowerBIChart data={pivotData(rawData, plot)} config={plot} />
-                                    </CardContent>
-                                </Card>
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </div>
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+                <TabsList className="bg-background/50 border border-border/50 h-12 p-1 rounded-2xl w-full max-w-md mx-auto flex">
+                    <TabsTrigger value="consolidated" className="flex-1 rounded-xl text-xs font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm">Consolidated Analytics</TabsTrigger>
+                    <TabsTrigger value="ai-monitor" className="flex-1 rounded-xl text-xs font-bold data-[state=active]:bg-violet-600 data-[state=active]:text-white data-[state=active]:shadow-md">AI Monitor</TabsTrigger>
+                </TabsList>
 
-            <div className="border-t border-border/10 pt-2" />
-
-            {/* BI Canvas Header */}
+                <TabsContent value="consolidated" className="space-y-6">
+                    {/* BI Canvas Header */}
             <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-3xl bg-white/50 dark:bg-black/20 border border-border/50 backdrop-blur-xl shadow-sm">
                 <div className="flex items-center gap-3">
                     <div className="p-2 rounded-xl bg-violet-500/10 text-violet-600"><LayoutGrid className="w-5 h-5" /></div>
@@ -213,7 +203,7 @@ export function AnalyticsDashboard({ filters, onFilterChange }: { filters: any; 
                         {editMode ? <><Check className="w-4 h-4 mr-1.5" /> Done</> : <><Edit3 className="w-4 h-4 mr-1.5" /> Edit</>}
                     </Button>
                     {!editMode && (
-                        <Button variant="outline" className="rounded-xl font-bold text-xs" onClick={() => (window as any).generatePDFReport?.()}>
+                        <Button variant="outline" className="rounded-xl font-bold text-xs" onClick={openPdfDialog}>
                             <FileText className="w-4 h-4 mr-1.5" /> Export PDF
                         </Button>
                     )}
@@ -294,6 +284,101 @@ export function AnalyticsDashboard({ filters, onFilterChange }: { filters: any; 
                 })}
             </div>
 
+            <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-3xl bg-white/50 dark:bg-black/20 border border-border/50 backdrop-blur-xl shadow-sm mt-8">
+                <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-xl bg-blue-500/10 text-blue-600"><BarChart3 className="w-5 h-5" /></div>
+                    <div>
+                        <h2 className="text-lg font-black tracking-tight leading-none">Entity Comparison</h2>
+                        <p className="text-[10px] text-muted-foreground font-medium mt-0.5">Dynamic comparison across {dynamicDim}s</p>
+                    </div>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mt-5">
+                {dynamicBarPlots.map(plot => {
+                    const chartData = pivotData(rawData, plot);
+                    const xLabel = X_AXIS_OPTIONS.find(o => o.id === plot.xAxis)?.label || plot.xAxis;
+                    return (
+                        <div key={plot.id} className="relative group transition-all duration-300">
+                            <div className="absolute top-3 right-3 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Button size="icon" variant="secondary" className="h-7 w-7 rounded-lg shadow-md bg-background/80 backdrop-blur-sm" onClick={() => { setExpandingPlot(plot); setIsExpandOpen(true); }}><Maximize2 className="w-3.5 h-3.5" /></Button>
+                            </div>
+                            <Card className="h-full rounded-[2rem] border-[1.5px] border-border/50 bg-background/50 backdrop-blur-2xl shadow-xl overflow-hidden hover:border-primary/20 transition-colors relative">
+                                <CardHeader className="p-6 pb-2">
+                                    <div className="flex items-start justify-between gap-2">
+                                        <div className="space-y-0.5 min-w-0">
+                                            <CardTitle className="text-lg font-black tracking-tight truncate flex items-center gap-2">
+                                                {plot.title}
+                                            </CardTitle>
+                                            <CardDescription className="text-[10px] font-medium truncate">{plot.subtitle}</CardDescription>
+                                        </div>
+                                        <div className="flex flex-col items-end gap-1 shrink-0">
+                                            <Badge variant="outline" className="text-[8px] font-bold rounded-full px-2 py-0.5">{xLabel}</Badge>
+                                        </div>
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="p-5 pt-2 h-[350px]">
+                                    <PowerBIChart data={chartData} config={plot} />
+                                </CardContent>
+                            </Card>
+                        </div>
+                    );
+                })}
+            </div>
+            </TabsContent>
+
+            <TabsContent value="ai-monitor" className="space-y-6">
+                <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-3xl bg-white/50 dark:bg-black/20 border border-violet-500/30 backdrop-blur-xl shadow-sm">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-xl bg-violet-600 text-white"><Activity className="w-5 h-5" /></div>
+                        <div>
+                            <h2 className="text-lg font-black tracking-tight leading-none text-violet-700 dark:text-violet-400">AI vs Baseline Monitor</h2>
+                            <p className="text-[10px] text-muted-foreground font-medium mt-0.5">Comparing AI-enabled projects against non-AI traditional aggregates</p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Button variant="outline" className="rounded-xl font-bold text-xs" onClick={openPdfDialog}>
+                            <FileText className="w-4 h-4 mr-1.5" /> Export PDF
+                        </Button>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                    {aiPlots.map(plot => {
+                        const chartData = pivotData(plot.dataSource === 'manual_metrics' ? manualData : rawData, plot);
+                        const xLabel = X_AXIS_OPTIONS.find(o => o.id === plot.xAxis)?.label || plot.xAxis;
+                        
+                        return (
+                            <div key={plot.id} id={`plot-card-${plot.id}`} className={cn("relative group transition-all duration-300", plot.span === 2 ? 'lg:col-span-2' : plot.span === 3 ? 'lg:col-span-3' : '')}>
+                                <div className="absolute top-3 right-3 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <Button size="icon" variant="secondary" className="h-7 w-7 rounded-lg shadow-md bg-background/80 backdrop-blur-sm" onClick={() => { setExpandingPlot(plot); setIsExpandOpen(true); }}><Maximize2 className="w-3.5 h-3.5" /></Button>
+                                </div>
+                                <Card className="h-full rounded-[2rem] border-[1.5px] border-violet-500/20 bg-background/50 backdrop-blur-2xl shadow-xl overflow-hidden hover:border-violet-500/40 transition-colors relative">
+                                    <CardHeader className="p-6 pb-2">
+                                        <div className="flex items-start justify-between gap-2">
+                                            <div className="space-y-0.5 min-w-0">
+                                                <CardTitle className="text-lg font-black tracking-tight truncate flex items-center gap-2">
+                                                    <Globe className="h-4 w-4 text-violet-500" />
+                                                    {plot.title}
+                                                </CardTitle>
+                                                <CardDescription className="text-[10px] font-medium truncate">{plot.subtitle}</CardDescription>
+                                            </div>
+                                            <div className="flex flex-col items-end gap-1 shrink-0">
+                                                <Badge variant="outline" className="text-[8px] font-bold rounded-full px-2 py-0.5 text-violet-600 border-violet-500/30 bg-violet-500/5">AI Monitor</Badge>
+                                            </div>
+                                        </div>
+                                    </CardHeader>
+                                    <CardContent className="p-5 pt-2 h-[350px]">
+                                        <PowerBIChart data={chartData} config={plot} />
+                                    </CardContent>
+                                </Card>
+                            </div>
+                        );
+                    })}
+                </div>
+            </TabsContent>
+            </Tabs>
+
             {/* Editor Dialog */}
             {isDialogOpen && editingPlot && (
                 <PlotEditorDialog
@@ -348,11 +433,58 @@ export function AnalyticsDashboard({ filters, onFilterChange }: { filters: any; 
                 </DialogContent>
             </Dialog>
 
+            {/* PDF Selection Dialog */}
+            <Dialog open={isPdfDialogOpen} onOpenChange={setIsPdfDialogOpen}>
+                <DialogContent className="sm:max-w-md rounded-3xl p-6 border-border/50 bg-background/95 backdrop-blur-xl">
+                    <DialogTitle className="text-xl font-black">Export PDF Report</DialogTitle>
+                    <DialogDescription className="text-xs font-medium">Select the plots you want to include in the generated PDF.</DialogDescription>
+                    
+                    <div className="space-y-2 mt-4 max-h-[50vh] overflow-y-auto pr-2">
+                        {[...plots, ...aiPlots, ...dynamicBarPlots].map(plot => (
+                            <label key={plot.id} className="flex items-center gap-3 p-3 rounded-xl border border-border/40 hover:bg-muted/30 cursor-pointer transition-colors group">
+                                <input 
+                                    type="checkbox" 
+                                    className="w-4 h-4 rounded-md border-border/50 text-violet-600 focus:ring-violet-500 bg-background"
+                                    checked={pdfSelectedIds.has(plot.id)}
+                                    onChange={(e) => {
+                                        const next = new Set(pdfSelectedIds);
+                                        if (e.target.checked) next.add(plot.id);
+                                        else next.delete(plot.id);
+                                        setPdfSelectedIds(next);
+                                    }}
+                                />
+                                <div className="flex flex-col">
+                                    <span className="text-sm font-bold leading-none group-hover:text-primary transition-colors">{plot.title}</span>
+                                    <span className="text-[10px] text-muted-foreground font-medium mt-1">{plot.chartType}</span>
+                                </div>
+                            </label>
+                        ))}
+                    </div>
+
+                    <div className="flex items-center justify-end gap-3 mt-6">
+                        <Button variant="ghost" onClick={() => setIsPdfDialogOpen(false)} className="rounded-xl text-xs font-bold">Cancel</Button>
+                        <Button 
+                            className="rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-bold text-xs shadow-lg shadow-violet-500/20"
+                            disabled={pdfSelectedIds.size === 0}
+                            onClick={() => {
+                                setIsPdfDialogOpen(false);
+                                setTimeout(() => {
+                                    (window as any).generatePDFReport?.();
+                                }, 150);
+                            }}
+                        >
+                            <FileText className="w-4 h-4 mr-2" /> Generate Report
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
             {/* PDF Engine */}
             <PDFReportGenerator
                 analytics={analytics}
-                plots={plots}
+                plots={[...plots, ...aiPlots, ...dynamicBarPlots].filter(p => pdfSelectedIds.has(p.id))}
                 filters={filters}
+                rawData={rawData}
             />
         </div>
     );

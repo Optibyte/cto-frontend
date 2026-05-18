@@ -4,15 +4,16 @@ import { jsPDF } from 'jspdf';
 import { toPng } from 'html-to-image';
 import { toast } from 'sonner';
 import { useEffect } from 'react';
-import { type PlotConfig } from './powerbi-engine';
+import { type PlotConfig, pivotData } from './powerbi-engine';
 
 interface PDFReportGeneratorProps {
   analytics: any;
   plots: PlotConfig[];
   filters: any;
+  rawData?: any[];
 }
 
-export function PDFReportGenerator({ analytics, plots, filters }: PDFReportGeneratorProps) {
+export function PDFReportGenerator({ analytics, plots, filters, rawData }: PDFReportGeneratorProps) {
   
   const generatePDF = async () => {
     const id = toast.loading('Generating High-Fidelity PDF Report...');
@@ -113,6 +114,53 @@ export function PDFReportGenerator({ analytics, plots, filters }: PDFReportGener
 
       currentY += 10;
 
+      // AI Baseline Alerts
+      const aiPlots = plots.filter(p => p.legend === 'aiBaseline' && p.dataSource !== 'manual_metrics');
+      const aiEvents: string[] = [];
+
+      aiPlots.forEach(plot => {
+          const data = pivotData(rawData || [], plot);
+          if (!data.length) return;
+          const latest = data[data.length - 1]; // Sorted by sprintNumber
+          
+          const aiVal = latest['AI-Enabled'];
+          const baseVal = latest['Traditional'];
+          
+          if (aiVal !== undefined && baseVal !== undefined) {
+              const metric = plot.metrics[0]?.key;
+              let isWorse = false;
+              
+              if (metric === 'technicalDebtIndex') {
+                  isWorse = aiVal > baseVal; 
+              } else {
+                  isWorse = aiVal < baseVal; 
+              }
+              
+              if (isWorse) {
+                  aiEvents.push(`⚠️ ALERT: AI-Enabled ${plot.metrics[0].key} (${Number(aiVal).toFixed(2)}) is worse than the Traditional baseline (${Number(baseVal).toFixed(2)}) in the latest period.`);
+              }
+          }
+      });
+
+      if (aiEvents.length > 0) {
+          doc.setTextColor(220, 38, 38); // Red for alerts
+          doc.setFontSize(12);
+          doc.setFont('helvetica', 'bold');
+          doc.text('AI Monitor Alerts (Below Baseline Events)', margin, currentY);
+          currentY += 8;
+
+          doc.setFontSize(10);
+          doc.setFont('helvetica', 'normal');
+          aiEvents.forEach(event => {
+              const lines = doc.splitTextToSize(event, pageWidth - 2 * margin);
+              doc.text(lines, margin, currentY);
+              currentY += lines.length * 5 + 2;
+          });
+          currentY += 10;
+      }
+      
+      doc.setTextColor(30, 41, 59); // Reset text color
+
       // 4. Visual Charts
       doc.setFontSize(14);
       doc.setFont('helvetica', 'bold');
@@ -182,7 +230,7 @@ export function PDFReportGenerator({ analytics, plots, filters }: PDFReportGener
   useEffect(() => {
     (window as any).generatePDFReport = generatePDF;
     return () => { delete (window as any).generatePDFReport; };
-  }, [analytics, plots, filters]);
+  }, [analytics, plots, filters, rawData]);
 
   return null;
 }

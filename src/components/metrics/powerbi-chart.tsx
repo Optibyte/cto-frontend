@@ -1,14 +1,23 @@
 'use client';
-import { ResponsiveContainer, BarChart, Bar, LineChart, Line, AreaChart, Area, ComposedChart, PieChart, Pie, Cell, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
+import { ResponsiveContainer, BarChart, Bar, LineChart, Line, AreaChart, Area, ComposedChart, PieChart, Pie, Cell, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceLine } from 'recharts';
 import { COLORS, METRICS_FIELDS, type PlotConfig } from './powerbi-engine';
 
 export function PowerBIChart({ data, config }: { data: any[]; config: PlotConfig }) {
   if (!data?.length) return <div className="h-full flex items-center justify-center text-xs font-bold text-muted-foreground opacity-60">No data — adjust scope or filters</div>;
 
   const hasLegend = config.legend && config.legend !== 'none';
-  const seriesKeys = hasLegend
+  let seriesKeys = hasLegend
     ? Object.keys(data[0]).filter(k => k !== 'group')
     : config.metrics.map(m => m.key);
+
+  let baselineAvg: number | null = null;
+  if (config.legend === 'aiBaseline') {
+      const traditionalValues = data.map(d => Number(d['Traditional'])).filter(v => !isNaN(v));
+      if (traditionalValues.length > 0) {
+          baselineAvg = traditionalValues.reduce((a, b) => a + b, 0) / traditionalValues.length;
+      }
+      seriesKeys = seriesKeys.filter(k => k !== 'Traditional');
+  }
 
   const getLabel = (key: string) => METRICS_FIELDS.find(f => f.id === key)?.label || key;
   const ct = config.chartType;
@@ -28,6 +37,9 @@ export function PowerBIChart({ data, config }: { data: any[]; config: PlotConfig
     <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700 }} />
     <Tooltip contentStyle={{ borderRadius: 16, border: '1px solid rgba(0,0,0,0.05)', boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }} />
     <Legend verticalAlign="top" align="right" height={36} />
+    {baselineAvg !== null && (
+        <ReferenceLine y={baselineAvg} stroke="#3b82f6" strokeDasharray="5 5" label={{ value: `Baseline (${baselineAvg.toFixed(2)})`, position: 'insideTopLeft', fill: '#3b82f6', fontSize: 12, fontWeight: 'bold' }} />
+    )}
   </>);
 
   return (

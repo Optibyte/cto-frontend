@@ -16,6 +16,7 @@ export const X_AXIS_OPTIONS = [
   { id: 'sprintNumber', label: 'Sprint Number' },
   ...HIERARCHY_LEVELS,
   { id: 'aiEnabled', label: 'AI vs Traditional' },
+  { id: 'aiBaseline', label: 'AI with Baseline' },
 ];
 
 export const METRICS_FIELDS = [
@@ -110,6 +111,7 @@ function getDimValue(row: any, dim: string, dataSource: string): string {
       case 'account': return row.account || 'Unknown';
       case 'project': return row.project || 'Unknown';
       case 'team': return row.team || 'Unknown';
+      case 'aiBaseline':
       case 'aiEnabled': return row.aiEnabled ? 'AI-Enabled' : 'Traditional';
       default: return 'All';
     }
@@ -124,6 +126,7 @@ function getDimValue(row: any, dim: string, dataSource: string): string {
     case 'account': return row.team?.account_rel?.name || row.account || 'Unknown';
     case 'project': return row.team?.project?.name || row.project || 'Unknown';
     case 'team': return row.team?.name || row.teamName || 'Unknown';
+    case 'aiBaseline':
     case 'aiEnabled': return row.team?.project?.aiEnabled ? 'AI-Enabled' : 'Traditional';
     default: return 'All';
   }
