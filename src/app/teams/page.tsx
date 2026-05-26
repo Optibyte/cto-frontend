@@ -75,12 +75,30 @@ export default function TeamsPage() {
                     <Card key={team.id} className="overflow-hidden relative group rounded-2xl border border-border/40 shadow-lg hover:-translate-y-1 transition-all duration-300">
                         <div className="absolute top-0 left-0 w-full h-1 bg-primary" />
                         <CardContent className="p-6">
-                            <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-xl font-bold">
-                                    <Link href={`/teams/${team.id}`} className="hover:underline">
-                                        {team.name}
-                                    </Link>
-                                </h3>
+                            <div className="flex items-start justify-between mb-4">
+                                <div>
+                                    <h3 className="text-xl font-bold">
+                                        <Link href={`/teams/${team.id}`} className="hover:underline">
+                                            {team.name}
+                                        </Link>
+                                    </h3>
+                                    <div className="flex flex-wrap gap-1.5 mt-1.5">
+                                        {team.teamId && (
+                                            <span className="inline-block text-xs text-muted-foreground font-mono bg-muted/60 px-1.5 py-0.5 rounded">
+                                                {team.teamId}
+                                            </span>
+                                        )}
+                                        {team.aiEnabled ? (
+                                            <Badge className="bg-violet-500/10 text-violet-600 border-violet-500/20 text-[9px] font-black uppercase">
+                                                AI Enabled
+                                            </Badge>
+                                        ) : (
+                                            <Badge className="bg-muted text-muted-foreground border-none text-[9px] font-black uppercase">
+                                                Traditional
+                                            </Badge>
+                                        )}
+                                    </div>
+                                </div>
                                 <Badge variant="outline" className="rounded-lg bg-primary/5 text-primary border-primary/20">
                                     {team.members?.length || 0} Members
                                 </Badge>

@@ -35,6 +35,7 @@ export default function EditTeamPage({ params }: { params: Promise<{ teamId: str
 
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [formData, setFormData] = useState({
+        teamId: '',
         name: '',
         projectId: '',
         description: '',
@@ -49,6 +50,7 @@ export default function EditTeamPage({ params }: { params: Promise<{ teamId: str
     useEffect(() => {
         if (team) {
             setFormData({
+                teamId: team.teamId || '',
                 name: team.name || '',
                 projectId: team.projectId || '',
                 description: team.description || '',
@@ -146,7 +148,18 @@ export default function EditTeamPage({ params }: { params: Promise<{ teamId: str
                 </CardHeader>
                 <CardContent className="pt-8">
                     <form onSubmit={handleSubmit} className="space-y-8">
-                        <div className="grid md:grid-cols-2 gap-6">
+                        <div className="grid md:grid-cols-3 gap-6">
+                            <div className="space-y-2">
+                                <Label htmlFor="teamId" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Team ID</Label>
+                                <Input
+                                    id="teamId"
+                                    value={formData.teamId}
+                                    onChange={(e: ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, teamId: e.target.value })}
+                                    placeholder="e.g. T-FRONTEND"
+                                    className="rounded-xl border-border/50 min-h-[44px]"
+                                />
+                            </div>
+
                             <div className="space-y-2">
                                 <Label htmlFor="name" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Team Name</Label>
                                 <Input

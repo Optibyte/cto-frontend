@@ -70,7 +70,7 @@ export default function MetricsPage() {
                             className={`${TAB_TRIGGER_CLS} data-[state=active]:bg-violet-600 data-[state=active]:shadow-[0_0_20px_rgba(139,92,246,0.4)]`}
                         >
                             <Activity className="h-4 w-4" />
-                            DT Monitor
+                            Transformation Monitor
                         </TabsTrigger>
 
                     </TabsList>

@@ -1040,7 +1040,10 @@ function EntityDialog({ open, onOpenChange, tab, editItem, onSave, organizations
                         </>)}
 
                         {tab === 'teams' && (<>
-                            <div className="space-y-2"><Label>Name *</Label><Input className="rounded-xl" value={form.name || ''} onChange={e => set('name', e.target.value)} placeholder="e.g. Core Banking" /></div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2"><Label>Team ID</Label><Input className="rounded-xl" value={form.teamId || ''} onChange={e => set('teamId', e.target.value)} placeholder="e.g. T-CORE-BANK" /></div>
+                                <div className="space-y-2"><Label>Name *</Label><Input className="rounded-xl" value={form.name || ''} onChange={e => set('name', e.target.value)} placeholder="e.g. Core Banking" /></div>
+                            </div>
                             <div className="space-y-2"><Label>Description</Label><Input className="rounded-xl" value={form.description || ''} onChange={e => set('description', e.target.value)} placeholder="Team description" /></div>
                             <div className="space-y-2">
                                 <Label>Team Lead</Label>
@@ -1317,7 +1320,7 @@ function getDefaultForm(tab: TabKey): Record<string, any> {
         case 'accounts': return { name: '', marketId: '', accountManagerId: '' };
         case 'projects': return { name: '', startDate: '', enddate: '', status: 'PLANNED', teamSize: 0, progress: 0, jiraProjectKey: '', jiraBoardId: '', githubRepoId: '', githubToken: '', license: '', isDigitalTransformation: false, digitalTransformationStartDate: '', digitalTransformationEndDate: '', aiEnabled: false, aiToolLicenses: 0, aiToolsUsed: [] };
         case 'ai-projects': return { name: '', startDate: '', enddate: '', status: 'PLANNED', teamSize: 0, progress: 0, jiraProjectKey: '', jiraBoardId: '', githubRepoId: '', githubToken: '', license: '', isDigitalTransformation: false, digitalTransformationStartDate: '', digitalTransformationEndDate: '', aiEnabled: true, aiToolLicenses: 0, aiToolsUsed: [] };
-        case 'teams': return { name: '', description: '', teamLeadId: '', accountId: '', projectId: '' };
+        case 'teams': return { teamId: '', name: '', description: '', teamLeadId: '', accountId: '', projectId: '' };
         case 'members': return { teamId: '', userIds: [], roleInTeam: 'Member' };
         case 'users': return { fullName: '', email: '', role: 'TEAM', jobRole: '', employeeId: '', auth0Id: '', jiraAccountId: '', githubEmail: '', scopeOrgId: '', scopeMarketId: '', scopeAccountId: '', scopeProjectId: '', scopeTeamId: '' };
     }
@@ -1358,6 +1361,7 @@ function buildPayload(tab: TabKey, form: Record<string, any>, isEdit: boolean): 
         }
         case 'teams': {
             const t: any = { name: form.name };
+            if (form.teamId !== undefined) t.teamId = form.teamId;
             if (form.teamLeadId && form.teamLeadId !== 'none') t.teamLeadId = form.teamLeadId;
             if (form.description) t.description = form.description;
             if (form.accountId) t.accountId = form.accountId;
@@ -1423,8 +1427,8 @@ function BulkUploadDialog({ open, onOpenChange, type, onSuccess }: BulkUploadDia
         let fileName = '';
 
         if (isEmployees) {
-            headers = ['employee_id', 'employee_name', 'email', 'org', 'country', 'market', 'account', 'project', 'team', 'role', 'employment_type', 'experience_years', 'project_ai_enabled', 'project_ai_tools_used', 'primary_ai_skill', 'primary_ai_skill_proficiency'];
-            sampleRow = ['EMP-1001', 'John Doe', 'john.doe@example.com', 'Acme Corp', 'USA', 'US-Market', 'Aetna', 'Claims Mod', 'Alpha Team', 'Dev', 'Full-Time', '5', 'Yes', 'Copilot, ChatGPT', 'Python', '4'];
+            headers = ['employee_id', 'employee_name', 'email', 'org', 'country', 'market', 'account', 'project', 'team', 'team_id', 'role', 'employment_type', 'experience_years', 'project_ai_enabled', 'project_ai_tools_used', 'primary_ai_skill', 'primary_ai_skill_proficiency'];
+            sampleRow = ['EMP-1001', 'John Doe', 'john.doe@example.com', 'Acme Corp', 'USA', 'US-Market', 'Aetna', 'Claims Mod', 'Alpha Team', 'T-ALPHA', 'Dev', 'Full-Time', '5', 'Yes', 'Copilot, ChatGPT', 'Python', '4'];
             fileName = 'employee_bulk_import_template.csv';
         } else {
             headers = ['org', 'country', 'market', 'account', 'project', 'team', 'team_size', 'project_ai_enabled', 'project_ai_tool_licenses', 'project_ai_tools_used', 'sprint_number', 'sprint_name', 'throughput_points', 'quality_score', 'velocity_points', 'done_to_said_ratio', 'technical_debt_index', 'user_stories_delivered'];
@@ -1514,7 +1518,7 @@ function BulkUploadDialog({ open, onOpenChange, type, onSuccess }: BulkUploadDia
                         </div>
                         <div className="flex flex-wrap gap-1.5">
                             {(isEmployees
-                                ? ['employee_id', 'employee_name', 'org', 'project', 'team', 'role', 'project_ai_enabled']
+                                ? ['employee_id', 'employee_name', 'org', 'project', 'team', 'team_id', 'role', 'project_ai_enabled']
                                 : ['team', 'sprint_number', 'throughput_points', 'quality_score', 'velocity_points', 'project_ai_enabled']
                             ).map(col => (
                                 <span key={col} className={cn(

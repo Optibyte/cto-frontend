@@ -30,6 +30,7 @@ export default function EditTeamPage({ params }: { params: Promise<{ id: string 
     const { data: users = [], isLoading: isLoadingUsers }: { data: any[] | undefined, isLoading: boolean } = useUsers() as any;
 
     const [formData, setFormData] = useState({
+        teamId: '',
         name: '',
         project: '',
         description: '',
@@ -39,6 +40,7 @@ export default function EditTeamPage({ params }: { params: Promise<{ id: string 
     useEffect(() => {
         if (team) {
             setFormData({
+                teamId: team.teamId || '',
                 name: team.name || '',
                 project: team.project || '',
                 description: team.description || '',
@@ -97,6 +99,17 @@ export default function EditTeamPage({ params }: { params: Promise<{ id: string 
                 </CardHeader>
                 <CardContent>
                     <form onSubmit={handleSubmit} className="space-y-6">
+                        <div className="space-y-2">
+                            <Label htmlFor="teamId">Team ID</Label>
+                            <Input
+                                id="teamId"
+                                value={formData.teamId}
+                                onChange={(e: ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, teamId: e.target.value })}
+                                placeholder="e.g. T-FRONTEND"
+                                className="rounded-xl border-border/50 min-h-[44px]"
+                            />
+                        </div>
+
                         <div className="space-y-2">
                             <Label htmlFor="project">Project</Label>
                             <Input

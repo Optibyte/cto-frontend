@@ -14,6 +14,7 @@ export interface User {
 // Team types
 export interface Team {
     id: string;
+    teamId?: string;
     name: string;
     description?: string;
     teamLead: User;

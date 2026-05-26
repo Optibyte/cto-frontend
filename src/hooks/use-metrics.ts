@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { metricsAPI, sprintMetricsAPI } from '@/lib/api/client';
+import { metricsAPI, sprintMetricsAPI, sprintParametersAPI } from '@/lib/api/client';
 
 export function useMetrics(filters?: any) {
     return useQuery({
@@ -132,3 +132,41 @@ export function useSprintAnalytics(filters?: {
         staleTime: 30_000,
     });
 }
+
+export function useSprintParameters(filters?: any) {
+    return useQuery({
+        queryKey: ['sprint-parameters', filters],
+        queryFn: async () => {
+            const { data } = await sprintParametersAPI.getAll(filters);
+            return data;
+        },
+        retry: 1,
+    });
+}
+
+export function useCreateSprintParameter() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (data: any) => sprintParametersAPI.create(data),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['sprint-parameters'] });
+            queryClient.invalidateQueries({ queryKey: ['sprint-metrics'] });
+            queryClient.invalidateQueries({ queryKey: ['sprint-analytics'] });
+            queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+        },
+    });
+}
+
+export function useUpdateSprintParameter() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ id, data }: { id: string; data: any }) => sprintParametersAPI.update(id, data),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['sprint-parameters'] });
+            queryClient.invalidateQueries({ queryKey: ['sprint-metrics'] });
+            queryClient.invalidateQueries({ queryKey: ['sprint-analytics'] });
+            queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+        },
+    });
+}
+

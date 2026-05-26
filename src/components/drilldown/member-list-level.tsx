@@ -86,6 +86,13 @@ export function MemberListLevel() {
                                             <Briefcase className="h-3 w-3 text-primary/60" />
                                             {user?.role || 'Contributor'}
                                         </p>
+                                        {member.badge && (
+                                            <div className="pt-1">
+                                                <Badge className="bg-amber-500/10 text-amber-600 border border-amber-500/20 text-[9px] font-black uppercase tracking-widest rounded-full py-0.5 px-2">
+                                                    🎖️ {member.badge}
+                                                </Badge>
+                                            </div>
+                                        )}
                                     </div>
 
                                     <div className="mt-5 space-y-3">

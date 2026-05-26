@@ -105,9 +105,12 @@ export function TeamMembersManager({ teamId, teamName, initialMembers }: TeamMem
                         <Users className="h-8 w-8" />
                     </div>
                     <div>
-                        <div className="flex items-center gap-2">
-                            <h2 className="text-2xl font-extrabold tracking-tight">{teamName}</h2>
-                            <Badge variant="outline" className="rounded-full bg-primary/5 text-primary border-primary/20 text-[10px] font-bold px-2 py-0">ID: {teamId}</Badge>
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <h2 className="text-2xl font-extrabold tracking-tight">{teamData?.name || teamName}</h2>
+                            {teamData?.teamId && (
+                                <Badge variant="outline" className="rounded-full bg-primary/5 text-primary border-primary/20 text-[10px] font-bold px-2 py-0">Code: {teamData.teamId}</Badge>
+                            )}
+                            <Badge variant="outline" className="rounded-full bg-primary/5 text-primary border-primary/20 text-[10px] font-bold px-2 py-0 font-mono">UUID: {teamId}</Badge>
                         </div>
                         <p className="text-muted-foreground font-medium">Workforce Roster & Asset Management</p>
                     </div>

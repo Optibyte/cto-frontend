@@ -22,6 +22,21 @@ export function PowerBIChart({ data, config }: { data: any[]; config: PlotConfig
   const getLabel = (key: string) => METRICS_FIELDS.find(f => f.id === key)?.label || key;
   const ct = config.chartType;
 
+  // Compute SPC Limits (Average, UCL = Avg + 2σ, LCL = Avg - 2σ) for line/area charts
+  let spcStats: { avg: number; std: number; ucl: number; lcl: number } | null = null;
+  const targetKey = seriesKeys[0];
+  if (targetKey && (ct === 'LineChart' || ct === 'AreaChart' || ct === 'ComposedChart')) {
+      const values = data.map(d => Number(d[targetKey])).filter(v => !isNaN(v));
+      if (values.length > 1) {
+          const avg = values.reduce((a, b) => a + b, 0) / values.length;
+          const variance = values.reduce((sum, v) => sum + Math.pow(v - avg, 2), 0) / (values.length - 1);
+          const std = Math.sqrt(variance);
+          const ucl = avg + 2 * std;
+          const lcl = Math.max(0, avg - 2 * std);
+          spcStats = { avg, std, ucl, lcl };
+      }
+  }
+
   const renderSeries = () => seriesKeys.map((key, i) => {
     const color = hasLegend ? COLORS[i % COLORS.length] : (config.metrics[i]?.color || COLORS[i % COLORS.length]);
     const label = hasLegend ? key : getLabel(key);
@@ -39,6 +54,14 @@ export function PowerBIChart({ data, config }: { data: any[]; config: PlotConfig
     <Legend verticalAlign="top" align="right" height={36} />
     {baselineAvg !== null && (
         <ReferenceLine y={baselineAvg} stroke="#3b82f6" strokeDasharray="5 5" label={{ value: `Baseline (${baselineAvg.toFixed(2)})`, position: 'insideTopLeft', fill: '#3b82f6', fontSize: 12, fontWeight: 'bold' }} />
+    )}
+    {/* Render SPC Control Lines */}
+    {spcStats !== null && (
+      <>
+        <ReferenceLine y={spcStats.avg} stroke="#10b981" strokeDasharray="4 4" strokeWidth={1.5} label={{ value: `CL: ${spcStats.avg.toFixed(1)}`, position: 'insideTopLeft', fill: '#10b981', fontSize: 9, fontWeight: 'bold' }} />
+        <ReferenceLine y={spcStats.ucl} stroke="#ef4444" strokeDasharray="2 3" strokeWidth={1.5} label={{ value: `UCL (+2σ): ${spcStats.ucl.toFixed(1)}`, position: 'insideTopRight', fill: '#ef4444', fontSize: 9, fontWeight: 'bold' }} />
+        <ReferenceLine y={spcStats.lcl} stroke="#ef4444" strokeDasharray="2 3" strokeWidth={1.5} label={{ value: `LCL (-2σ): ${spcStats.lcl.toFixed(1)}`, position: 'insideBottomRight', fill: '#ef4444', fontSize: 9, fontWeight: 'bold' }} />
+      </>
     )}
   </>);
 

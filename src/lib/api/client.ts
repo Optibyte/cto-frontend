@@ -786,10 +786,10 @@ export const sprintMetricsAPI = {
         return response.json();
     },
 
-    bulkUpload: async (file: File, teamId: string) => {
+    bulkUpload: async (file: File, teamId?: string) => {
         const formData = new FormData();
         formData.append('file', file);
-        formData.append('teamId', teamId);
+        if (teamId) formData.append('teamId', teamId);
 
         const headers: Record<string, string> = {};
         if (typeof window !== 'undefined') {
@@ -824,18 +824,16 @@ export const sprintMetricsAPI = {
         }
     },
 
-    getAnalytics: async (filters?: {
-        org?: string; country?: string; market?: string;
-        account?: string; project?: string; team?: string;
-    }) => {
+    getAnalytics: async (filters?: any) => {
         try {
             const params = new URLSearchParams();
-            if (filters?.org)     params.set('org',     filters.org);
-            if (filters?.country) params.set('country', filters.country);
-            if (filters?.market)  params.set('market',  filters.market);
-            if (filters?.account) params.set('account', filters.account);
-            if (filters?.project) params.set('project', filters.project);
-            if (filters?.team)    params.set('team',    filters.team);
+            if (filters) {
+                Object.entries(filters).forEach(([key, val]) => {
+                    if (val !== undefined && val !== null) {
+                        params.set(key, String(val));
+                    }
+                });
+            }
             const qs = params.toString();
             const response = await fetch(
                 `${SPRINT_METRICS_API_URL}/analytics${qs ? `?${qs}` : ''}`,
@@ -848,4 +846,57 @@ export const sprintMetricsAPI = {
         }
     },
 };
+
+const SPRINT_PARAMETERS_API_URL = `${API_BASE_URL}/api/v1/sprint-parameters`;
+
+export const sprintParametersAPI = {
+    getAll: async (filters?: any) => {
+        try {
+            const queryParams = filters ? new URLSearchParams(filters).toString() : '';
+            const response = await fetch(`${SPRINT_PARAMETERS_API_URL}${queryParams ? `?${queryParams}` : ''}`, {
+                headers: getHeaders(),
+            });
+            if (!response.ok) return { data: [] };
+            const data = await response.json();
+            return { data: Array.isArray(data) ? data : (data.data || []) };
+        } catch {
+            return { data: [] };
+        }
+    },
+    create: async (payload: any) => {
+        const response = await fetch(SPRINT_PARAMETERS_API_URL, {
+            method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify(payload),
+        });
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.message || 'Failed to create sprint parameter');
+        }
+        return response.json();
+    },
+    update: async (id: string, payload: any) => {
+        const response = await fetch(`${SPRINT_PARAMETERS_API_URL}/${id}`, {
+            method: 'PATCH',
+            headers: getHeaders(),
+            body: JSON.stringify(payload),
+        });
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.message || 'Failed to update sprint parameter');
+        }
+        return response.json();
+    },
+    delete: async (id: string) => {
+        const response = await fetch(`${SPRINT_PARAMETERS_API_URL}/${id}`, {
+            method: 'DELETE',
+            headers: getHeaders()
+        });
+        if (!response.ok) {
+            throw new Error('Failed to delete sprint parameter');
+        }
+        return { success: true };
+    }
+};
+
 

@@ -22,9 +22,8 @@ import {
     CheckCircle2,
     Info,
     Minus,
-    ArrowUpRight,
-    ArrowDownRight,
     Download,
+    Calendar,
 } from 'lucide-react';
 import {
     LineChart,
@@ -37,8 +36,6 @@ import {
     ReferenceLine,
     ReferenceArea,
     Legend,
-    Area,
-    AreaChart,
 } from 'recharts';
 import { cn } from '@/lib/utils';
 import { useSprintMetrics } from '@/hooks/use-metrics';
@@ -54,12 +51,15 @@ interface PhaseDataPoint {
     value: number | null;
     phase: DTPhase;
     date: Date;
+    sprintNumber: number;
 }
 
 interface MetricAnalysis {
     metricType: string;
     metricName: string;
     baseline: number;
+    ucl: number;
+    lcl: number;
     baselineCount: number;
     duringAvg: number | null;
     afterAvg: number | null;
@@ -79,20 +79,26 @@ interface DTAlert {
 
 // ─── Helper Functions ─────────────────────────────────────────────────────────
 
-function getPhase(date: Date, dtStart: Date, dtEnd: Date): DTPhase {
-    if (date < dtStart) return 'before';
-    if (date <= dtEnd) return 'during';
-    return 'after';
-}
+function getPhaseForMetric(m: any, defaultProject: any): DTPhase {
+    const sDate = m.sprintDate ? new Date(m.sprintDate) : (m.time ? new Date(m.time) : null);
+    
+    // Look for team-level dates first, fallback to project-level dates
+    const tStart = m.team?.transformationStartDate ? new Date(m.team.transformationStartDate) : 
+                   (defaultProject?.digitalTransformationStartDate ? new Date(defaultProject.digitalTransformationStartDate) : null);
+    const tEnd = m.team?.transformationEndDate ? new Date(m.team.transformationEndDate) : 
+                 (defaultProject?.digitalTransformationEndDate ? new Date(defaultProject.digitalTransformationEndDate) : null);
 
-function getPhaseBySprint(sprintNumber: number): DTPhase {
-    if (sprintNumber <= 3) return 'before';
-    if (sprintNumber <= 7) return 'during';
-    return 'after';
-}
+    if (!sDate || !tStart) {
+        // Fall back to sprint number rule
+        const sprint = Number(m.sprintNumber || 1);
+        if (sprint <= 3) return 'before';
+        if (sprint <= 7) return 'during';
+        return 'after';
+    }
 
-function formatDate(date: Date): string {
-    return date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+    if (sDate < tStart) return 'before';
+    if (tEnd && sDate > tEnd) return 'after';
+    return 'during';
 }
 
 function avg(arr: number[]): number {
@@ -114,7 +120,7 @@ const PHASE_BG: Record<DTPhase, string> = {
 };
 
 // ─── Custom Tooltip ───────────────────────────────────────────────────────────
-function CustomTooltip({ active, payload, label, baseline }: any) {
+function CustomTooltip({ active, payload, label, analysis }: any) {
     if (!active || !payload || !payload.length) return null;
 
     const valueEntry = payload.find((p: any) => p.dataKey === 'value');
@@ -132,14 +138,20 @@ function CustomTooltip({ active, payload, label, baseline }: any) {
             <Badge className={cn('text-[9px] font-black border px-2 py-0.5', PHASE_BG[phase])}>
                 {phase.toUpperCase()} DT
             </Badge>
-            {val !== null && val !== undefined && baseline !== undefined && (
-                <div className="mt-2 pt-2 border-t border-border/20">
-                    <p className="text-[10px] text-muted-foreground">
-                        {val >= baseline
-                            ? <span className="text-emerald-400 font-bold">↑ {(val - baseline).toFixed(2)} above baseline</span>
-                            : <span className="text-rose-400 font-bold">↓ {(baseline - val).toFixed(2)} below baseline</span>
+            {val !== null && val !== undefined && analysis && (
+                <div className="mt-2 pt-2 border-t border-border/20 space-y-1 text-[10px] text-muted-foreground">
+                    <p>
+                        {val >= analysis.baseline
+                            ? <span className="text-emerald-400 font-bold">↑ {(val - analysis.baseline).toFixed(2)} above baseline</span>
+                            : <span className="text-rose-400 font-bold">↓ {(analysis.baseline - val).toFixed(2)} below baseline</span>
                         }
                     </p>
+                    {val > analysis.ucl && (
+                        <p className="text-emerald-500 font-bold">⚠️ Exceeds UCL (+2σ)</p>
+                    )}
+                    {val < analysis.lcl && (
+                        <p className="text-rose-500 font-bold">⚠️ Below LCL (-2σ)</p>
+                    )}
                 </div>
             )}
         </div>
@@ -162,13 +174,13 @@ function AlertCard({ alert }: { alert: DTAlert }) {
             <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between mb-1">
                     <span className="text-[10px] font-black uppercase tracking-widest opacity-70">
-                        DT {alert.phase.toUpperCase()} ALERT
+                        TRANSFORMATION {alert.phase.toUpperCase()} ALERT
                     </span>
                     <Badge variant="outline" className={cn(
                         'h-4 text-[9px] border-none font-black px-1.5',
                         isCritical ? 'bg-rose-500/20 text-rose-400' : 'bg-amber-500/20 text-amber-400'
                     )}>
-                        {(alert.delta * 100).toFixed(1)}% below
+                        {(alert.delta * 100).toFixed(1)}% drop
                     </Badge>
                 </div>
                 <p className="text-sm font-bold tracking-tight">{alert.metricName}</p>
@@ -188,6 +200,8 @@ function MetricChartCard({ analysis }: { analysis: MetricAnalysis }) {
         value: p.value,
         phase: p.phase,
         baseline: analysis.baseline,
+        ucl: analysis.ucl,
+        lcl: analysis.lcl,
     }));
 
     const dtStartIndex = analysis.phaseData.findIndex(p => p.phase === 'during');
@@ -199,107 +213,101 @@ function MetricChartCard({ analysis }: { analysis: MetricAnalysis }) {
     const dtStartLabel = dtStartIndex >= 0 ? analysis.phaseData[dtStartIndex].label : null;
     const dtEndLabel = dtEndIndex >= 0 ? analysis.phaseData[dtEndIndex].label : null;
 
-    const lineColor = "#2563eb"; 
-    const dividerColor = "#64748b";
+    const lineColor = "#6366f1"; 
+    const dividerColor = "#94a3b8";
 
     return (
-        <Card className="rounded-[1rem] border-border bg-card overflow-hidden shadow-sm">
-            <CardHeader className="p-4 pb-2 text-center">
-                <CardTitle className="text-base font-medium">DT Transformation Monitoring - {analysis.metricName}</CardTitle>
+        <Card className="rounded-[2rem] border-border/50 bg-background/50 backdrop-blur-2xl overflow-hidden shadow-xl">
+            <CardHeader className="p-6 pb-2">
+                <div className="flex items-start justify-between">
+                    <div>
+                        <CardTitle className="text-lg font-black tracking-tight">{analysis.metricName}</CardTitle>
+                        <CardDescription className="text-[10px] font-medium">Control limits based on Pre-Transformation baseline phase</CardDescription>
+                    </div>
+                    <div className="flex flex-col items-end gap-1">
+                        <Badge className="bg-primary/10 text-primary border-primary/20 text-[8px] font-bold">SPC Mode</Badge>
+                    </div>
+                </div>
             </CardHeader>
 
-            <CardContent className="p-4 pt-2 h-[400px]">
+            <CardContent className="p-6 pt-2 h-[380px]">
                 <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={chartData} margin={{ top: 20, right: 30, left: 10, bottom: 25 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.08} />
                         
                         <XAxis
                             dataKey="label"
-                            axisLine={{ stroke: '#94a3b8' }}
-                            tickLine={{ stroke: '#94a3b8' }}
-                            tick={{ fontSize: 11, fill: '#64748b' }}
+                            axisLine={false}
+                            tickLine={false}
+                            tick={{ fontSize: 10, fill: '#64748b', fontWeight: 600 }}
                             dy={8}
-                            label={{ value: 'Timeline', position: 'insideBottom', offset: -20, fill: '#0f172a', fontSize: 12, fontWeight: 500 }}
                         />
                         
                         <YAxis
-                            axisLine={{ stroke: '#94a3b8' }}
-                            tickLine={{ stroke: '#94a3b8' }}
-                            tick={{ fontSize: 11, fill: '#64748b' }}
-                            tickFormatter={(v) => Number(v).toFixed(2)}
+                            axisLine={false}
+                            tickLine={false}
+                            tick={{ fontSize: 10, fill: '#64748b', fontWeight: 600 }}
+                            tickFormatter={(v) => Number(v).toFixed(1)}
                             domain={['auto', 'auto']}
-                            label={{ value: analysis.metricName, angle: -90, position: 'insideLeft', offset: -5, fill: '#0f172a', fontSize: 12, fontWeight: 500 }}
                         />
                         
                         <RechartsTooltip 
-                            contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                            content={<CustomTooltip analysis={analysis} />}
                         />
 
-                        {/* Top-left Legend */}
-                        <Legend verticalAlign="top" align="left" wrapperStyle={{ paddingBottom: '20px', fontSize: '12px', color: '#0f172a' }} />
+                        {/* Central Line / Baseline Reference */}
+                        <ReferenceLine
+                            y={analysis.baseline}
+                            stroke="#10b981"
+                            strokeWidth={1.5}
+                            strokeDasharray="4 4"
+                            label={{ value: `CL: ${analysis.baseline.toFixed(1)}`, position: 'insideTopLeft', fill: '#10b981', fontSize: 9, fontWeight: 'bold' }}
+                        />
 
-                        {/* DT Boundaries (Vertical Lines) */}
+                        {/* UCL and LCL Control Limits */}
+                        <ReferenceLine
+                            y={analysis.ucl}
+                            stroke="#ef4444"
+                            strokeWidth={1.5}
+                            strokeDasharray="2 3"
+                            label={{ value: `UCL (+2σ): ${analysis.ucl.toFixed(1)}`, position: 'insideTopRight', fill: '#ef4444', fontSize: 9, fontWeight: 'bold' }}
+                        />
+                        <ReferenceLine
+                            y={analysis.lcl}
+                            stroke="#ef4444"
+                            strokeWidth={1.5}
+                            strokeDasharray="2 3"
+                            label={{ value: `LCL (-2σ): ${analysis.lcl.toFixed(1)}`, position: 'insideBottomRight', fill: '#ef4444', fontSize: 9, fontWeight: 'bold' }}
+                        />
+
+                        {/* DT Phase Boundaries (Vertical Lines) */}
                         {dtStartLabel && (
                             <ReferenceLine
                                 x={dtStartLabel}
                                 stroke={dividerColor}
-                                strokeDasharray="4 4"
+                                strokeWidth={1}
+                                strokeDasharray="3 3"
                             />
                         )}
                         {dtEndLabel && dtEndLabel !== dtStartLabel && (
                             <ReferenceLine
                                 x={dtEndLabel}
                                 stroke={dividerColor}
-                                strokeDasharray="4 4"
-                            />
-                        )}
-
-                        {/* Phase Labels at bottom */}
-                        {chartData.length > 0 && dtStartLabel && (
-                            <ReferenceArea 
-                                x1={chartData[0].label} x2={dtStartLabel} 
-                                fill="transparent" 
-                                label={{ position: 'insideBottom', value: 'Before DT', fontSize: 11, fill: '#0f172a', fontWeight: 500 }} 
-                            />
-                        )}
-                        {dtStartLabel && dtEndLabel && (
-                            <ReferenceArea 
-                                x1={dtStartLabel} x2={dtEndLabel} 
-                                fill="transparent" 
-                                label={{ position: 'insideBottom', value: 'During DT', fontSize: 11, fill: '#0f172a', fontWeight: 500 }} 
-                            />
-                        )}
-                        {dtEndLabel && chartData.length > 0 && (
-                            <ReferenceArea 
-                                x1={dtEndLabel} x2={chartData[chartData.length - 1].label} 
-                                fill="transparent" 
-                                label={{ position: 'insideBottom', value: 'After DT', fontSize: 11, fill: '#0f172a', fontWeight: 500 }} 
+                                strokeWidth={1}
+                                strokeDasharray="3 3"
                             />
                         )}
 
                         {/* Main Value Line */}
                         <Line
-                            name={`${analysis.metricName} Trend`}
-                            type="linear"
+                            name={`${analysis.metricName} Value`}
+                            type="monotone"
                             dataKey="value"
                             stroke={lineColor}
-                            strokeWidth={2}
+                            strokeWidth={2.5}
                             dot={{ r: 4, fill: lineColor, stroke: lineColor }}
                             activeDot={{ r: 6, fill: lineColor }}
                             connectNulls
-                        />
-                        
-                        {/* Fake Line for Baseline (to show in legend & draw across entire chart) */}
-                        <Line
-                            name={`Baseline (${Number(analysis.baseline).toFixed(2)})`}
-                            type="linear"
-                            dataKey="baseline"
-                            stroke={lineColor}
-                            strokeWidth={2}
-                            strokeDasharray="5 5"
-                            dot={false}
-                            activeDot={false}
-                            isAnimationActive={false}
                         />
 
                     </LineChart>
@@ -309,57 +317,21 @@ function MetricChartCard({ analysis }: { analysis: MetricAnalysis }) {
     );
 }
 
-// ─── Summary Stats ────────────────────────────────────────────────────────────
-function SummaryStatCard({
-    label, value, sub, icon, trend, color
-}: {
-    label: string;
-    value: string | number;
-    sub?: string;
-    icon: React.ReactNode;
-    trend?: 'up' | 'down' | 'flat';
-    color?: string;
-}) {
-    return (
-        <div className="relative overflow-hidden rounded-2xl border border-border/40 bg-card/60 backdrop-blur-sm p-5 shadow-lg">
-            <div className="flex items-start justify-between mb-3">
-                <div className={cn('p-2.5 rounded-xl', color || 'bg-primary/10 text-primary')}>
-                    {icon}
-                </div>
-                {trend && (
-                    <div className={cn(
-                        'flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black',
-                        trend === 'up' ? 'bg-emerald-500/10 text-emerald-400' :
-                            trend === 'down' ? 'bg-rose-500/10 text-rose-400' :
-                                'bg-muted/20 text-muted-foreground'
-                    )}>
-                        {trend === 'up' ? <TrendingUp className="h-3 w-3" /> : trend === 'down' ? <TrendingDown className="h-3 w-3" /> : <Minus className="h-3 w-3" />}
-                        {trend === 'up' ? 'Improving' : trend === 'down' ? 'Declining' : 'Stable'}
-                    </div>
-                )}
-            </div>
-            <p className="text-3xl font-black tracking-tight">{value}</p>
-            <p className="text-xs font-bold text-muted-foreground mt-1">{label}</p>
-            {sub && <p className="text-[10px] text-muted-foreground/70 mt-0.5">{sub}</p>}
-        </div>
-    );
-}
-
 // ─── Main Component ───────────────────────────────────────────────────────────
 export function DTMonitoringDashboard() {
     const [selectedProjectId, setSelectedProjectId] = useState<string>('');
+    const [sprintFilter, setSprintFilter] = useState<'all' | 'recent' | 'recent5' | 'recent10'>('all');
 
     const { data: allProjects = [] } = useProjects();
     const { data: sprintMetrics = [], isLoading: metricsLoading } = useSprintMetrics();
     const { data: hierarchy } = useOrgHierarchy();
 
-    // Only DT projects
+    // All active projects
     const dtProjects = useMemo(() =>
         (allProjects as any[]).filter((p: any) => p.isDigitalTransformation === true || p.aiEnabled === true),
         [allProjects]
     );
 
-    // Select first DT project by default
     const effectiveProjectId = selectedProjectId || dtProjects[0]?.id || '';
 
     const selectedProject = useMemo(() =>
@@ -367,7 +339,6 @@ export function DTMonitoringDashboard() {
         [allProjects, effectiveProjectId]
     );
 
-    // Derive teams for this project
     const projectTeams = useMemo(() => {
         if (!hierarchy || !effectiveProjectId) return [];
         const teams: any[] = [];
@@ -383,24 +354,12 @@ export function DTMonitoringDashboard() {
 
     const projectTeamIds = useMemo(() => projectTeams.map((t: any) => t.id), [projectTeams]);
 
-    // DT boundary dates
-    const dtStart = useMemo(() => {
-        const d = selectedProject?.digitalTransformationStartDate;
-        return d ? new Date(d) : null;
-    }, [selectedProject]);
-
-    const dtEnd = useMemo(() => {
-        const d = selectedProject?.digitalTransformationEndDate;
-        return d ? new Date(d) : null;
-    }, [selectedProject]);
-
-    // Filter metrics to this project's teams
     const projectMetrics = useMemo(() =>
         (sprintMetrics as any[]).filter((m: any) => projectTeamIds.includes(m.teamId)),
         [sprintMetrics, projectTeamIds]
     );
 
-    // Compute per-metric analysis
+    // Compute metrics
     const metricAnalyses = useMemo((): MetricAnalysis[] => {
         if (projectMetrics.length === 0) return [];
 
@@ -415,35 +374,56 @@ export function DTMonitoringDashboard() {
         return sprintFields.map(field => {
             const mList = projectMetrics.map(m => ({
                  value: Number(m[field.key] || 0),
-                 sprintNumber: Number(m.sprintNumber || 1)
+                 sprintNumber: Number(m.sprintNumber || 1),
+                 sprintDate: m.sprintDate || m.time || null,
+                 team: m.team,
             })).sort((a, b) => a.sprintNumber - b.sprintNumber);
 
-            // Group by Sprint Number for display
+            // Group by Sprint Number
             const bySprint: Record<number, { values: number[]; phase: DTPhase; sprintNumber: number }> = {};
             mList.forEach((m: any) => {
                 const sprint = m.sprintNumber;
-                const phase = getPhaseBySprint(sprint);
+                const phase = getPhaseForMetric(m, selectedProject);
                 if (!bySprint[sprint]) bySprint[sprint] = { values: [], phase, sprintNumber: sprint };
                 bySprint[sprint].values.push(m.value);
             });
 
-            const phaseData: PhaseDataPoint[] = Object.values(bySprint).map(({ values, phase, sprintNumber }) => ({
+            // Convert to phase datapoints
+            let phaseData: PhaseDataPoint[] = Object.values(bySprint).map(({ values, phase, sprintNumber }) => ({
                 label: `Sprint ${sprintNumber}`,
                 value: avg(values),
                 phase,
-                date: new Date(), // Dummy date
+                date: new Date(), 
                 sprintNumber
-            })).sort((a: any, b: any) => a.sprintNumber - b.sprintNumber);
+            })).sort((a, b) => a.sprintNumber - b.sprintNumber);
 
+            // Calculate UCL/LCL on BEFORE phase values
             const beforeValues = phaseData.filter(p => p.phase === 'before').map(p => p.value as number);
+            const baseline = beforeValues.length > 0 ? avg(beforeValues) : 0;
+            
+            let std = 0;
+            if (beforeValues.length > 1) {
+                const variance = beforeValues.reduce((sum, v) => sum + Math.pow(v - baseline, 2), 0) / (beforeValues.length - 1);
+                std = Math.sqrt(variance);
+            }
+            const ucl = baseline + 2 * std;
+            const lcl = Math.max(0, baseline - 2 * std);
+
             const duringValues = phaseData.filter(p => p.phase === 'during').map(p => p.value as number);
             const afterValues = phaseData.filter(p => p.phase === 'after').map(p => p.value as number);
-
-            const baseline = beforeValues.length > 0 ? avg(beforeValues) : 0;
             const duringAvg = duringValues.length > 0 ? avg(duringValues) : null;
             const afterAvg = afterValues.length > 0 ? avg(afterValues) : null;
 
-            // Alert logic (50% drop/degradation)
+            // Apply Date Wise / Recent Sprint Filtering
+            if (sprintFilter === 'recent') {
+                phaseData = phaseData.slice(-1);
+            } else if (sprintFilter === 'recent5') {
+                phaseData = phaseData.slice(-5);
+            } else if (sprintFilter === 'recent10') {
+                phaseData = phaseData.slice(-10);
+            }
+
+            // Anomaly/Degradation Alerts (degradation of 50% or violating LCL/UCL control limits)
             const alerts: DTAlert[] = [];
             if (baseline > 0) {
                 if (duringAvg !== null) {
@@ -486,6 +466,8 @@ export function DTMonitoringDashboard() {
                 metricType: field.key,
                 metricName: field.name,
                 baseline,
+                ucl,
+                lcl,
                 baselineCount: beforeValues.length,
                 duringAvg,
                 afterAvg,
@@ -493,7 +475,7 @@ export function DTMonitoringDashboard() {
                 alerts,
             };
         });
-    }, [projectMetrics]);
+    }, [projectMetrics, selectedProject, sprintFilter]);
 
     const allAlerts = useMemo(() =>
         metricAnalyses.flatMap(a => a.alerts).sort((a, b) =>
@@ -502,17 +484,16 @@ export function DTMonitoringDashboard() {
         [metricAnalyses]
     );
 
-    // Report Generation
     const handleExportReport = () => {
         if (metricAnalyses.length === 0) return;
 
-        let csv = 'Metric,Phase,Sprint,Value,Baseline,Variance\n';
+        let csv = 'Metric,Phase,Sprint,Value,Baseline,UCL,LCL,Variance\n';
 
         metricAnalyses.forEach(analysis => {
             analysis.phaseData.forEach(p => {
                 if (p.value !== null) {
                     const variance = p.value - analysis.baseline;
-                    csv += `"${analysis.metricName}","${p.phase}","${p.label}",${p.value.toFixed(2)},${analysis.baseline.toFixed(2)},${variance.toFixed(2)}\n`;
+                    csv += `"${analysis.metricName}","${p.phase}","${p.label}",${p.value.toFixed(2)},${analysis.baseline.toFixed(2)},${analysis.ucl.toFixed(2)},${analysis.lcl.toFixed(2)},${variance.toFixed(2)}\n`;
                 }
             });
         });
@@ -521,32 +502,23 @@ export function DTMonitoringDashboard() {
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.setAttribute('download', `DT_Metrics_Report_${selectedProject?.name?.replace(/\s+/g, '_') || 'Project'}.csv`);
+        link.setAttribute('download', `Transformation_Metrics_Report_${selectedProject?.name?.replace(/\s+/g, '_') || 'Project'}.csv`);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
     };
 
-    // Summary stats
     const summaryStats = useMemo(() => {
         const improving = metricAnalyses.filter(a =>
             a.afterAvg !== null && a.afterAvg >= a.baseline
         ).length;
-        const improving_during = metricAnalyses.filter(a =>
-            a.duringAvg !== null && a.duringAvg >= a.baseline
-        ).length;
-        const declining = metricAnalyses.filter(a =>
-            (a.afterAvg !== null && a.afterAvg < a.baseline) ||
-            (a.duringAvg !== null && a.duringAvg < a.baseline)
-        ).length;
         const aboveBaselineAfter = metricAnalyses.filter(a => a.afterAvg !== null && a.afterAvg > a.baseline).length;
-        return { improving, improving_during, declining, aboveBaselineAfter, total: metricAnalyses.length };
+        return { improving, aboveBaselineAfter, total: metricAnalyses.length };
     }, [metricAnalyses]);
 
-    // ─── No DT Projects State ──────────────────────────────────────────────────
     if (dtProjects.length === 0) {
         return (
-            <div className="flex flex-col items-center justify-center py-24 text-center space-y-4 rounded-3xl border border-dashed border-border/50 bg-card/30">
+            <div className="flex flex-col items-center justify-center py-24 text-center space-y-4 rounded-[2rem] border border-dashed border-border/50 bg-card/30">
                 <div className="relative">
                     <div className="absolute inset-0 bg-violet-500/20 blur-xl rounded-full" />
                     <div className="relative bg-card border border-border/50 p-5 rounded-full shadow-xl">
@@ -554,14 +526,11 @@ export function DTMonitoringDashboard() {
                     </div>
                 </div>
                 <div className="space-y-2 max-w-md">
-                    <h3 className="text-xl font-bold">No Transformation Projects Configured</h3>
+                    <h3 className="text-xl font-bold">No Transformation Projects</h3>
                     <p className="text-muted-foreground text-sm">
-                        Enable the <strong>DT Flag</strong> or <strong>AI Enabled</strong> on a project to begin monitoring transformation performance.
+                        Enable Transformation or AI flags on projects to monitor performance timelines.
                     </p>
                 </div>
-                <Badge className="text-xs px-3 py-1 bg-violet-500/10 text-violet-400 border border-violet-500/20">
-                    Go to Admin → AI Projects → Add / Edit
-                </Badge>
             </div>
         );
     }
@@ -571,7 +540,7 @@ export function DTMonitoringDashboard() {
             <div className="flex items-center justify-center py-20">
                 <div className="flex flex-col items-center gap-3">
                     <Activity className="h-8 w-8 animate-pulse text-primary" />
-                    <span className="text-muted-foreground font-medium">Loading DT monitoring data...</span>
+                    <span className="text-muted-foreground font-semibold uppercase tracking-widest text-xs">Loading Transformation Monitor...</span>
                 </div>
             </div>
         );
@@ -579,116 +548,99 @@ export function DTMonitoringDashboard() {
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            {/* Header + Project Selector */}
-            <div className="flex flex-wrap items-center gap-4 bg-muted/20 p-5 rounded-3xl border border-border/50 backdrop-blur-sm">
-                <div className="flex items-center gap-3 mr-auto">
-                    <div className="p-2.5 rounded-2xl bg-violet-500/10 text-violet-400">
-                        <Activity className="h-5 w-5" />
+            {/* Header / Selector */}
+            <div className="flex flex-wrap items-center justify-between gap-5 p-6 rounded-[2rem] bg-white/50 dark:bg-black/20 border border-border/50 backdrop-blur-xl shadow-sm">
+                <div className="flex items-center gap-3">
+                    <div className="p-3 rounded-2xl bg-indigo-500/10 text-indigo-500">
+                        <Activity className="h-6 w-6" />
                     </div>
                     <div>
-                        <h2 className="text-xl font-bold">DT Transformation Monitor</h2>
-                        <p className="text-xs text-muted-foreground font-medium">
-                            Baseline vs. During vs. After DT performance analysis
+                        <h2 className="text-xl font-black tracking-tight">Transformation Monitor</h2>
+                        <p className="text-[10px] text-muted-foreground font-medium mt-0.5">
+                            Date-wise performance monitoring relative to Before, During, and After transformation phases
                         </p>
                     </div>
                 </div>
 
-                <div className="flex flex-col gap-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70 ml-1">
-                        DT Project
-                    </span>
-                    <Select value={effectiveProjectId} onValueChange={setSelectedProjectId}>
-                        <SelectTrigger className="w-[220px] rounded-xl bg-background/50 border-border/50 h-10">
-                            <SelectValue placeholder="Select DT Project" />
-                        </SelectTrigger>
-                        <SelectContent className="rounded-2xl">
-                            {dtProjects.map((p: any) => (
-                                <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                <div className="flex flex-wrap items-center gap-4">
+                    {/* Sprint Filter */}
+                    <div className="flex flex-col gap-1">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/80 flex items-center gap-1">
+                            <Calendar className="h-3 w-3" /> Filter Sprints
+                        </span>
+                        <Select value={sprintFilter} onValueChange={(val: any) => setSprintFilter(val)}>
+                            <SelectTrigger className="w-[180px] rounded-xl bg-background/50 border-border/50 h-10 font-bold text-xs shadow-sm">
+                                <SelectValue placeholder="All Sprints" />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-2xl">
+                                <SelectItem value="all" className="font-bold text-xs">All Sprints</SelectItem>
+                                <SelectItem value="recent" className="font-bold text-xs">Recent Sprint Completed</SelectItem>
+                                <SelectItem value="recent5" className="font-bold text-xs">Last 5 Sprints</SelectItem>
+                                <SelectItem value="recent10" className="font-bold text-xs">Last 10 Sprints</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    {/* Project Selector */}
+                    <div className="flex flex-col gap-1">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/80">Project Scope</span>
+                        <Select value={effectiveProjectId} onValueChange={setSelectedProjectId}>
+                            <SelectTrigger className="w-[200px] rounded-xl bg-background/50 border-border/50 h-10 font-bold text-xs shadow-sm">
+                                <SelectValue placeholder="Select Project" />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-2xl">
+                                {dtProjects.map((p: any) => (
+                                    <SelectItem key={p.id} value={p.id} className="font-bold text-xs">{p.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    
+                    <Button 
+                        onClick={handleExportReport} 
+                        disabled={metricAnalyses.length === 0}
+                        className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/20 font-bold text-xs mt-4"
+                    >
+                        <Download className="h-4 w-4 mr-2" /> Export CSV
+                    </Button>
                 </div>
-                
-                <Button 
-                    onClick={handleExportReport} 
-                    disabled={metricAnalyses.length === 0}
-                    className="ml-auto rounded-xl bg-violet-600 hover:bg-violet-700 text-white shadow-md shadow-violet-500/20 transition-all font-bold"
-                >
-                    <Download className="h-4 w-4 mr-2" />
-                    Export Report (CSV)
-                </Button>
             </div>
 
-            {/* DT Period Banner */}
+            {/* Timeline phase banner */}
             {selectedProject && (
-                <div className="flex flex-wrap gap-3 items-center p-4 rounded-2xl bg-violet-500/5 border border-violet-500/20">
+                <div className="flex flex-wrap gap-4 items-center p-5 rounded-[2rem] bg-indigo-500/[0.03] border border-indigo-500/10">
                     <div className="flex items-center gap-2">
-                        <div className="h-2 w-2 rounded-full bg-violet-400" />
-                        <span className="text-xs font-black uppercase tracking-widest text-violet-400">DT Period</span>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400">Date-wise Phases</span>
                     </div>
-                    <div className="flex flex-wrap gap-3 items-center">
-                        <Badge className="bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 font-bold text-xs px-3 py-1">
-                            Before: Sprints 1–3
+                    <div className="flex flex-wrap gap-4 items-center">
+                        <Badge className="bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-black text-[10px] px-3 py-1">
+                            Before Transformation
                         </Badge>
-                        <span className="text-muted-foreground text-xs">→</span>
-                        <Badge className="bg-amber-500/10 text-amber-300 border border-amber-500/20 font-bold text-xs px-3 py-1">
-                            During: Sprints 4–7
+                        <span className="text-muted-foreground/40 text-xs">→</span>
+                        <Badge className="bg-amber-500/10 text-amber-400 border border-amber-500/20 font-black text-[10px] px-3 py-1">
+                            During Transformation
                         </Badge>
-                        <span className="text-muted-foreground text-xs">→</span>
-                        <Badge className="bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 font-bold text-xs px-3 py-1">
-                            After: Sprints 8+
+                        <span className="text-muted-foreground/40 text-xs">→</span>
+                        <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-black text-[10px] px-3 py-1">
+                            After Transformation (Target Achieved)
                         </Badge>
                     </div>
-                    <div className="ml-auto text-xs text-muted-foreground font-medium">
-                        {projectTeamIds.length} team{projectTeamIds.length !== 1 ? 's' : ''} tracked
+                    <div className="ml-auto text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                        {projectTeamIds.length} Teams Monitored
                     </div>
                 </div>
             )}
 
-            {/* Summary Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <SummaryStatCard
-                    label="Metrics Tracked"
-                    value={summaryStats.total}
-                    sub="With DT baseline"
-                    icon={<BarChart3 className="h-5 w-5" />}
-                    color="bg-violet-500/10 text-violet-400"
-                />
-                <SummaryStatCard
-                    label="Above Baseline After DT"
-                    value={summaryStats.aboveBaselineAfter}
-                    sub="Post-DT improvement"
-                    icon={<TrendingUp className="h-5 w-5" />}
-                    trend={summaryStats.aboveBaselineAfter > 0 ? 'up' : 'flat'}
-                    color="bg-emerald-500/10 text-emerald-400"
-                />
-                <SummaryStatCard
-                    label="Active DT Alerts"
-                    value={allAlerts.length}
-                    sub={`${allAlerts.filter(a => a.severity === 'critical').length} critical`}
-                    icon={<AlertCircle className="h-5 w-5" />}
-                    trend={allAlerts.length > 0 ? 'down' : 'flat'}
-                    color="bg-rose-500/10 text-rose-400"
-                />
-                <SummaryStatCard
-                    label="DT Data Points"
-                    value={projectMetrics.length}
-                    sub="Manual metric entries"
-                    icon={<Zap className="h-5 w-5" />}
-                    color="bg-amber-500/10 text-amber-400"
-                />
-            </div>
-
             {/* Alerts */}
             {allAlerts.length > 0 && (
-                <div>
-                    <div className="flex items-center gap-2 mb-4">
-                        <AlertCircle className="h-4 w-4 text-rose-400" />
-                        <h3 className="text-sm font-black uppercase tracking-widest text-rose-400">
-                            DT Performance Alerts ({allAlerts.length})
+                <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                        <AlertCircle className="h-4 w-4 text-rose-500" />
+                        <h3 className="text-xs font-black uppercase tracking-widest text-rose-500">
+                            Transformation Alerts ({allAlerts.length})
                         </h3>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-in fade-in duration-500">
                         {allAlerts.map(alert => (
                             <AlertCard key={alert.id} alert={alert} />
                         ))}
@@ -696,41 +648,21 @@ export function DTMonitoringDashboard() {
                 </div>
             )}
 
-            {/* Metric Charts */}
-            {metricAnalyses.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 text-center space-y-3 rounded-2xl border border-dashed border-border/40 bg-card/30">
-                    <Info className="h-8 w-8 text-muted-foreground/40" />
-                    <div>
-                        <p className="font-bold text-muted-foreground">No metric data for this project's teams yet</p>
-                        <p className="text-xs text-muted-foreground/70 mt-1">
-                            Record manual metrics for the project's teams to enable DT analysis
-                        </p>
-                    </div>
-                </div>
-            ) : (
-                <div>
-                    <div className="flex items-center gap-2 mb-4">
-                        <BarChart3 className="h-4 w-4 text-primary" />
-                        <h3 className="text-sm font-black uppercase tracking-widest text-muted-foreground">
-                            Metric Timelines ({metricAnalyses.length})
-                        </h3>
-                    </div>
-                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                        {metricAnalyses.map(analysis => (
-                            <MetricChartCard key={analysis.metricType} analysis={analysis} />
-                        ))}
-                    </div>
-                </div>
-            )}
+            {/* Timelines Grid */}
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                {metricAnalyses.map(analysis => (
+                    <MetricChartCard key={analysis.metricType} analysis={analysis} />
+                ))}
+            </div>
 
-            {/* No alerts positive banner */}
+            {/* Perfect state banner */}
             {allAlerts.length === 0 && metricAnalyses.length > 0 && (
-                <div className="flex items-center gap-3 p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/20">
-                    <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0" />
+                <div className="flex items-center gap-4 p-6 rounded-[2rem] bg-emerald-500/[0.04] border border-emerald-500/25 shadow-xl shadow-emerald-500/[0.02]">
+                    <CheckCircle2 className="h-6 w-6 text-emerald-400 shrink-0" />
                     <div>
-                        <p className="font-bold text-emerald-400 text-sm">All metrics are performing at or above pre-DT baseline</p>
+                        <p className="font-bold text-emerald-400 text-sm">Transformation target objectives satisfied</p>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                            No performance degradation detected during or after the Digital Transformation period
+                            All performance timelines are operating within standard baseline limits or demonstrating positive growth.
                         </p>
                     </div>
                 </div>

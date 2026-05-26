@@ -28,6 +28,7 @@ export default function CreateTeamPage() {
     const { data: projects = [], isLoading: isLoadingProjects } = useProjects() as { data: any[], isLoading: boolean };
 
     const [formData, setFormData] = useState({
+        teamId: '',
         name: '',
         projectId: '',
         description: '',
@@ -84,6 +85,17 @@ export default function CreateTeamPage() {
                 </CardHeader>
                 <CardContent>
                     <form onSubmit={handleSubmit} className="space-y-6">
+                        <div className="space-y-2">
+                            <Label htmlFor="teamId">Team ID (Optional Code)</Label>
+                            <Input
+                                id="teamId"
+                                value={formData.teamId}
+                                onChange={(e: ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, teamId: e.target.value })}
+                                placeholder="e.g. T-FRONTEND-TECH"
+                                className="rounded-xl border-border/50 min-h-[44px]"
+                            />
+                        </div>
+
                         <div className="space-y-2">
                             <Label htmlFor="name">Team Name</Label>
                             <Input

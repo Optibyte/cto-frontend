@@ -84,6 +84,9 @@ export default function MetricsDashboardPage() {
         project: isProjectScoped && fixedProjectName ? fixedProjectName : 'all',
         team: isTeamScoped && fixedTeamName ? fixedTeamName : 'all',
         member: 'all',
+        dateRange: 'all',
+        startDate: '',
+        endDate: '',
     });
 
     // Re-apply scope lock when user data loads
@@ -175,14 +178,35 @@ export default function MetricsDashboardPage() {
             project: isProjectScoped && fixedProjectName ? fixedProjectName : 'all',
             team: isTeamScoped && fixedTeamName ? fixedTeamName : 'all',
             member: 'all',
+            dateRange: 'all',
+            startDate: '',
+            endDate: '',
         });
     };
 
     // Build API filters: for scoped roles, always inject their scope IDs
     const apiFilters = useMemo(() => {
         const f: Record<string, string> = {};
-        Object.entries(filters).forEach(([k, v]) => { if (v !== 'all') f[k] = v; });
+        Object.entries(filters).forEach(([k, v]) => { 
+            if (v !== 'all' && k !== 'dateRange' && k !== 'startDate' && k !== 'endDate') {
+                f[k] = v; 
+            } 
+        });
 
+        if (filters.dateRange === '30d') {
+            const date = new Date();
+            date.setDate(date.getDate() - 30);
+            f.startDate = date.toISOString().split('T')[0];
+            f.endDate = new Date().toISOString().split('T')[0];
+        } else if (filters.dateRange === '90d') {
+            const date = new Date();
+            date.setDate(date.getDate() - 90);
+            f.startDate = date.toISOString().split('T')[0];
+            f.endDate = new Date().toISOString().split('T')[0];
+        } else if (filters.dateRange === 'custom') {
+            if (filters.startDate) f.startDate = filters.startDate;
+            if (filters.endDate) f.endDate = filters.endDate;
+        }
 
         if (isMarketScoped && fixedMarketName && !f.market) f.market = fixedMarketName;
         if (isAccountScoped && fixedAccountName && !f.account) f.account = fixedAccountName;
@@ -334,6 +358,52 @@ export default function MetricsDashboardPage() {
                             )}
                         </div>
                     ))}
+
+                    {/* Date Range Selector */}
+                    <div className="flex flex-col gap-1.5 flex-1 min-w-[140px]">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-70 ml-1">
+                            Date Range
+                        </span>
+                        <Select value={filters.dateRange} onValueChange={(val) => updateFilter('dateRange', val)}>
+                            <SelectTrigger className="w-full rounded-xl bg-background/50 border-border/50 h-10 font-bold shadow-sm text-xs">
+                                <SelectValue placeholder="All Dates" />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-2xl border-border/50 shadow-2xl">
+                                <SelectItem value="all" className="font-bold text-xs">All Dates</SelectItem>
+                                <SelectItem value="30d" className="font-bold text-xs">Last 30 Days</SelectItem>
+                                <SelectItem value="90d" className="font-bold text-xs">Last 90 Days</SelectItem>
+                                <SelectItem value="custom" className="font-bold text-xs">Custom Range</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    {/* Custom Date Picker Inputs */}
+                    {filters.dateRange === 'custom' && (
+                        <>
+                            <div className="flex flex-col gap-1.5 flex-1 min-w-[130px] animate-in fade-in slide-in-from-top-1 duration-200">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-70 ml-1">
+                                    Start Date
+                                </span>
+                                <input
+                                    type="date"
+                                    className="w-full rounded-xl bg-background border border-border/50 h-10 px-3 text-xs font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+                                    value={filters.startDate}
+                                    onChange={(e) => setFilters(prev => ({ ...prev, startDate: e.target.value }))}
+                                />
+                            </div>
+                            <div className="flex flex-col gap-1.5 flex-1 min-w-[130px] animate-in fade-in slide-in-from-top-1 duration-200">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-70 ml-1">
+                                    End Date
+                                </span>
+                                <input
+                                    type="date"
+                                    className="w-full rounded-xl bg-background border border-border/50 h-10 px-3 text-xs font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+                                    value={filters.endDate}
+                                    onChange={(e) => setFilters(prev => ({ ...prev, endDate: e.target.value }))}
+                                />
+                            </div>
+                        </>
+                    )}
 
                     <Button variant="ghost" onClick={clearFilters} className="mt-5 h-10 rounded-xl text-xs font-bold hover:bg-red-500/10 hover:text-red-500 transition-colors">
                         Clear

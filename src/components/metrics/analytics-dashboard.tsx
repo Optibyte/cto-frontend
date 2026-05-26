@@ -100,6 +100,16 @@ function StatCard({ title, value, unit, icon, color }: any) {
     );
 }
 
+const KPI_METRIC_OPTIONS = [
+    { value: 'avgDoneToSaid', label: 'Avg Done to Said', icon: Activity, defaultTitle: 'Avg Done to Said', unit: '%' },
+    { value: 'avgTechDebt', label: 'Tech Debt Index', icon: Layers, defaultTitle: 'Tech Debt Index', unit: '' },
+    { value: 'projectLandscape', label: 'Project Landscape', icon: Zap, defaultTitle: 'Project Landscape', unit: '' },
+    { value: 'avgThroughput', label: 'Avg Throughput', icon: BarChart3, defaultTitle: 'Avg Throughput', unit: 'Pts' },
+    { value: 'avgQuality', label: 'Avg Quality Score', icon: Check, defaultTitle: 'Avg Quality Score', unit: '%' },
+    { value: 'avgVelocity', label: 'Avg Velocity', icon: Zap, defaultTitle: 'Avg Velocity', unit: 'Pts' },
+    { value: 'sprintCount', label: 'Total Sprints', icon: LayoutGrid, defaultTitle: 'Total Sprints', unit: '' },
+];
+
 export function AnalyticsDashboard({ filters, onFilterChange }: { filters: any; onFilterChange?: (key: any, value: string) => void }) {
     const { data: analytics, isLoading: isLoadingAnalytics } = useSprintAnalytics(filters);
     const { data: rawMetricsData, isLoading: isLoadingRaw } = useSprintMetrics(filters);
@@ -110,6 +120,52 @@ export function AnalyticsDashboard({ filters, onFilterChange }: { filters: any; 
     const [aiPlots, setAiPlots] = useState<PlotConfig[]>(AI_MONITOR_PLOTS);
     const [editingPlot, setEditingPlot] = useState<PlotConfig | null>(null);
     const [expandingPlot, setExpandingPlot] = useState<PlotConfig | null>(null);
+
+    // KPI Custom Cards configuration
+    const [kpiCards, setKpiCards] = useState([
+        { id: '1', metric: 'avgDoneToSaid', title: 'Avg Done to Said', color: 'text-emerald-500' },
+        { id: '2', metric: 'avgTechDebt', title: 'Tech Debt Index', color: 'text-amber-500' },
+        { id: '3', metric: 'projectLandscape', title: 'Project Landscape', color: 'text-purple-500' },
+        { id: '4', metric: 'avgThroughput', title: 'Avg Throughput', color: 'text-blue-500' }
+    ]);
+    const [isKpiConfigOpen, setIsKpiConfigOpen] = useState(false);
+
+    const getKpiValueAndUnit = (metric: string) => {
+        switch (metric) {
+            case 'avgDoneToSaid': {
+                const raw = analytics?.kpi?.avgDoneToSaid || 0;
+                const value = raw > 1 ? raw : raw * 100;
+                return { value: `${value.toFixed(1)}%`, unit: '' };
+            }
+            case 'avgTechDebt':
+                return { value: Number(analytics?.kpi?.avgTechDebt || 0).toFixed(2), unit: '' };
+            case 'projectLandscape':
+                return { value: String(analytics?.kpi?.totalProjectCount || analytics?.kpi?.projectCount || 0), unit: '' };
+            case 'avgThroughput':
+                return { value: Number(analytics?.kpi?.avgThroughput || 0).toFixed(1), unit: 'Pts' };
+            case 'avgQuality':
+                return { value: `${Number(analytics?.kpi?.avgQuality || 0).toFixed(1)}%`, unit: '' };
+            case 'avgVelocity':
+                return { value: Number(analytics?.kpi?.avgVelocity || 0).toFixed(1), unit: 'Pts' };
+            case 'sprintCount':
+                return { value: String(analytics?.kpi?.sprintCount || 0), unit: '' };
+            default:
+                return { value: '0', unit: '' };
+        }
+    };
+
+    const getKpiIcon = (metric: string) => {
+        switch (metric) {
+            case 'avgDoneToSaid': return Activity;
+            case 'avgTechDebt': return Layers;
+            case 'projectLandscape': return Zap;
+            case 'avgThroughput': return BarChart3;
+            case 'avgQuality': return Check;
+            case 'avgVelocity': return Zap;
+            case 'sprintCount': return LayoutGrid;
+            default: return Activity;
+        }
+    };
 
     // Standard Analytics State
     const [activeTab, setActiveTab] = useState('consolidated');
@@ -127,8 +183,19 @@ export function AnalyticsDashboard({ filters, onFilterChange }: { filters: any; 
                     setPlots(parsed);
                 }
             }
+            
+            const savedCards = localStorage.getItem('dashboard_kpi_cards_v1');
+            if (savedCards) {
+                setKpiCards(JSON.parse(savedCards));
+            }
         } catch { }
     }, []);
+
+    const saveKpiCards = (next: typeof kpiCards) => {
+        setKpiCards(next);
+        localStorage.setItem('dashboard_kpi_cards_v1', JSON.stringify(next));
+        toast.success('KPI Cards updated successfully!');
+    };
 
     const savePlots = (next: PlotConfig[]) => {
         setPlots(next);
@@ -174,18 +241,44 @@ export function AnalyticsDashboard({ filters, onFilterChange }: { filters: any; 
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-1000 pb-10">
-            {/* KPI Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <StatCard title="Avg Done to Said" value={`${Number((analytics?.kpi?.avgDoneToSaid || 0) > 1 ? analytics?.kpi?.avgDoneToSaid : (analytics?.kpi?.avgDoneToSaid || 0) * 100).toFixed(1)}%`} icon={<Activity className="h-5 w-5" />} color="text-emerald-500" />
-                <StatCard title="Tech Debt Index" value={Number(analytics?.kpi?.avgTechDebt || 0).toFixed(2)} icon={<Layers className="h-5 w-5" />} color="text-amber-500" />
-                <StatCard title="Project Landscape" value={analytics?.kpi?.totalProjectCount || analytics?.kpi?.projectCount || 0} icon={<Zap className="h-5 w-5" />} color="text-purple-500" />
-                <StatCard title="Avg Throughput" value={Number(analytics?.kpi?.avgThroughput || 0).toFixed(1)} unit="Pts" icon={<BarChart3 className="h-5 w-5" />} color="text-blue-500" />
+            {/* KPI Cards Header & Grid */}
+            <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-75">
+                        Performance KPIs
+                    </span>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setIsKpiConfigOpen(true)}
+                        className="rounded-xl h-8 text-[10px] font-black tracking-wider uppercase text-violet-600 hover:text-violet-700 hover:bg-violet-500/10 transition-colors"
+                    >
+                        <Settings2 className="w-3.5 h-3.5 mr-1.5" /> Customize KPIs
+                    </Button>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {kpiCards.map((card, idx) => {
+                        const valObj = getKpiValueAndUnit(card.metric);
+                        const MetricIcon = getKpiIcon(card.metric);
+                        return (
+                            <StatCard
+                                key={idx}
+                                title={card.title}
+                                value={valObj.value}
+                                unit={valObj.unit}
+                                icon={<MetricIcon className="h-5 w-5" />}
+                                color={card.color}
+                            />
+                        );
+                    })}
+                </div>
             </div>
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
                 <TabsList className="bg-background/50 border border-border/50 h-12 p-1 rounded-2xl w-full max-w-md mx-auto flex">
                     <TabsTrigger value="consolidated" className="flex-1 rounded-xl text-xs font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm">Consolidated Analytics</TabsTrigger>
-                    <TabsTrigger value="ai-monitor" className="flex-1 rounded-xl text-xs font-bold data-[state=active]:bg-violet-600 data-[state=active]:text-white data-[state=active]:shadow-md">AI Monitor</TabsTrigger>
+                    <TabsTrigger value="ai-monitor" className="flex-1 rounded-xl text-xs font-bold data-[state=active]:bg-violet-600 data-[state=active]:text-white data-[state=active]:shadow-md">Transformation Comparison</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="consolidated" className="space-y-6">
@@ -332,8 +425,8 @@ export function AnalyticsDashboard({ filters, onFilterChange }: { filters: any; 
                     <div className="flex items-center gap-3">
                         <div className="p-2 rounded-xl bg-violet-600 text-white"><Activity className="w-5 h-5" /></div>
                         <div>
-                            <h2 className="text-lg font-black tracking-tight leading-none text-violet-700 dark:text-violet-400">AI vs Baseline Monitor</h2>
-                            <p className="text-[10px] text-muted-foreground font-medium mt-0.5">Comparing AI-enabled projects against non-AI traditional aggregates</p>
+                            <h2 className="text-lg font-black tracking-tight leading-none text-violet-700 dark:text-violet-400">Transformation Comparison</h2>
+                            <p className="text-[10px] text-muted-foreground font-medium mt-0.5">Comparing transformation-enabled projects against non-transformation traditional aggregates</p>
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -474,6 +567,102 @@ export function AnalyticsDashboard({ filters, onFilterChange }: { filters: any; 
                             }}
                         >
                             <FileText className="w-4 h-4 mr-2" /> Generate Report
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* KPI Customize Dialog */}
+            <Dialog open={isKpiConfigOpen} onOpenChange={setIsKpiConfigOpen}>
+                <DialogContent className="sm:max-w-2xl rounded-3xl p-6 border-border/50 bg-background/95 backdrop-blur-xl max-h-[85vh] overflow-y-auto">
+                    <DialogTitle className="text-xl font-black">Customize KPI Cards</DialogTitle>
+                    <DialogDescription className="text-xs font-medium">Configure metrics, labels, and styles for the 4 dashboard status cards.</DialogDescription>
+
+                    <div className="space-y-6 mt-6">
+                        {kpiCards.map((card, idx) => (
+                            <div key={card.id} className="p-4 rounded-2xl border border-border/40 bg-muted/20 space-y-4">
+                                <div className="flex items-center justify-between border-b border-border/10 pb-2">
+                                    <span className="text-xs font-black uppercase tracking-wider text-violet-500">Card Slot {idx + 1}</span>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    {/* Metric Selection */}
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Select Metric</label>
+                                        <Select
+                                            value={card.metric}
+                                            onValueChange={(val) => {
+                                                const defaultTitle = KPI_METRIC_OPTIONS.find(o => o.value === val)?.defaultTitle || '';
+                                                const next = [...kpiCards];
+                                                next[idx] = { ...next[idx], metric: val, title: defaultTitle };
+                                                setKpiCards(next);
+                                            }}
+                                        >
+                                            <SelectTrigger className="rounded-xl h-10 text-xs font-bold bg-background">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent className="rounded-2xl text-xs font-bold">
+                                                {KPI_METRIC_OPTIONS.map(opt => (
+                                                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    {/* Custom Label */}
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Label</label>
+                                        <input
+                                            type="text"
+                                            value={card.title}
+                                            onChange={(e) => {
+                                                const next = [...kpiCards];
+                                                next[idx] = { ...next[idx], title: e.target.value };
+                                                setKpiCards(next);
+                                            }}
+                                            className="w-full rounded-xl border border-border/50 h-10 px-3 text-xs font-bold bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-violet-500"
+                                        />
+                                    </div>
+
+                                    {/* Color Picker */}
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Style Color</label>
+                                        <Select
+                                            value={card.color}
+                                            onValueChange={(val) => {
+                                                const next = [...kpiCards];
+                                                next[idx] = { ...next[idx], color: val };
+                                                setKpiCards(next);
+                                            }}
+                                        >
+                                            <SelectTrigger className="rounded-xl h-10 text-xs font-bold bg-background">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent className="rounded-2xl text-xs font-bold">
+                                                <SelectItem value="text-emerald-500">Emerald Green</SelectItem>
+                                                <SelectItem value="text-amber-500">Amber Gold</SelectItem>
+                                                <SelectItem value="text-purple-500">Purple Violet</SelectItem>
+                                                <SelectItem value="text-blue-500">Ocean Blue</SelectItem>
+                                                <SelectItem value="text-rose-500">Rose Red</SelectItem>
+                                                <SelectItem value="text-indigo-500">Indigo Royal</SelectItem>
+                                                <SelectItem value="text-teal-500">Teal Turquoise</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="flex items-center justify-end gap-3 mt-6">
+                        <Button variant="ghost" onClick={() => setIsKpiConfigOpen(false)} className="rounded-xl text-xs font-bold">Cancel</Button>
+                        <Button
+                            className="rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-bold text-xs shadow-lg shadow-violet-500/20"
+                            onClick={() => {
+                                saveKpiCards(kpiCards);
+                                setIsKpiConfigOpen(false);
+                            }}
+                        >
+                            <Check className="w-4 h-4 mr-2" /> Save Changes
                         </Button>
                     </div>
                 </DialogContent>

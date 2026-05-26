@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect as useReactEffect, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -13,42 +13,48 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import {
     Tooltip,
     TooltipContent,
     TooltipProvider,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { Save, User, Info, Lock, Pencil, Plus, Check, LayoutGrid, Users, PlusCircle, Trash2, Upload, ChevronDown, ChevronUp } from 'lucide-react';
+import { Save, Lock, Plus, Check, LayoutGrid, Users, Upload, ChevronDown, ChevronUp, Zap, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import {
-    type MemberWithMetrics,
     type ManualMetricDef,
     PREDEFINED_MANUAL_METRICS,
 } from '@/lib/mock-data/metrics-data';
-import { getTeamsForProject } from '@/lib/mock-data/dashboard-filtered';
 import { useEmployees } from '@/hooks/use-employees';
 import { useOrgHierarchy } from '@/hooks/use-hierarchy';
 import { useProjects } from '@/hooks/use-projects';
-import { useEffect as useReactEffect, useMemo } from 'react';
-import { useBulkCreateMetrics, useMetrics, useDeleteMetric, useSprintMetrics } from '@/hooks/use-metrics';
-import { useMetricDefinitions, useDeleteMetricDefinition, useCreateMetricDefinition } from '@/hooks/use-metric-definitions';
+import { useSprintMetrics, useSprintParameters, useCreateSprintParameter } from '@/hooks/use-metrics';
+import { useMetricDefinitions } from '@/hooks/use-metric-definitions';
 import { useDataFence, useRole } from '@/contexts/role-context';
 import { SprintBulkUploadPanel } from './sprint-bulk-upload-panel';
 import { SprintMetricsSection } from './sprint-metrics-section';
 
 const EMPTY_ARRAY: any[] = [];
 const CREATOR_ID = '33333333-3333-4333-8333-333333330001'; // Alice Johnson (Admin)
+
+const METRIC_TO_PARAM_MAP: Record<string, string> = {
+    stories_planned: 'storiesPlanned',
+    stories_delivered: 'storiesDelivered',
+    stories_added: 'storiesAddedMid',
+    stories_removed: 'storiesRemoved',
+    stories_accepted_by_po: 'storiesAcceptedByPo',
+    employee_capacity_hours: 'employeeCapacityHours',
+    effort_spent_hours: 'effortSpentHours',
+    qa_defects: 'bugsFound',
+    client_defects: 'defectsLeakedToProd',
+    defects_rejected: 'defectsRejected',
+    defects_reopened: 'defectsReopened',
+    automation_test_cases_created: 'automationTcCreated',
+    test_cases_planned: 'testCasesPlanned',
+    test_cases_executed: 'testCasesExecuted',
+    static_code_violations: 'staticViolations',
+    unit_test_coverage: 'unitTestCoverage',
+};
 
 function getRAGColor(value: number, thresholds: { red: number; amber: number; green: number }) {
     if (value >= thresholds.green) return 'green';
@@ -80,6 +86,7 @@ const ragStyles = {
 export function ManualMetricsTab() {
     const [selectedProjectId, setSelectedProjectId] = useState<string>('all');
     const [selectedTeamId, setSelectedTeamId] = useState<string>('');
+    const [selectedSprintNumber, setSelectedSprintNumber] = useState<number>(1);
     const [manualMetrics, setManualMetrics] = useState<ManualMetricDef[]>([]);
     const [editingValues, setEditingValues] = useState<Record<string, number>>({});
     const [isEditing, setIsEditing] = useState(false);
@@ -91,47 +98,33 @@ export function ManualMetricsTab() {
     const [teamInitialized, setTeamInitialized] = useState(false);
 
     // API Hooks
-    const { data: liveEmployeesData } = useEmployees();
-    const liveEmployees = liveEmployeesData || EMPTY_ARRAY;
-
-    const { data: fetchedProjectsData, isLoading: projectsLoading } = useProjects();
+    const { data: fetchedProjectsData } = useProjects();
     const fetchedProjects = fetchedProjectsData || EMPTY_ARRAY;
 
     const { data: hierarchy } = useOrgHierarchy();
 
-    const { data: fetchedMetricsData, isLoading: metricsLoading } = useMetrics({
-        projectId: selectedProjectId === 'all' ? undefined : selectedProjectId,
-        teamId: selectedTeamId || undefined
-    });
-    const fetchedMetrics = fetchedMetricsData || EMPTY_ARRAY;
+    // Fetch sprint parameters for the selected team
+    const { data: teamSprintParams } = useSprintParameters(
+        selectedTeamId ? { teamId: selectedTeamId } : undefined
+    );
+
+    const activeSprintParam = useMemo(() => {
+        return (teamSprintParams || []).find((p: any) => p.sprintNumber === selectedSprintNumber);
+    }, [teamSprintParams, selectedSprintNumber]);
+
+    const currentMetrics = useMemo(() => {
+        if (!selectedTeamId) return [];
+        return Object.entries(METRIC_TO_PARAM_MAP).map(([metricId, paramField]) => {
+            return {
+                metricId,
+                value: activeSprintParam ? (activeSprintParam[paramField] ?? 0) : 0,
+            };
+        });
+    }, [activeSprintParam, selectedTeamId]);
 
     const currentLevel = selectedTeamId ? 'team' 
         : (selectedProjectId && selectedProjectId !== 'all') ? 'project' 
         : 'none';
-
-    const currentMetrics = useMemo(() => {
-        let relevant = fetchedMetrics.filter((mt: any) => mt.source === 'manual');
-        
-        if (selectedTeamId) {
-            relevant = relevant.filter((mt: any) => mt.teamId === selectedTeamId && !mt.userId);
-        } else if (selectedProjectId !== 'all') {
-            relevant = relevant.filter((mt: any) => mt.projectId === selectedProjectId && !mt.teamId && !mt.userId);
-        } else {
-            relevant = [];
-        }
-
-        const latestMetricsMap = new Map();
-        relevant.forEach((mm: any) => {
-            if (!latestMetricsMap.has(mm.metricType)) {
-                latestMetricsMap.set(mm.metricType, { value: mm.value, id: mm.id });
-            }
-        });
-        const displayMetrics: { metricId: string; value: number; id?: string }[] = [];
-        Array.from(latestMetricsMap.entries()).forEach(([mType, data]: [string, any]) => {
-            displayMetrics.push({ metricId: mType, value: data.value, id: data.id });
-        });
-        return displayMetrics;
-    }, [fetchedMetrics, selectedTeamId, selectedProjectId]);
 
     const { data: dbMetricDefsData } = useMetricDefinitions();
     const dbMetricDefs = dbMetricDefsData || EMPTY_ARRAY;
@@ -144,33 +137,17 @@ export function ManualMetricsTab() {
     const { role: CURRENT_USER_ROLE, user: AUTH_USER } = useRole();
     const currentUserId = AUTH_USER?.id || AUTH_USER?.user?.id || CREATOR_ID;
 
-    // Mutations
-    const { mutateAsync: deleteMetricDef } = useDeleteMetricDefinition();
-    const { mutateAsync: createMetricDef } = useCreateMetricDefinition();
-    const { mutateAsync: bulkCreateMetrics } = useBulkCreateMetrics();
-    const { mutateAsync: deleteMetric } = useDeleteMetric();
-
-    const [isNewMetricDialogOpen, setIsNewMetricDialogOpen] = useState(false);
-
-    // Live projects list
-    const [newMetricDef, setNewMetricDef] = useState({
-        name: '',
-        type: 'rating',
-        min: 1,
-        max: 5,
-        thresholds: { red: 2, amber: 3, green: 4 }
-    });
+    // Mutation
+    const { mutateAsync: createSprintParam } = useCreateSprintParameter();
 
     const canEdit = ['ORG', 'MARKET', 'ACCOUNT', 'PROJECT'].includes(CURRENT_USER_ROLE);
 
     // Filtering logic
     // Resolve project IDs from team IDs via hierarchy (for TEAM_LEAD / TEAM where projectId is on the team, not user)
     const resolvedAllowedProjectIds = useMemo(() => {
-        // If no fence or already has project IDs, use as-is
         if (!fence.isRestricted) return null;
         if (fence.allowedProjectIds && fence.allowedProjectIds.length > 0) return fence.allowedProjectIds;
 
-        // If only team IDs are fenced, derive their projects from hierarchy
         if (fence.allowedTeamIds && hierarchy) {
             const projectIds: string[] = [];
             hierarchy.markets?.forEach((m: any) => {
@@ -222,7 +199,6 @@ export function ManualMetricsTab() {
         });
         return teams;
     }, [hierarchy, selectedProjectId, fence.allowedTeamIds, resolvedAllowedProjectIds]);
-
 
     useReactEffect(() => {
         const dbRelevant = dbMetricDefs
@@ -276,21 +252,20 @@ export function ManualMetricsTab() {
         setSelectedProjectId(val);
         setSelectedTeamId('');
         setTeamInitialized(false);
+        setSelectedSprintNumber(1);
     };
 
     const handleTeamChange = (val: string) => {
         setSelectedTeamId(val);
+        setSelectedSprintNumber(1);
     };
 
     const handleStartEdit = () => {
         const values: Record<string, number> = {};
         manualMetrics.forEach(def => {
-            values[def.id] = def.min;
-        });
-        currentMetrics.forEach((m: any) => {
-            if (m.metricId in values) {
-                values[m.metricId] = m.value;
-            }
+            const paramField = METRIC_TO_PARAM_MAP[def.id];
+            const val = activeSprintParam ? (activeSprintParam[paramField] ?? def.min) : def.min;
+            values[def.id] = val;
         });
         setEditingValues(values);
         setEditingStrings({});
@@ -308,39 +283,31 @@ export function ManualMetricsTab() {
     };
 
     const handleSave = async () => {
-        const metricsToSave = Object.entries(editingValues)
-            .filter(([_, value]) => value !== undefined && value !== null && !isNaN(value))
-            .map(([metricId, value]) => {
-                const def = manualMetrics.find(d => d.id === metricId);
-                const clampedValue = def ? Math.min(Math.max(value, def.min), def.max) : value;
-                const team = availableTeams.find(t => t.id === selectedTeamId);
-                const projectId = team?.projectId || (selectedProjectId !== 'all' ? selectedProjectId : '');
-                return {
-                    time: new Date().toISOString(),
-                    teamId: selectedTeamId || null,
-                    projectId: projectId || null,
-                    metricType: metricId,
-                    value: clampedValue,
-                    unit: def?.type === 'percentage' ? '%' : def?.type === 'integer' ? 'qty' : 'pts',
-                    source: 'manual' as const,
-                    createdBy: currentUserId,
-                    metadata: { 
-                        manual: true, 
-                        name: def?.name,
-                        enteredByRole: CURRENT_USER_ROLE
-                    }
-                };
-            });
-        try {
-            if (metricsToSave.length > 0) {
-                await bulkCreateMetrics(metricsToSave);
+        const payload: any = {
+            teamId: selectedTeamId,
+            sprintNumber: selectedSprintNumber,
+            sprintName: `Sprint-${selectedSprintNumber}`,
+            createdBy: currentUserId,
+        };
+
+        manualMetrics.forEach(def => {
+            const paramField = METRIC_TO_PARAM_MAP[def.id];
+            if (paramField) {
+                const val = editingValues[def.id] !== undefined
+                    ? editingValues[def.id]
+                    : (activeSprintParam ? (activeSprintParam[paramField] ?? def.min) : def.min);
+                payload[paramField] = val;
             }
+        });
+
+        try {
+            await createSprintParam(payload);
             setIsEditing(false);
             setEditingValues({});
             setEditingStrings({});
-            toast.success('Metrics saved to database successfully');
+            toast.success(`Sprint ${selectedSprintNumber} metrics saved successfully`);
         } catch (error) {
-            toast.error('Failed to save metrics to database');
+            toast.error('Failed to save sprint metrics');
         }
     };
 
@@ -353,6 +320,21 @@ export function ManualMetricsTab() {
     const getDisplayValue = (metricId: string, originalValue: number) => {
         if (isEditing && metricId in editingValues) return editingValues[metricId];
         return originalValue;
+    };
+
+    const sprintOptions = useMemo<number[]>(() => {
+        const numbers = (teamSprintParams || []).map((p: any) => p.sprintNumber);
+        if (!numbers.includes(1)) {
+            numbers.push(1);
+        }
+        return Array.from(new Set(numbers)).sort((a: any, b: any) => a - b) as number[];
+    }, [teamSprintParams]);
+
+    const handleAddSprint = () => {
+        const maxSprint = sprintOptions.length > 0 ? Math.max(...sprintOptions) : 0;
+        const nextSprint = maxSprint + 1;
+        setSelectedSprintNumber(nextSprint);
+        toast.info(`Switched to new Sprint ${nextSprint}. Enter values and save to create it.`);
     };
 
     return (
@@ -423,8 +405,39 @@ export function ManualMetricsTab() {
                     </Select>
                 </div>
 
+                {selectedTeamId && (
+                    <div className="flex flex-col gap-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
+                        <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70 ml-1">
+                            <Zap className="h-3 w-3 text-violet-500" />
+                            Sprint
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Select value={String(selectedSprintNumber)} onValueChange={(val) => setSelectedSprintNumber(Number(val))}>
+                                <SelectTrigger className="w-[140px] rounded-xl bg-muted/20 border-border/50">
+                                    <SelectValue placeholder="Select Sprint" />
+                                </SelectTrigger>
+                                <SelectContent className="rounded-xl border-border/50">
+                                    {sprintOptions.map((num) => (
+                                        <SelectItem key={num} value={String(num)}>Sprint {num}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                className="h-10 w-10 rounded-xl border-violet-500/20 hover:bg-violet-500/5 hover:text-violet-600 transition-all animate-pulse"
+                                onClick={handleAddSprint}
+                                title="Add New Sprint"
+                            >
+                                <Plus className="h-4 w-4" />
+                            </Button>
+                        </div>
+                    </div>
+                )}
+
                 <div className="flex items-end gap-2 ml-auto self-end pb-0.5">
-                    {currentLevel !== 'none' && canEdit && !isEditing && (
+                    {currentLevel === 'team' && canEdit && !isEditing && (
                         <Button
                             variant="outline"
                             size="sm"
@@ -449,29 +462,23 @@ export function ManualMetricsTab() {
                 </div>
             </div>
 
-            {currentLevel !== 'none' && (() => {
+            {currentLevel === 'team' && (() => {
                 const entitySprintData = (allSprintMetrics || [])
-                    .filter((sm: any) => {
-                        if (currentLevel === 'team') return sm.teamId === selectedTeamId;
-                        if (currentLevel === 'project') return sm.projectId === selectedProjectId;
-                        return false;
-                    })
+                    .filter((sm: any) => sm.teamId === selectedTeamId)
                     .sort((a: any, b: any) => a.sprintNumber - b.sprintNumber);
 
                 if (entitySprintData.length === 0) return null;
 
-                const selectedProject = liveProjects.find(p => p.id === selectedProjectId);
                 const selectedTeam = availableTeams.find(t => t.id === selectedTeamId);
-                const entityName = currentLevel === 'team' ? selectedTeam?.name : selectedProject?.name;
 
                 return <SprintMetricsSection
                     memberSprintData={entitySprintData}
-                    memberName={entityName || 'Selected Entity'}
-                    userId={currentLevel === 'team' ? selectedTeamId : selectedProjectId}
+                    memberName={selectedTeam?.name || 'Selected Team'}
+                    userId={selectedTeamId}
                 />;
             })()}
 
-            {currentLevel !== 'none' && (
+            {currentLevel === 'team' ? (
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     {manualMetrics.map((def) => {
                         const currentMetric = currentMetrics.find(
@@ -533,8 +540,6 @@ export function ManualMetricsTab() {
                                         <Badge variant="outline" className={cn('rounded-full text-[10px] px-2 py-0.5', styles.badge)}>
                                             {rag === 'green' ? '● Good' : rag === 'amber' ? '● Fair' : '● Needs Improvement'}
                                         </Badge>
-
-                                        {/* Removed Delete button as per request to show only standard metrics */}
                                     </div>
 
                                     {isEditing && canEdit ? (
@@ -584,6 +589,18 @@ export function ManualMetricsTab() {
                         );
                     })}
                 </div>
+            ) : (
+                <Card className="rounded-[2.5rem] border-dashed border-2 border-border bg-muted/5 p-12 text-center shadow-sm">
+                    <div className="max-w-md mx-auto space-y-4">
+                        <div className="h-14 w-14 rounded-3xl bg-violet-500/10 text-violet-500 flex items-center justify-center mx-auto">
+                            <Users className="h-7 w-7" />
+                        </div>
+                        <h4 className="text-lg font-black text-foreground">Select a Team to Track Sprint Data</h4>
+                        <p className="text-sm text-muted-foreground leading-relaxed">
+                            Sprint-wise parameters, manual entries, and performance calculations are tracked at the team level. Please select a project and a specific team from the dropdowns above to begin.
+                        </p>
+                    </div>
+                </Card>
             )}
         </div>
     );
