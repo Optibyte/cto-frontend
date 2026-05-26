@@ -23,20 +23,29 @@ export default function ImportPage() {
 
     const handleDownloadTemplate = (type: ImportType) => {
         let headers: string[] = [];
-        let sampleRow: string[] = [];
+        let csvContent = '';
         let fileName = '';
 
         if (type === 'employees') {
             headers = ['employee_id', 'employee_name', 'email', 'org', 'country', 'market', 'account', 'project', 'team', 'role', 'employment_type', 'experience_years', 'project_ai_enabled', 'project_ai_tools_used', 'primary_ai_skill', 'primary_ai_skill_proficiency'];
-            sampleRow = ['EMP-1001', 'John Doe', 'john.doe@example.com', 'Acme Corp', 'USA', 'US-Market', 'Aetna', 'Claims Mod', 'Alpha Team', 'Dev', 'Full-Time', '5', 'Yes', 'Copilot, ChatGPT', 'Python', '4'];
+            const sampleRows = [
+                ['EMP-1001', 'John Doe', 'john.doe@example.com', 'Acme Corp', 'USA', 'US-Market', 'Aetna', 'Claims Mod', 'Alpha Team', 'Dev', 'Full-Time', '5', 'Yes', 'Copilot, ChatGPT', 'Python', '4'],
+                ['EMP-1002', 'Alice Smith', 'alice.smith@example.com', 'Acme Corp', 'USA', 'US-Market', 'Aetna', 'Claims Mod', 'Alpha Team', 'Team Lead', 'Full-Time', '8', 'Yes', 'Copilot', 'TypeScript', '5'],
+                ['EMP-1003', 'Bob Johnson', 'bob.johnson@example.com', 'Acme Corp', 'USA', 'US-Market', 'Aetna', 'Claims Mod', '', 'PM', 'Full-Time', '10', 'Yes', 'ChatGPT', 'Management', '3'],
+                ['EMP-1004', 'Charlie Brown', 'charlie.brown@example.com', 'Acme Corp', 'USA', 'US-Market', 'Aetna', '', '', 'Account', 'Full-Time', '12', 'No', '', '', '0'],
+                ['EMP-1005', 'Diana Prince', 'diana.prince@example.com', 'Acme Corp', 'USA', 'US-Market', '', '', '', 'Market', 'Full-Time', '15', 'No', '', '', '0'],
+                ['EMP-1006', 'Evan Wright', 'evan.wright@example.com', 'Acme Corp', 'USA', '', '', '', '', 'ORG', 'Full-Time', '18', 'No', '', '', '0'],
+                ['EMP-1007', 'Fiona Gallagher', 'fiona.gallagher@example.com', 'Acme Corp', 'USA', '', '', '', '', 'CTO', 'Full-Time', '20', 'Yes', 'Copilot, ChatGPT, Claude', 'Architecture', '5']
+            ];
+            csvContent = [headers.join(','), ...sampleRows.map(row => row.join(','))].join('\n');
             fileName = 'employee_bulk_import_template.csv';
         } else {
             headers = ['org', 'country', 'market', 'account', 'project', 'team', 'team_size', 'project_ai_enabled', 'project_ai_tool_licenses', 'project_ai_tools_used', 'sprint_number', 'sprint_name', 'throughput_points', 'quality_score', 'velocity_points', 'done_to_said_ratio', 'technical_debt_index', 'user_stories_delivered'];
-            sampleRow = ['Acme Corp', 'USA', 'US-Market', 'Aetna', 'Claims Mod', 'Alpha Team', '10', 'Yes', '12', 'Copilot', '1', 'Sprint-1', '45.5', '92.0', '50.0', '0.95', '12.5', '8'];
+            const sampleRow = ['Acme Corp', 'USA', 'US-Market', 'Aetna', 'Claims Mod', 'Alpha Team', '10', 'Yes', '12', 'Copilot', '1', 'Sprint-1', '45.5', '92.0', '50.0', '0.95', '12.5', '8'];
+            csvContent = [headers.join(','), sampleRow.join(',')].join('\n');
             fileName = 'sprint_metrics_bulk_import_template.csv';
         }
 
-        const csvContent = [headers.join(','), sampleRow.join(',')].join('\n');
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');

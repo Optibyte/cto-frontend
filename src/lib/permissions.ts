@@ -25,7 +25,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
         'teams.view',
         'metrics.view', 'metrics.github',
         'reports.view', 'reports.export',
-        'admin.audit_logs',
+        'admin.audit_logs', 'admin.console'
     ],
     ACCOUNT: [
         'dashboard.view',
@@ -33,7 +33,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
         'teams.view',
         'metrics.view', 'metrics.github',
         'reports.view', 'reports.export',
-        'admin.audit_logs',
+        'admin.audit_logs', 'admin.console'
     ],
     PROJECT_MANAGER: [
         'dashboard.view',
@@ -41,7 +41,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
         'teams.view', 'teams.add_member',
         'metrics.view', 'metrics.create', 'metrics.edit', 'metrics.github',
         'reports.view', 'reports.export',
-        'admin.audit_logs',
+        'admin.audit_logs', 'admin.console'
     ],
     PROJECT: [
         'dashboard.view',
@@ -55,7 +55,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
         'projects.view', 'projects.drilldown',
         'teams.view', 'teams.add_member',
         'metrics.view', 'metrics.create', 'metrics.edit', 'metrics.github',
-        'reports.view',
+        'reports.view', 'admin.console'
     ],
     TEAM: [
         'dashboard.view',
@@ -85,6 +85,7 @@ export const ROUTE_FEATURE_MAP: Record<string, string> = {
     '/role-features': 'admin.role_features',
     '/github-metrics': 'metrics.github',
     '/access-control': 'admin.access_control',
+    '/assign-badges': 'admin.console',
 };
 
 export function getRolePermissions(role: UserRole): string[] {

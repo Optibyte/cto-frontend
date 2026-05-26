@@ -33,6 +33,8 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { cn } from '@/lib/utils';
+import { getBadgeStyles } from '@/lib/badges';
 
 // Removal of initialMockProjects as we are now using the API
 
@@ -202,6 +204,7 @@ export function ProjectManagement() {
                                     <th className="text-left py-5 px-6 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground">Project</th>
                                     <th className="text-left py-5 px-4 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground">Team Size</th>
                                     <th className="text-left py-5 px-4 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground">Timeline</th>
+                                    <th className="text-left py-5 px-4 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground">Assigned Badges</th>
                                     <th className="text-left py-5 px-4 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground text-center">Status</th>
                                     <th className="text-center py-5 px-6 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground">Actions</th>
                                 </tr>
@@ -209,7 +212,7 @@ export function ProjectManagement() {
                             <tbody>
                                 {isLoading ? (
                                     <tr>
-                                        <td colSpan={5} className="py-20 text-center">
+                                        <td colSpan={6} className="py-20 text-center">
                                             <div className="flex flex-col items-center gap-3">
                                                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
                                                 <p className="text-muted-foreground font-medium">Loading projects...</p>
@@ -218,7 +221,7 @@ export function ProjectManagement() {
                                     </tr>
                                 ) : filteredProjects.length === 0 ? (
                                     <tr>
-                                        <td colSpan={5} className="py-20 text-center">
+                                        <td colSpan={6} className="py-20 text-center">
                                             <p className="text-muted-foreground font-medium">No projects found</p>
                                         </td>
                                     </tr>
@@ -263,6 +266,46 @@ export function ProjectManagement() {
                                                         <Activity className="h-3.5 w-3.5" />
                                                         <span className="text-[11px] font-mono">{p.enddate}</span>
                                                     </div>
+                                                </div>
+                                            </td>
+                                            <td className="py-5 px-4">
+                                                <div className="flex flex-col gap-2 max-w-[245px]">
+                                                    {p.users && p.users.filter(u => u.badge && u.badge !== 'none').length > 0 ? (
+                                                        p.users.filter(u => u.badge && u.badge !== 'none').map((u) => {
+                                                            const badgesList = u.badge!.split(',').map(x => x.trim()).filter(x => x && x !== 'none');
+                                                            if (badgesList.length === 0) return null;
+                                                            return (
+                                                                <div key={u.id} className="flex items-center gap-2 group/badge bg-card/40 p-1.5 rounded-lg border border-border/10">
+                                                                    <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center text-[9px] font-extrabold text-primary shrink-0" title={u.fullName || u.name}>
+                                                                        {(u.fullName || u.name || '?').charAt(0)}
+                                                                    </div>
+                                                                    <div className="flex flex-col min-w-0 gap-1">
+                                                                        <div className="flex flex-col min-w-0">
+                                                                            <span className="text-[10px] font-bold tracking-tight leading-none text-foreground truncate">{u.fullName || u.name}</span>
+                                                                            <span className="text-[8px] text-muted-foreground font-medium uppercase tracking-wider leading-none mt-0.5">{u.role.replace('_', ' ').toLowerCase()}</span>
+                                                                        </div>
+                                                                        <div className="flex flex-wrap gap-1">
+                                                                            {badgesList.map((badgeName) => {
+                                                                                const badgeStyle = getBadgeStyles(badgeName);
+                                                                                return (
+                                                                                    <span key={badgeName} className={cn(
+                                                                                        "inline-flex items-center gap-1 border px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider shadow-sm w-fit",
+                                                                                        badgeStyle.bg,
+                                                                                        badgeStyle.glow
+                                                                                    )}>
+                                                                                        <badgeStyle.icon className="h-2 w-2 animate-pulse" />
+                                                                                        {badgeStyle.label}
+                                                                                    </span>
+                                                                                );
+                                                                            })}
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })
+                                                    ) : (
+                                                        <span className="text-[11px] text-muted-foreground italic">No badges assigned</span>
+                                                    )}
                                                 </div>
                                             </td>
                                             <td className="py-5 px-4 text-center">

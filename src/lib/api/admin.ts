@@ -227,5 +227,21 @@ export const auditLogsAPI = {
     }),
 };
 
+// ── Report Schedules ───────────────────────────────────────
+const REPORT_SCHEDULES_URL = `${API_BASE_URL}/api/v1/report-schedules`;
+
+export const adminReportSchedulesAPI = {
+    getAll: (page?: number, limit?: number) => apiFetch(page && limit ? `${REPORT_SCHEDULES_URL}?page=${page}&limit=${limit}` : REPORT_SCHEDULES_URL),
+    getOne: (id: string) => apiFetch(`${REPORT_SCHEDULES_URL}/${id}`),
+    create: (data: any) =>
+        apiFetch(REPORT_SCHEDULES_URL, { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: string, data: any) =>
+        apiFetch(`${REPORT_SCHEDULES_URL}/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    delete: (id: string) =>
+        apiFetch(`${REPORT_SCHEDULES_URL}/${id}`, { method: 'DELETE' }),
+    trigger: (id: string) =>
+        apiFetch(`${REPORT_SCHEDULES_URL}/${id}/trigger`, { method: 'POST' }),
+};
+
 
 

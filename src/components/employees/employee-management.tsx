@@ -29,6 +29,15 @@ import {
     DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from '@/components/ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import { cn } from '@/lib/utils';
+import { getBadgeStyles } from '@/lib/badges';
 
 
 export function EmployeeManagement() {
@@ -44,7 +53,8 @@ export function EmployeeManagement() {
         employeeId: '',
         experience: '',
         joiningDate: '',
-        status: 'Active'
+        status: 'Active',
+        badge: ''
     });
 
     const fetchEmployees = async () => {
@@ -98,7 +108,8 @@ export function EmployeeManagement() {
                     experience: emp.experience || '',
                     joiningDate: emp.joiningDate || emp.joining_date || '',
                     status: emp.status || 'Active',
-                    onboardedDate: (emp.joiningDate || emp.joining_date) ? (emp.joiningDate || emp.joining_date).split('T')[0] : ''
+                    onboardedDate: (emp.joiningDate || emp.joining_date) ? (emp.joiningDate || emp.joining_date).split('T')[0] : '',
+                    badge: emp.badge || ''
                 };
             });
             console.log('Mapped employees:', mappedEmployees);
@@ -116,7 +127,7 @@ export function EmployeeManagement() {
 
     const handleOpenAddDialog = () => {
         setEditingEmployee(null);
-        setFormData({ name: '', email: '', role: '', employeeId: '', experience: '', joiningDate: '', status: 'Active' });
+        setFormData({ name: '', email: '', role: '', employeeId: '', experience: '', joiningDate: '', status: 'Active', badge: '' });
         setIsDialogOpen(true);
     };
 
@@ -129,7 +140,8 @@ export function EmployeeManagement() {
             employeeId: emp.employeeId,
             experience: (emp as any).experience || '',
             joiningDate: (emp as any).joiningDate || '',
-            status: emp.status
+            status: emp.status,
+            badge: (emp as any).badge || ''
         });
         setIsDialogOpen(true);
     };
@@ -148,11 +160,15 @@ export function EmployeeManagement() {
         }
 
         try {
+            const submitData = {
+                ...formData,
+                badge: formData.badge === 'none' ? null : formData.badge
+            };
             if (editingEmployee) {
-                await employeesAPI.update(editingEmployee.id, formData);
+                await employeesAPI.update(editingEmployee.id, submitData);
                 toast.success(`Employee ${formData.name} updated successfully`);
             } else {
-                await employeesAPI.create(formData);
+                await employeesAPI.create(submitData);
                 toast.success(`Employee ${formData.name} created successfully`);
             }
             fetchEmployees();
@@ -256,9 +272,24 @@ export function EmployeeManagement() {
                                                     <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center font-bold text-primary group-hover/row:scale-110 transition-transform">
                                                         {emp.name?.charAt(0) || 'U'}
                                                     </div>
-                                                    <div className="flex flex-col">
+                                                    <div className="flex flex-col gap-0.5">
                                                         <span className="font-bold text-sm tracking-tight">{emp.name || 'Unknown Employee'}</span>
                                                         <span className="text-[11px] font-medium text-muted-foreground">{emp.email}</span>
+                                                        {(emp as any).badge && (emp as any).badge !== 'none' && (() => {
+                                                            const badgeStyle = getBadgeStyles((emp as any).badge);
+                                                            return (
+                                                                <div className="pt-1">
+                                                                    <span className={cn(
+                                                                        "inline-flex items-center gap-1 border px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider shadow-sm",
+                                                                        badgeStyle.bg,
+                                                                        badgeStyle.glow
+                                                                    )}>
+                                                                        <badgeStyle.icon className="h-2.5 w-2.5 animate-pulse" />
+                                                                        {badgeStyle.label}
+                                                                    </span>
+                                                                </div>
+                                                            );
+                                                        })()}
                                                     </div>
                                                 </div>
                                             </td>
@@ -390,6 +421,30 @@ export function EmployeeManagement() {
                                 onChange={(e) => setFormData({ ...formData, joiningDate: e.target.value })}
                                 className="rounded-xl"
                             />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="badge">Certification Badge</Label>
+                            <Select value={formData.badge || 'none'} onValueChange={(val) => setFormData({ ...formData, badge: val })}>
+                                <SelectTrigger className="rounded-xl">
+                                    <SelectValue placeholder="No Badge Assigned" />
+                                </SelectTrigger>
+                                <SelectContent className="rounded-xl border-border/50">
+                                    <SelectItem value="none" className="rounded-lg font-medium">None</SelectItem>
+                                    <SelectItem value="Microsoft Azure AI Engineer" className="rounded-lg font-medium">Microsoft Azure AI Engineer</SelectItem>
+                                    <SelectItem value="Amazon Web Services DevOps Engineer" className="rounded-lg font-medium">AWS DevOps Engineer</SelectItem>
+                                    <SelectItem value="Cloud Native Computing Foundation Kubernetes Administrator" className="rounded-lg font-medium">CNCF CKA</SelectItem>
+                                    <SelectItem value="ISC2 CISSP" className="rounded-lg font-medium">ISC2 CISSP</SelectItem>
+                                    <SelectItem value="Google Professional Data Engineer" className="rounded-lg font-medium">Google Data Engineer</SelectItem>
+                                    <SelectItem value="DevOps Guru" className="rounded-lg font-medium">DevOps Guru</SelectItem>
+                                    <SelectItem value="AI Pioneer" className="rounded-lg font-medium">AI Pioneer</SelectItem>
+                                    <SelectItem value="Cloud Architect" className="rounded-lg font-medium">Cloud Architect</SelectItem>
+                                    <SelectItem value="Security Champion" className="rounded-lg font-medium">Security Champion</SelectItem>
+                                    <SelectItem value="Agile Master" className="rounded-lg font-medium">Agile Master</SelectItem>
+                                    <SelectItem value="Code Ninja" className="rounded-lg font-medium">Code Ninja</SelectItem>
+                                    <SelectItem value="Bug Hunter" className="rounded-lg font-medium">Bug Hunter</SelectItem>
+                                    <SelectItem value="UI Wizard" className="rounded-lg font-medium">UI Wizard</SelectItem>
+                                </SelectContent>
+                            </Select>
                         </div>
 
                         <DialogFooter className="pt-4">

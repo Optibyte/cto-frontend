@@ -12,6 +12,8 @@ import Link from 'next/link';
 import { useTeam, useAddTeamMember, useRemoveTeamMember } from '@/hooks/use-teams';
 import { AddMemberModal } from './add-member-modal';
 import { Loader2 } from 'lucide-react';
+import { getBadgeStyles } from '@/lib/badges';
+import { cn } from '@/lib/utils';
 
 interface TeamMembersManagerProps {
     teamId: string;
@@ -62,7 +64,8 @@ export function TeamMembersManager({ teamId, teamName, initialMembers }: TeamMem
         skills: [],
         currentProject: teamData.project?.name || 'Assigned',
         teamJoinDate: new Date(m.joinedAt).toLocaleDateString(),
-        status: 'Active'
+        status: 'Active',
+        badge: m.badge || null
     })) || [];
 
     const handleRemoveMember = async (memberId: string) => {
@@ -181,12 +184,31 @@ export function TeamMembersManager({ teamId, teamName, initialMembers }: TeamMem
                                                         <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center font-bold text-primary group-hover/row:scale-110 transition-transform">
                                                             {m.name.charAt(0)}
                                                         </div>
-                                                        <div className="flex flex-col">
+                                                        <div className="flex flex-col gap-1">
                                                             <span className="font-bold text-sm tracking-tight">{m.name}</span>
                                                             <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1">
                                                                 <Briefcase className="h-3 w-3 opacity-50" />
                                                                 {m.role}
                                                             </span>
+                                                            {m.badge && m.badge !== 'none' && (
+                                                                <div className="flex flex-wrap gap-1 mt-1">
+                                                                    {m.badge.split(',').map((badgeName: string) => {
+                                                                        const trimmed = badgeName.trim();
+                                                                        if (!trimmed || trimmed === 'none') return null;
+                                                                        const badgeStyle = getBadgeStyles(trimmed);
+                                                                        return (
+                                                                            <span key={trimmed} className={cn(
+                                                                                "inline-flex items-center gap-1 border px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider shadow-sm",
+                                                                                badgeStyle.bg,
+                                                                                badgeStyle.glow
+                                                                            )}>
+                                                                                <badgeStyle.icon className="h-2.5 w-2.5 animate-pulse" />
+                                                                                {badgeStyle.label}
+                                                                            </span>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 </td>

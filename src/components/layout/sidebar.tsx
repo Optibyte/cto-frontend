@@ -26,6 +26,7 @@ import {
     LayoutGrid,
     Activity,
     Settings2,
+    Award,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
@@ -62,6 +63,11 @@ const navigationItems: NavItem[] = [
         title: 'Admin Console',
         icon: Settings2,
         href: '/admin',
+    },
+    {
+        title: 'Assign Badges',
+        icon: Award,
+        href: '/assign-badges',
     },
     {
         title: 'Reports',

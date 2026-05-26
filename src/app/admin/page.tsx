@@ -15,18 +15,19 @@ import {
 import {
     Building2, Globe2, Briefcase, FolderKanban, Users2, UserPlus,
     Plus, Pencil, Trash2, Loader2, RefreshCw, ChevronRight, ChevronLeft, X, Search, CheckSquare, Square,
-    Upload, FileSpreadsheet, CheckCircle2, AlertCircle, Download, Zap,
+    Upload, FileSpreadsheet, CheckCircle2, AlertCircle, Download, Zap, Award, Mail, Clock, Calendar
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import {
-    marketsAPI, adminAccountsAPI, adminProjectsAPI, adminTeamsAPI, adminTeamMembersAPI, adminUsersAPI, adminEmployeesAPI, adminOrganizationsAPI, adminSprintMetricsAPI,
+    marketsAPI, adminAccountsAPI, adminProjectsAPI, adminTeamsAPI, adminTeamMembersAPI, adminUsersAPI, adminEmployeesAPI, adminOrganizationsAPI, adminSprintMetricsAPI, adminReportSchedulesAPI,
 } from '@/lib/api/admin';
 import { useRole } from '@/contexts/role-context';
+import { getBadgeStyles } from '@/lib/badges';
 
 // ═══════════════════════════ TYPES ═══════════════════════════
 
-type TabKey = 'organizations' | 'markets' | 'accounts' | 'projects' | 'ai-projects' | 'teams' | 'members' | 'users';
+type TabKey = 'organizations' | 'markets' | 'accounts' | 'projects' | 'ai-projects' | 'teams' | 'members' | 'users' | 'badges' | 'report-schedules';
 
 interface TabConfig {
     key: TabKey;
@@ -35,6 +36,23 @@ interface TabConfig {
     color: string;
     gradient: string;
 }
+
+const AVAILABLE_BADGES = [
+    { name: 'none', label: 'None' },
+    { name: 'Microsoft Azure AI Engineer', label: 'Azure AI' },
+    { name: 'Amazon Web Services DevOps Engineer', label: 'AWS DevOps' },
+    { name: 'Cloud Native Computing Foundation Kubernetes Administrator', label: 'CNCF CKA' },
+    { name: 'ISC2 CISSP', label: 'ISC2 CISSP' },
+    { name: 'Google Professional Data Engineer', label: 'Google Data' },
+    { name: 'DevOps Guru', label: 'DevOps Guru' },
+    { name: 'AI Pioneer', label: 'AI Pioneer' },
+    { name: 'Cloud Architect', label: 'Cloud Architect' },
+    { name: 'Security Champion', label: 'Security' },
+    { name: 'Agile Master', label: 'Agile' },
+    { name: 'Code Ninja', label: 'Ninja' },
+    { name: 'Bug Hunter', label: 'Hunter' },
+    { name: 'UI Wizard', label: 'UI Wizard' }
+];
 
 const TABS: TabConfig[] = [
     { key: 'organizations', label: 'Organizations', icon: Building2, color: 'text-indigo-500', gradient: 'from-indigo-600 to-indigo-400' },
@@ -45,6 +63,8 @@ const TABS: TabConfig[] = [
     { key: 'teams', label: 'Teams', icon: Users2, color: 'text-amber-500', gradient: 'from-amber-600 to-amber-400' },
     { key: 'members', label: 'Team Members', icon: UserPlus, color: 'text-cyan-500', gradient: 'from-cyan-600 to-cyan-400' },
     { key: 'users', label: 'Users', icon: Building2, color: 'text-rose-500', gradient: 'from-rose-600 to-rose-400' },
+    { key: 'badges', label: 'Assign Badges', icon: Award, color: 'text-amber-500', gradient: 'from-amber-600 to-amber-400' },
+    { key: 'report-schedules', label: 'Schedule Reports', icon: Mail, color: 'text-violet-500', gradient: 'from-violet-600 to-violet-400' },
 ];
 
 // ═══════════════════════ ADMIN PAGE ═══════════════════════════
@@ -56,10 +76,10 @@ export default function AdminPage() {
     // Filter tabs based on role
     const filteredTabs = TABS.filter(tab => {
         if (role === 'ORG' || role === 'CTO') return true;
-        if (role === 'MARKET') return ['markets', 'accounts', 'ai-projects', 'teams', 'members', 'users'].includes(tab.key);
-        if (role === 'ACCOUNT') return ['accounts', 'ai-projects', 'teams', 'members', 'users'].includes(tab.key);
-        if (role === 'PROJECT_MANAGER' || role === 'PROJECT') return ['projects', 'ai-projects', 'teams', 'members', 'users'].includes(tab.key);
-        if (role === 'TEAM_LEAD') return ['teams', 'members'].includes(tab.key);
+        if (role === 'MARKET') return ['markets', 'accounts', 'ai-projects', 'teams', 'members', 'users', 'badges', 'report-schedules'].includes(tab.key);
+        if (role === 'ACCOUNT') return ['accounts', 'ai-projects', 'teams', 'members', 'users', 'badges', 'report-schedules'].includes(tab.key);
+        if (role === 'PROJECT_MANAGER' || role === 'PROJECT') return ['projects', 'ai-projects', 'teams', 'members', 'users', 'badges', 'report-schedules'].includes(tab.key);
+        if (role === 'TEAM_LEAD') return ['teams', 'members', 'users', 'badges'].includes(tab.key);
         return ['teams', 'members'].includes(tab.key); // Default for lower roles if they can access admin at all
     });
 
@@ -96,7 +116,7 @@ export default function AdminPage() {
         setLoading(true);
         try {
             let result: any;
-            if (tab === 'users') {
+            if (tab === 'users' || tab === 'badges') {
                 result = await adminUsersAPI.getAll(page, PAGE_SIZE, search);
             } else {
                 const apiMap: Record<string, (page?: number, limit?: number, aiEnabled?: boolean) => Promise<any>> = {
@@ -107,6 +127,7 @@ export default function AdminPage() {
                     'ai-projects': (p, l) => adminProjectsAPI.getAll(p, l, true),
                     teams: adminTeamsAPI.getAll,
                     members: adminTeamMembersAPI.getAll as any,
+                    'report-schedules': adminReportSchedulesAPI.getAll,
                 };
                 result = await apiMap[tab](page, PAGE_SIZE);
             }
@@ -155,19 +176,19 @@ export default function AdminPage() {
         fetchData(currentPage, activeTab);
     }, [currentPage, activeTab, fetchData]);
 
-    // Server-side search for Users tab — debounce 300ms
+    // Server-side search for Users & Badges tab — debounce 300ms
     useEffect(() => {
-        if (activeTab !== 'users') return;
+        if (activeTab !== 'users' && activeTab !== 'badges') return;
         const timer = setTimeout(() => {
             setCurrentPage(1);
-            fetchData(1, 'users', tableSearch.trim() || undefined);
+            fetchData(1, activeTab, tableSearch.trim() || undefined);
         }, 300);
         return () => clearTimeout(timer);
     }, [tableSearch, activeTab]); // eslint-disable-line
 
-    // Search filter (client-side for all tabs except 'users' which uses server-side search)
+    // Search filter (client-side for all tabs except 'users' / 'badges' which use server-side search)
     const filteredData = useMemo(() => {
-        if (activeTab === 'users') return data; // server already filtered
+        if (activeTab === 'users' || activeTab === 'badges') return data; // server already filtered
         const q = tableSearch.trim().toLowerCase();
         if (!q) return data;
         return data.filter(item =>
@@ -192,7 +213,11 @@ export default function AdminPage() {
     // Reset to page 1 when search changes
     useEffect(() => { setCurrentPage(1); }, [tableSearch]);
 
-    const handleCreate = (initialData: any = null) => { setEditItem(initialData); setDialogOpen(true); };
+    const handleCreate = (initialData: any = null) => {
+        const isEvent = initialData && (initialData.nativeEvent instanceof Event || initialData.target);
+        setEditItem(isEvent ? null : initialData);
+        setDialogOpen(true);
+    };
     const handleEdit = (item: any) => { setEditItem(item); setDialogOpen(true); };
 
     const handleDelete = async (id: string) => {
@@ -212,6 +237,7 @@ export default function AdminPage() {
                     'ai-projects': adminProjectsAPI.delete,
                     teams: adminTeamsAPI.delete,
                     users: adminUsersAPI.delete,
+                    'report-schedules': adminReportSchedulesAPI.delete,
                 };
                 await apiMap[activeTab](id);
             }
@@ -242,6 +268,7 @@ export default function AdminPage() {
                     'ai-projects': adminProjectsAPI.update,
                     teams: adminTeamsAPI.update,
                     users: adminUsersAPI.update,
+                    'report-schedules': adminReportSchedulesAPI.update,
                 };
                 await updateMap[activeTab](editItem.id, formData);
                 toast.success(`Updated successfully`);
@@ -254,6 +281,7 @@ export default function AdminPage() {
                     'ai-projects': adminProjectsAPI.create,
                     teams: adminTeamsAPI.create,
                     users: adminUsersAPI.create,
+                    'report-schedules': adminReportSchedulesAPI.create,
                 };
                 await createMap[activeTab](formData);
                 toast.success(`Added successfully`);
@@ -279,7 +307,7 @@ export default function AdminPage() {
                     </h1>
                     <p className="text-muted-foreground mt-1">Manage your organization hierarchy — Markets, Accounts, Projects, Teams, Members & Users</p>
                 </div>
-                {!(role === 'TEAM_LEAD' && activeTab !== 'members') && (
+                {!(role === 'TEAM_LEAD' && activeTab !== 'members' && activeTab !== 'users') && (
                     <div className="flex items-center gap-2">
                         {(activeTab === 'users') && (
                             <Button
@@ -293,7 +321,7 @@ export default function AdminPage() {
                                 <Upload className="h-4 w-4" /> Bulk Upload Employees
                             </Button>
                         )}
-                        <Button onClick={handleCreate} className="rounded-xl gap-2 shadow-lg shadow-primary/20">
+                        <Button onClick={() => handleCreate()} className="rounded-xl gap-2 shadow-lg shadow-primary/20">
                             <Plus className="h-4 w-4" /> Add {tabConfig.label.slice(0, -1)}
                         </Button>
                     </div>
@@ -392,16 +420,32 @@ export default function AdminPage() {
                                             {getColumns(activeTab).map(col => (
                                                 <th key={col} className="pb-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">{col}</th>
                                             ))}
-                                            <th className="pb-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider pr-2">Actions</th>
+                                            {activeTab !== 'badges' && (
+                                                <th className="pb-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider pr-2">Actions</th>
+                                            )}
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {pagedData.map(item => (
                                             <tr key={item.id} className="border-b border-border/20 last:border-0 hover:bg-accent/30 group transition-colors">
-                                                {renderRow(activeTab, item)}
+                                                {renderRow(
+                                                    activeTab,
+                                                    item,
+                                                    async (userId, badgeName) => {
+                                                        await adminUsersAPI.update(userId, { badge: badgeName === 'none' ? null : badgeName });
+                                                        fetchData(currentPage, activeTab);
+                                                    },
+                                                    projects,
+                                                    async (id) => {
+                                                        await adminReportSchedulesAPI.trigger(id);
+                                                        toast.success('Report dispatched successfully by email');
+                                                        fetchData(currentPage, activeTab);
+                                                    }
+                                                )}
+                                                {activeTab !== 'badges' && (
                                                     <td className="py-3 text-right pr-2">
                                                         <div className="flex gap-1.5 justify-end opacity-0 group-hover:opacity-100 transition-all">
-                                                            {!(role === 'TEAM_LEAD' && activeTab !== 'members') && (
+                                                            {!(role === 'TEAM_LEAD' && activeTab !== 'members' && activeTab !== 'users') && (
                                                                 <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg bg-primary/10 text-primary hover:bg-primary/20" onClick={() => handleEdit(item)}>
                                                                     <Pencil className="h-3.5 w-3.5" />
                                                                 </Button>
@@ -422,6 +466,7 @@ export default function AdminPage() {
                                                             )}
                                                         </div>
                                                     </td>
+                                                )}
                                             </tr>
                                         ))}
                                     </tbody>
@@ -522,10 +567,12 @@ function getColumns(tab: TabKey): string[] {
         case 'teams': return ['Name', 'AI Enabled', 'Project', 'Members', 'Active'];
         case 'members': return ['User', 'Email', 'Team', 'Role in Team', 'Joined'];
         case 'users': return ['Name', 'Email', 'Access Role', 'Employee ID', 'Job Role', 'Active'];
+        case 'badges': return ['User', 'Email', 'Access Role', 'Current Badge', 'Assign Certification Badge'];
+        case 'report-schedules': return ['Name', 'Recipients', 'Frequency', 'Time', 'Report Type', 'Fenced Projects', 'Last Sent', 'Status', 'Dispatch'];
     }
 }
 
-function renderRow(tab: TabKey, item: any) {
+function renderRow(tab: TabKey, item: any, onBadgeAssign?: (userId: string, badgeName: string) => Promise<void>, projects?: any[], onTriggerReport?: (id: string) => Promise<void>) {
     const formatDate = (d: string) => d ? new Date(d).toLocaleDateString() : '—';
     switch (tab) {
         case 'organizations':
@@ -637,7 +684,30 @@ function renderRow(tab: TabKey, item: any) {
             </>);
         case 'users':
             return (<>
-                <td className="py-3 text-sm font-semibold">{item.fullName}</td>
+                <td className="py-3 text-sm font-semibold">
+                    <div className="flex flex-col gap-0.5">
+                        <span className="font-semibold text-foreground">{item.fullName}</span>
+                        {item.badge && item.badge !== 'none' && (
+                            <div className="flex flex-wrap gap-1 mt-0.5">
+                                {item.badge.split(',').map((badgeName: string) => {
+                                    const trimmed = badgeName.trim();
+                                    if (!trimmed || trimmed === 'none') return null;
+                                    const badgeStyle = getBadgeStyles(trimmed);
+                                    return (
+                                        <span key={trimmed} className={cn(
+                                            "inline-flex items-center gap-1 border px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider shadow-sm w-fit",
+                                            badgeStyle.bg,
+                                            badgeStyle.glow
+                                        )}>
+                                            <badgeStyle.icon className="h-2 w-2 animate-pulse" />
+                                            {badgeStyle.label}
+                                        </span>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+                </td>
                 <td className="py-3 text-sm text-muted-foreground">{item.email}</td>
                 <td className="py-3"><Badge className={cn('rounded-full text-[10px] px-2', {
                     'bg-violet-500/10 text-violet-500 border-violet-500/20': item.role === 'ORG',
@@ -651,6 +721,137 @@ function renderRow(tab: TabKey, item: any) {
                 <td className="py-3 text-sm text-muted-foreground">{item.employeeId || '—'}</td>
                 <td className="py-3 text-sm text-muted-foreground">{item.jobRole || '—'}</td>
                 <td className="py-3">{item.isActive ? <Badge className="bg-emerald-500/10 text-emerald-500 rounded-full text-[10px]" variant="outline">Active</Badge> : <Badge variant="outline" className="rounded-full text-[10px]">Inactive</Badge>}</td>
+            </>);
+        case 'badges':
+            return (<>
+                <td className="py-3 text-sm font-semibold">{item.fullName}</td>
+                <td className="py-3 text-sm text-muted-foreground">{item.email}</td>
+                <td className="py-3"><Badge className={cn('rounded-full text-[10px] px-2', {
+                    'bg-violet-500/10 text-violet-500 border-violet-500/20': item.role === 'ORG',
+                    'bg-blue-500/10 text-blue-500 border-blue-500/20': item.role === 'MARKET',
+                    'bg-emerald-500/10 text-emerald-500 border-emerald-500/20': item.role === 'ACCOUNT',
+                    'bg-amber-500/10 text-amber-500 border-amber-500/20': item.role === 'PROJECT_MANAGER',
+                    'bg-indigo-500/10 text-indigo-500 border-indigo-500/20': item.role === 'PROJECT',
+                    'bg-cyan-500/10 text-cyan-500 border-cyan-500/20': item.role === 'TEAM_LEAD',
+                    'bg-slate-500/10 text-slate-500 border-slate-500/20': item.role === 'TEAM',
+                })} variant="outline">{item.role}</Badge></td>
+                <td className="py-3">
+                    <div className="flex flex-wrap gap-1.5 max-w-[200px]">
+                        {item.badge && item.badge !== 'none' ? (
+                            item.badge.split(',').map((badgeName: string) => {
+                                const trimmed = badgeName.trim();
+                                if (!trimmed || trimmed === 'none') return null;
+                                const badgeStyle = getBadgeStyles(trimmed);
+                                return (
+                                    <span key={trimmed} className={cn(
+                                        "inline-flex items-center gap-1 border px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider shadow-sm",
+                                        badgeStyle.bg,
+                                        badgeStyle.glow
+                                    )}>
+                                        <badgeStyle.icon className="h-2.5 w-2.5 animate-pulse" />
+                                        {badgeStyle.label}
+                                    </span>
+                                );
+                            })
+                        ) : (
+                            <span className="text-xs text-muted-foreground italic">None</span>
+                        )}
+                    </div>
+                </td>
+                <td className="py-3">
+                    <div className="flex flex-wrap gap-1 max-w-[480px]">
+                        {AVAILABLE_BADGES.map((b) => {
+                            const badgeList = item.badge ? item.badge.split(',').map((x: string) => x.trim()).filter((x: string) => x && x !== 'none') : [];
+                            const isCurrent = b.name === 'none' 
+                                ? (badgeList.length === 0)
+                                : badgeList.includes(b.name);
+                            const badgeStyle = b.name === 'none' ? null : getBadgeStyles(b.name);
+                            return (
+                                <button
+                                    key={b.name}
+                                    onClick={async () => {
+                                        if (onBadgeAssign) {
+                                            try {
+                                                let nextBadges: string[];
+                                                if (b.name === 'none') {
+                                                    nextBadges = [];
+                                                } else {
+                                                    if (badgeList.includes(b.name)) {
+                                                        // Toggle off (remove)
+                                                        nextBadges = badgeList.filter((x: string) => x !== b.name);
+                                                    } else {
+                                                        // Toggle on (add)
+                                                        nextBadges = [...badgeList, b.name];
+                                                    }
+                                                }
+                                                const finalVal = nextBadges.join(', ');
+                                                await onBadgeAssign(item.id, finalVal || 'none');
+                                                toast.success(`Updated badges for ${item.fullName}`);
+                                            } catch (err: any) {
+                                                toast.error(`Assignment failed: ${err.message}`);
+                                            }
+                                        }
+                                    }}
+                                    className={cn(
+                                        "inline-flex items-center gap-1 border px-2 py-0.5 rounded-full text-[8px] font-bold uppercase transition-all duration-200 hover:scale-105 shadow-sm",
+                                        isCurrent 
+                                            ? (b.name === 'none' ? "bg-muted text-muted-foreground border-muted-foreground/30 font-black" : `${badgeStyle?.bg} ${badgeStyle?.glow} border-primary/50 font-black`)
+                                            : "bg-background text-muted-foreground border-border/80 hover:text-foreground hover:bg-muted"
+                                    )}
+                                    title={b.name === 'none' ? "Clear Badges" : `Toggle ${b.name}`}
+                                >
+                                    {badgeStyle ? <badgeStyle.icon className="h-2 w-2 animate-pulse" /> : <X className="h-2 w-2" />}
+                                    {b.label}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </td>
+            </>);
+        case 'report-schedules':
+            return (<>
+                <td className="py-3 text-sm font-semibold">{item.name || 'Unnamed Schedule'}</td>
+                <td className="py-3 text-sm text-muted-foreground max-w-[200px] truncate" title={item.recipients || ''}>{item.recipients || ''}</td>
+                <td className="py-3 text-xs"><Badge variant="outline" className="rounded-full text-[10px] bg-slate-50">{item.frequency || 'WEEKLY'}</Badge></td>
+                <td className="py-3 text-sm font-mono text-muted-foreground">{item.scheduleTime || '09:00'}</td>
+                <td className="py-3 text-xs"><Badge variant="secondary" className="rounded-full text-[10px]">{(item.reportType || 'PERFORMANCE').replace(/_/g, ' ')}</Badge></td>
+                <td className="py-3 text-xs">
+                    <div className="flex flex-wrap gap-1 max-w-[150px]">
+                        {item.projectIds && item.projectIds.length > 0 ? (
+                            item.projectIds.map((pid: string) => {
+                                const proj = projects?.find((p: any) => p.id === pid);
+                                return (
+                                    <Badge key={pid} variant="outline" className="rounded-full text-[9px] px-1.5 py-0">
+                                        {proj ? proj.name : pid.slice(0, 4)}
+                                    </Badge>
+                                );
+                            })
+                        ) : (
+                            <span className="text-muted-foreground italic text-[10px]">None</span>
+                        )}
+                    </div>
+                </td>
+                <td className="py-3 text-xs text-muted-foreground">{item.lastSentAt ? new Date(item.lastSentAt).toLocaleString() : 'Never'}</td>
+                <td className="py-3">
+                    {item.isActive ? (
+                        <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 rounded-full text-[10px]" variant="outline">Active</Badge>
+                    ) : (
+                        <Badge variant="outline" className="rounded-full text-[10px]">Inactive</Badge>
+                    )}
+                </td>
+                <td className="py-3">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            if (onTriggerReport) onTriggerReport(item.id);
+                        }}
+                        className="h-7 text-[10px] rounded-lg gap-1 border-violet-500/30 text-violet-600 hover:bg-violet-50"
+                    >
+                        <RefreshCw className="h-3 w-3 animate-none" /> Send Now
+                    </Button>
+                </td>
             </>);
     }
 }
@@ -1297,6 +1498,113 @@ function EntityDialog({ open, onOpenChange, tab, editItem, onSave, organizations
                                     <Input className="rounded-xl font-mono" value={form.githubEmail || ''} onChange={e => set('githubEmail', e.target.value)} placeholder="e.g. user@github.com" />
                                 </div>
                             </div>
+                            <div className="space-y-2">
+                                <Label>Certification Badge</Label>
+                                <Select value={form.badge || 'none'} onValueChange={v => set('badge', v === 'none' ? '' : v)}>
+                                    <SelectTrigger className="rounded-xl bg-white border-border">
+                                        <SelectValue placeholder="No Certification Badge" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="none">No Badge</SelectItem>
+                                        {AVAILABLE_BADGES.filter(b => b.name !== 'none').map((b) => (
+                                            <SelectItem key={b.name} value={b.name}>{b.name}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </>)}
+
+                        {tab === 'report-schedules' && (<>
+                            <div className="space-y-2">
+                                <Label>Schedule Name *</Label>
+                                <Input className="rounded-xl" value={form.name || ''} onChange={e => set('name', e.target.value)} placeholder="e.g. Weekly Executive Report" />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Recipients (Comma-separated emails) *</Label>
+                                <Input className="rounded-xl" value={form.recipients || ''} onChange={e => set('recipients', e.target.value)} placeholder="e.g. boss@corp.com, admin@corp.com" />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label>Frequency</Label>
+                                    <Select value={form.frequency || 'WEEKLY'} onValueChange={v => set('frequency', v)}>
+                                        <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="DAILY">Daily</SelectItem>
+                                            <SelectItem value="WEEKLY">Weekly</SelectItem>
+                                            <SelectItem value="MONTHLY">Monthly</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Schedule Time (24h format)</Label>
+                                    <Input type="time" className="rounded-xl" value={form.scheduleTime || '09:00'} onChange={e => set('scheduleTime', e.target.value)} />
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Report Type</Label>
+                                <Select value={form.reportType || 'PERFORMANCE'} onValueChange={v => set('reportType', v)}>
+                                    <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="JIRA_ANALYTICS">Jira Analytics</SelectItem>
+                                        <SelectItem value="TEAM_KPI">Team KPI</SelectItem>
+                                        <SelectItem value="PERFORMANCE">Performance Summary</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <Label>Scoped Projects (Fenced Data) *</Label>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-7 text-[10px] rounded-lg"
+                                        onClick={() => {
+                                            const allSelected = uniqueProjects.every((p: any) => (form.projectIds || []).includes(p.id));
+                                            if (allSelected) {
+                                                set('projectIds', []);
+                                            } else {
+                                                set('projectIds', uniqueProjects.map((p: any) => p.id));
+                                            }
+                                        }}
+                                    >
+                                        {uniqueProjects.every((p: any) => (form.projectIds || []).includes(p.id)) ? 'Deselect All' : 'Select All'}
+                                    </Button>
+                                </div>
+                                <div className="grid grid-cols-1 gap-1 max-h-[180px] overflow-y-auto p-2 rounded-xl border border-border/40 bg-muted/20">
+                                    {uniqueProjects.map((p: any) => (
+                                        <div key={p.id} className="flex items-center space-x-2 p-2 hover:bg-accent/50 rounded-lg transition-colors group">
+                                            <input
+                                                type="checkbox"
+                                                id={`sched-proj-${p.id}`}
+                                                className="h-4 w-4 rounded border-primary"
+                                                checked={(form.projectIds || []).includes(p.id)}
+                                                onChange={(e) => {
+                                                    const currentIds = form.projectIds || [];
+                                                    if (e.target.checked) {
+                                                        set('projectIds', [...currentIds, p.id]);
+                                                    } else {
+                                                        set('projectIds', currentIds.filter((id: string) => id !== p.id));
+                                                    }
+                                                }}
+                                            />
+                                            <label htmlFor={`sched-proj-${p.id}`} className="grid cursor-pointer flex-1">
+                                                <span className="text-sm font-medium leading-none">{p.name}</span>
+                                                <span className="text-[10px] text-muted-foreground line-clamp-1">Status: {p.status}</span>
+                                            </label>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="flex items-center space-x-2 py-2">
+                                <input
+                                    type="checkbox"
+                                    id="sched-active"
+                                    className="h-4 w-4 rounded border-primary"
+                                    checked={form.isActive !== false}
+                                    onChange={(e) => set('isActive', e.target.checked)}
+                                />
+                                <Label htmlFor="sched-active" className="cursor-pointer font-medium">Is Schedule Active</Label>
+                            </div>
                         </>)}
                     </div>
                 </div>
@@ -1322,7 +1630,9 @@ function getDefaultForm(tab: TabKey): Record<string, any> {
         case 'ai-projects': return { name: '', startDate: '', enddate: '', status: 'PLANNED', teamSize: 0, progress: 0, jiraProjectKey: '', jiraBoardId: '', githubRepoId: '', githubToken: '', license: '', isDigitalTransformation: false, digitalTransformationStartDate: '', digitalTransformationEndDate: '', aiEnabled: true, aiToolLicenses: 0, aiToolsUsed: [] };
         case 'teams': return { teamId: '', name: '', description: '', teamLeadId: '', accountId: '', projectId: '' };
         case 'members': return { teamId: '', userIds: [], roleInTeam: 'Member' };
-        case 'users': return { fullName: '', email: '', role: 'TEAM', jobRole: '', employeeId: '', auth0Id: '', jiraAccountId: '', githubEmail: '', scopeOrgId: '', scopeMarketId: '', scopeAccountId: '', scopeProjectId: '', scopeTeamId: '' };
+        case 'users': return { fullName: '', email: '', role: 'TEAM', jobRole: '', employeeId: '', auth0Id: '', jiraAccountId: '', githubEmail: '', scopeOrgId: '', scopeMarketId: '', scopeAccountId: '', scopeProjectId: '', scopeTeamId: '', badge: '' };
+        case 'badges': return {};
+        case 'report-schedules': return { name: '', recipients: '', frequency: 'WEEKLY', scheduleTime: '09:00', reportType: 'PERFORMANCE', projectIds: [], isActive: true };
     }
 }
 
@@ -1378,6 +1688,7 @@ function buildPayload(tab: TabKey, form: Record<string, any>, isEdit: boolean): 
             if (form.employeeId) u.employeeId = form.employeeId.trim();
             if (form.jiraAccountId) u.jiraAccountId = form.jiraAccountId.trim();
             if (form.githubEmail) u.githubEmail = form.githubEmail.trim();
+            if (form.badge !== undefined) u.badge = form.badge ? form.badge : null;
 
             // ── DATA FENCING: set scope IDs based on role ──────────────────
             const role = form.role || 'TEAM';
@@ -1399,6 +1710,16 @@ function buildPayload(tab: TabKey, form: Record<string, any>, isEdit: boolean): 
             }
             return u;
         }
+        case 'badges': return {};
+        case 'report-schedules': return {
+            name: form.name,
+            recipients: form.recipients,
+            frequency: form.frequency,
+            scheduleTime: form.scheduleTime,
+            reportType: form.reportType,
+            projectIds: form.projectIds || [],
+            isActive: form.isActive !== false
+        };
     }
 }
 
@@ -1423,20 +1744,29 @@ function BulkUploadDialog({ open, onOpenChange, type, onSuccess }: BulkUploadDia
 
     const handleDownloadTemplate = () => {
         let headers: string[] = [];
-        let sampleRow: string[] = [];
+        let csvContent = '';
         let fileName = '';
 
         if (isEmployees) {
             headers = ['employee_id', 'employee_name', 'email', 'org', 'country', 'market', 'account', 'project', 'team', 'team_id', 'role', 'employment_type', 'experience_years', 'project_ai_enabled', 'project_ai_tools_used', 'primary_ai_skill', 'primary_ai_skill_proficiency'];
-            sampleRow = ['EMP-1001', 'John Doe', 'john.doe@example.com', 'Acme Corp', 'USA', 'US-Market', 'Aetna', 'Claims Mod', 'Alpha Team', 'T-ALPHA', 'Dev', 'Full-Time', '5', 'Yes', 'Copilot, ChatGPT', 'Python', '4'];
+            const sampleRows = [
+                ['EMP-1001', 'John Doe', 'john.doe@example.com', 'Acme Corp', 'USA', 'US-Market', 'Aetna', 'Claims Mod', 'Alpha Team', 'T-ALPHA', 'Dev', 'Full-Time', '5', 'Yes', 'Copilot, ChatGPT', 'Python', '4'],
+                ['EMP-1002', 'Alice Smith', 'alice.smith@example.com', 'Acme Corp', 'USA', 'US-Market', 'Aetna', 'Claims Mod', 'Alpha Team', 'T-ALPHA', 'Team Lead', 'Full-Time', '8', 'Yes', 'Copilot', 'TypeScript', '5'],
+                ['EMP-1003', 'Bob Johnson', 'bob.johnson@example.com', 'Acme Corp', 'USA', 'US-Market', 'Aetna', 'Claims Mod', '', '', 'PM', 'Full-Time', '10', 'Yes', 'ChatGPT', 'Management', '3'],
+                ['EMP-1004', 'Charlie Brown', 'charlie.brown@example.com', 'Acme Corp', 'USA', 'US-Market', 'Aetna', '', '', '', 'Account', 'Full-Time', '12', 'No', '', '', '0'],
+                ['EMP-1005', 'Diana Prince', 'diana.prince@example.com', 'Acme Corp', 'USA', 'US-Market', '', '', '', '', 'Market', 'Full-Time', '15', 'No', '', '', '0'],
+                ['EMP-1006', 'Evan Wright', 'evan.wright@example.com', 'Acme Corp', 'USA', '', '', '', '', '', 'ORG', 'Full-Time', '18', 'No', '', '', '0'],
+                ['EMP-1007', 'Fiona Gallagher', 'fiona.gallagher@example.com', 'Acme Corp', 'USA', '', '', '', '', '', 'CTO', 'Full-Time', '20', 'Yes', 'Copilot, ChatGPT, Claude', 'Architecture', '5']
+            ];
+            csvContent = [headers.join(','), ...sampleRows.map(row => row.join(','))].join('\n');
             fileName = 'employee_bulk_import_template.csv';
         } else {
             headers = ['org', 'country', 'market', 'account', 'project', 'team', 'team_size', 'project_ai_enabled', 'project_ai_tool_licenses', 'project_ai_tools_used', 'sprint_number', 'sprint_name', 'throughput_points', 'quality_score', 'velocity_points', 'done_to_said_ratio', 'technical_debt_index', 'user_stories_delivered'];
-            sampleRow = ['Acme Corp', 'USA', 'US-Market', 'Aetna', 'Claims Mod', 'Alpha Team', '10', 'Yes', '12', 'Copilot', '1', 'Sprint-1', '45.5', '92.0', '50.0', '0.95', '12.5', '8'];
+            const sampleRow = ['Acme Corp', 'USA', 'US-Market', 'Aetna', 'Claims Mod', 'Alpha Team', '10', 'Yes', '12', 'Copilot', '1', 'Sprint-1', '45.5', '92.0', '50.0', '0.95', '12.5', '8'];
+            csvContent = [headers.join(','), sampleRow.join(',')].join('\n');
             fileName = 'sprint_metrics_bulk_import_template.csv';
         }
 
-        const csvContent = [headers.join(','), sampleRow.join(',')].join('\n');
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');

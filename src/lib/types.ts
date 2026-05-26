@@ -9,6 +9,7 @@ export interface User {
     avatar?: string;         // For mock data compatibility
     avatarUrl?: string;      // From backend API
     githubEmail?: string;
+    badge?: string;
 }
 
 // Team types
@@ -241,4 +242,5 @@ export interface ProjectFull {
     isDigitalTransformation?: boolean;
     digitalTransformationStartDate?: string;
     digitalTransformationEndDate?: string;
+    users?: User[];
 }
