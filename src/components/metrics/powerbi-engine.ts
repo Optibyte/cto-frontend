@@ -16,7 +16,7 @@ export const X_AXIS_OPTIONS = [
   { id: 'sprintNumber', label: 'Sprint Number' },
   ...HIERARCHY_LEVELS,
   { id: 'aiEnabled', label: 'AI vs Traditional' },
-  { id: 'aiBaseline', label: 'AI with Baseline' },
+  { id: 'aiBaseline', label: 'Transformation Phases' },
 ];
 
 export const METRICS_FIELDS = [
@@ -111,7 +111,7 @@ function getDimValue(row: any, dim: string, dataSource: string): string {
       case 'account': return row.account || 'Unknown';
       case 'project': return row.project || 'Unknown';
       case 'team': return row.team || 'Unknown';
-      case 'aiBaseline':
+      case 'aiBaseline': return row._aiBaselinePhase || (row.aiEnabled ? 'AI-Enabled' : 'Traditional');
       case 'aiEnabled': return row.aiEnabled ? 'AI-Enabled' : 'Traditional';
       default: return 'All';
     }
@@ -126,7 +126,7 @@ function getDimValue(row: any, dim: string, dataSource: string): string {
     case 'account': return row.team?.account_rel?.name || row.account || 'Unknown';
     case 'project': return row.team?.project?.name || row.project || 'Unknown';
     case 'team': return row.team?.name || row.teamName || 'Unknown';
-    case 'aiBaseline':
+    case 'aiBaseline': return row._aiBaselinePhase || (row.team?.project?.aiEnabled ? 'AI-Enabled' : 'Traditional');
     case 'aiEnabled': return row.team?.project?.aiEnabled ? 'AI-Enabled' : 'Traditional';
     default: return 'All';
   }
@@ -160,6 +160,41 @@ export function pivotData(rawData: any[], config: PlotConfig): any[] {
   }
 
   if (!data.length) return [];
+
+  // Pre-calculate Transformation Phases for aiBaseline
+  // Uses transformationStartDate and transformationEndDate from the team record.
+  // Phases:
+  //   sprintDate < tStart                    → "Before Transformation"
+  //   tStart <= sprintDate <= tEnd (or !tEnd) → "During Transformation"
+  //   sprintDate > tEnd                      → "After Transformation"
+  //   no tStart                              → "Non-Transformed"
+  if (config.legend === 'aiBaseline' || config.xAxis === 'aiBaseline') {
+    data.forEach(r => {
+      const tStart = r.team?.transformationStartDate
+        ? new Date(r.team.transformationStartDate)
+        : null;
+      const tEnd = r.team?.transformationEndDate
+        ? new Date(r.team.transformationEndDate)
+        : null;
+      const sDate = r.sprintDate ? new Date(r.sprintDate) : null;
+
+      if (!tStart) {
+        r._aiBaselinePhase = 'Non-Transformed';
+        return;
+      }
+      if (!sDate) {
+        r._aiBaselinePhase = 'Unknown';
+        return;
+      }
+      if (sDate < tStart) {
+        r._aiBaselinePhase = 'Before Transformation';
+      } else if (tEnd && sDate > tEnd) {
+        r._aiBaselinePhase = 'After Transformation';
+      } else {
+        r._aiBaselinePhase = 'During Transformation';
+      }
+    });
+  }
 
   const groups: Record<string, any> = {};
   const hasLegend = config.legend && config.legend !== 'none';
@@ -211,6 +246,63 @@ export function pivotData(rawData: any[], config: PlotConfig): any[] {
       }
       return result;
     });
+}
+
+/**
+ * For the Transformation Comparison charts, compute which sprint labels
+ * correspond to the transformation start date and transformation end date.
+ *
+ * Algorithm:
+ *   For each team that has a transformationStartDate / transformationEndDate,
+ *   find the first sprint whose sprintDate is >= that date.
+ *   Then take the minimum such sprint number across all transformed teams
+ *   so vertical lines are placed at the earliest boundary observed in the data.
+ */
+export function computeTransformationSprints(rawData: any[]): {
+  startLabel: string | null;
+  endLabel: string | null;
+} {
+  // Per-team: lowest sprintNumber where sprintDate >= transformationStartDate / EndDate
+  const teamStartSprint: Record<string, number> = {};
+  const teamEndSprint: Record<string, number> = {};
+
+  rawData.forEach((row) => {
+    const teamId = row.team?.id ?? row.team?.name;
+    if (!teamId) return;
+
+    const sprintDate = row.sprintDate ? new Date(row.sprintDate) : null;
+    const sprintNumber: number = row.sprintNumber;
+    if (!sprintDate || !sprintNumber) return;
+
+    const tStart = row.team?.transformationStartDate
+      ? new Date(row.team.transformationStartDate)
+      : null;
+    const tEnd = row.team?.transformationEndDate
+      ? new Date(row.team.transformationEndDate)
+      : null;
+
+    if (tStart && sprintDate >= tStart) {
+      if (!(teamId in teamStartSprint) || sprintNumber < teamStartSprint[teamId]) {
+        teamStartSprint[teamId] = sprintNumber;
+      }
+    }
+    if (tEnd && sprintDate >= tEnd) {
+      if (!(teamId in teamEndSprint) || sprintNumber < teamEndSprint[teamId]) {
+        teamEndSprint[teamId] = sprintNumber;
+      }
+    }
+  });
+
+  const startSprints = Object.values(teamStartSprint);
+  const endSprints = Object.values(teamEndSprint);
+
+  const startNum = startSprints.length > 0 ? Math.min(...startSprints) : null;
+  const endNum = endSprints.length > 0 ? Math.min(...endSprints) : null;
+
+  return {
+    startLabel: startNum !== null ? `Sprint ${startNum}` : null,
+    endLabel: endNum !== null ? `Sprint ${endNum}` : null,
+  };
 }
 
 export function newPlotConfig(maxSprint: number): PlotConfig {

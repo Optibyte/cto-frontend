@@ -22,7 +22,7 @@ import { Label } from '@/components/ui/label';
 import { adminUsersAPI } from '@/lib/api/admin';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
-type RoleKey = 'ORG' | 'MARKET' | 'ACCOUNT' | 'PROJECT_MANAGER' | 'PROJECT' | 'TEAM_LEAD' | 'TEAM' | 'MEMBER' | 'CTO';
+type RoleKey = 'SUPERADMIN' | 'ADMIN' | 'ORG' | 'MARKET' | 'ACCOUNT' | 'PROJECT_MANAGER' | 'PROJECT' | 'TEAM_LEAD' | 'TEAM' | 'MEMBER' | 'CTO';
 
 interface FeatureItem {
     id: string;
@@ -42,6 +42,8 @@ interface FeatureCategory {
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 const ROLES: { key: RoleKey; label: string; description: string; color: string; icon: React.ElementType }[] = [
+    { key: 'SUPERADMIN', label: 'Super Admin', description: 'System Administrator', color: 'from-pink-500 to-rose-600', icon: Star },
+    { key: 'ADMIN', label: 'Admin', description: 'Administrator', color: 'from-rose-500 to-red-600', icon: ShieldCheck },
     { key: 'CTO', label: 'CTO', description: 'Chief Technology Officer', color: 'from-violet-500 to-purple-600', icon: Star },
     { key: 'ORG', label: 'Organization', description: 'Org-level admin access', color: 'from-blue-500 to-indigo-600', icon: Globe },
     { key: 'MARKET', label: 'Market', description: 'Market-level manager', color: 'from-cyan-500 to-blue-500', icon: BarChart3 },
@@ -98,6 +100,8 @@ const DEFAULT_FEATURES: FeatureItem[] = [
 ];
 
 const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, string[]> = {
+    SUPERADMIN: DEFAULT_FEATURES.map(f => f.id),
+    ADMIN: DEFAULT_FEATURES.map(f => f.id),
     CTO: DEFAULT_FEATURES.map(f => f.id),
     ORG: DEFAULT_FEATURES.map(f => f.id),
     MARKET: ['dashboard.view', 'metrics.view'],

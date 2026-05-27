@@ -3,6 +3,22 @@ import { UserRole } from './types';
 export type Feature = string;
 
 export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
+    SUPERADMIN: [
+        'dashboard.view',
+        'projects.view', 'projects.create', 'projects.edit', 'projects.drilldown',
+        'teams.view', 'teams.create', 'teams.add_member', 'teams.manage',
+        'metrics.view', 'metrics.create', 'metrics.edit', 'metrics.github',
+        'reports.view', 'reports.export',
+        'admin.access_control', 'admin.audit_logs', 'admin.integrations', 'admin.import', 'admin.console', 'admin.role_features'
+    ],
+    ADMIN: [
+        'dashboard.view',
+        'projects.view', 'projects.create', 'projects.edit', 'projects.drilldown',
+        'teams.view', 'teams.create', 'teams.add_member', 'teams.manage',
+        'metrics.view', 'metrics.create', 'metrics.edit', 'metrics.github',
+        'reports.view', 'reports.export',
+        'admin.access_control', 'admin.audit_logs', 'admin.integrations', 'admin.import', 'admin.console', 'admin.role_features'
+    ],
     CTO: [
         'dashboard.view',
         'projects.view', 'projects.create', 'projects.edit', 'projects.drilldown',

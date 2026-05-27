@@ -9,7 +9,7 @@ import { Maximize2, X, Activity, Layers, Zap, BarChart3, LayoutGrid, Download, E
 import { cn } from '@/lib/utils';
 import { useSprintAnalytics, useSprintMetrics, useMetrics } from '@/hooks/use-metrics';
 import { Button } from '@/components/ui/button';
-import { pivotData, newPlotConfig, X_AXIS_OPTIONS, METRICS_FIELDS, type PlotConfig } from './powerbi-engine';
+import { pivotData, newPlotConfig, computeTransformationSprints, X_AXIS_OPTIONS, METRICS_FIELDS, type PlotConfig } from './powerbi-engine';
 import { PowerBIChart } from './powerbi-chart';
 import { PlotEditorDialog } from './powerbi-editor';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -52,31 +52,31 @@ const STARTER_PLOTS: PlotConfig[] = [
 
 const AI_MONITOR_PLOTS: PlotConfig[] = [
     {
-        id: 'ai-1', title: 'Velocity (AI vs Baseline)', subtitle: 'Average velocity comparison',
+        id: 'ai-1', title: 'Velocity (Transformation Phases)', subtitle: 'Average velocity comparison',
         dataSource: 'team_productivity', scopeOrgs: [], scopeMarkets: [], scopeAccounts: [], scopeProjects: [], scopeTeams: [],
         aiFilter: 'all', sprintRange: [1, 10], xAxis: 'sprintNumber', legend: 'aiBaseline', chartType: 'LineChart',
         metrics: [{ key: 'velocityPoints', agg: 'avg', color: '#3b82f6', type: 'line' }], span: 1,
     },
     {
-        id: 'ai-2', title: 'Throughput (AI vs Baseline)', subtitle: 'Average throughput comparison',
+        id: 'ai-2', title: 'Throughput (Transformation Phases)', subtitle: 'Average throughput comparison',
         dataSource: 'team_productivity', scopeOrgs: [], scopeMarkets: [], scopeAccounts: [], scopeProjects: [], scopeTeams: [],
         aiFilter: 'all', sprintRange: [1, 10], xAxis: 'sprintNumber', legend: 'aiBaseline', chartType: 'LineChart',
         metrics: [{ key: 'throughputPoints', agg: 'avg', color: '#3b82f6', type: 'line' }], span: 1,
     },
     {
-        id: 'ai-3', title: 'Quality (AI vs Baseline)', subtitle: 'Quality score comparison',
+        id: 'ai-3', title: 'Quality (Transformation Phases)', subtitle: 'Quality score comparison',
         dataSource: 'team_productivity', scopeOrgs: [], scopeMarkets: [], scopeAccounts: [], scopeProjects: [], scopeTeams: [],
         aiFilter: 'all', sprintRange: [1, 10], xAxis: 'sprintNumber', legend: 'aiBaseline', chartType: 'LineChart',
         metrics: [{ key: 'qualityScore', agg: 'avg', color: '#3b82f6', type: 'line' }], span: 1,
     },
     {
-        id: 'ai-4', title: 'Done-to-Said (AI vs Baseline)', subtitle: 'Done-to-said ratio comparison',
+        id: 'ai-4', title: 'Done-to-Said (Transformation Phases)', subtitle: 'Done-to-said ratio comparison',
         dataSource: 'team_productivity', scopeOrgs: [], scopeMarkets: [], scopeAccounts: [], scopeProjects: [], scopeTeams: [],
         aiFilter: 'all', sprintRange: [1, 10], xAxis: 'sprintNumber', legend: 'aiBaseline', chartType: 'LineChart',
         metrics: [{ key: 'doneToSaidRatio', agg: 'avg', color: '#3b82f6', type: 'line' }], span: 1,
     },
     {
-        id: 'ai-5', title: 'Tech Debt (AI vs Baseline)', subtitle: 'Tech debt index comparison',
+        id: 'ai-5', title: 'Tech Debt (Transformation Phases)', subtitle: 'Tech debt index comparison',
         dataSource: 'team_productivity', scopeOrgs: [], scopeMarkets: [], scopeAccounts: [], scopeProjects: [], scopeTeams: [],
         aiFilter: 'all', sprintRange: [1, 10], xAxis: 'sprintNumber', legend: 'aiBaseline', chartType: 'LineChart',
         metrics: [{ key: 'technicalDebtIndex', agg: 'avg', color: '#3b82f6', type: 'line' }], span: 1,
@@ -215,6 +215,14 @@ export function AnalyticsDashboard({ filters, onFilterChange }: { filters: any; 
     const rawData = Array.isArray(rawMetricsData) ? rawMetricsData : [];
     const manualData = Array.isArray(manualMetricsData) ? manualMetricsData : [];
     const maxSprint = rawData.length ? Math.max(...rawData.map((r: any) => r.sprintNumber || 1)) : 10;
+
+    // Pre-compute transformation sprint labels once from the raw sprint data.
+    // These are passed to the AI Monitor (Transformation Comparison) charts so
+    // they can draw vertical phase-boundary lines on the sprint axis.
+    const transformationSprints = useMemo(
+        () => computeTransformationSprints(rawData),
+        [rawData],
+    );
 
     const dynamicDim = useMemo(() => {
         if (filters.project && filters.project !== 'all') return 'team';
@@ -426,7 +434,7 @@ export function AnalyticsDashboard({ filters, onFilterChange }: { filters: any; 
                         <div className="p-2 rounded-xl bg-violet-600 text-white"><Activity className="w-5 h-5" /></div>
                         <div>
                             <h2 className="text-lg font-black tracking-tight leading-none text-violet-700 dark:text-violet-400">Transformation Comparison</h2>
-                            <p className="text-[10px] text-muted-foreground font-medium mt-0.5">Comparing transformation-enabled projects against non-transformation traditional aggregates</p>
+                            <p className="text-[10px] text-muted-foreground font-medium mt-0.5">Comparing before, during, and after transformation phases across teams</p>
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -462,7 +470,11 @@ export function AnalyticsDashboard({ filters, onFilterChange }: { filters: any; 
                                         </div>
                                     </CardHeader>
                                     <CardContent className="p-5 pt-2 h-[350px]">
-                                        <PowerBIChart data={chartData} config={plot} />
+                                        <PowerBIChart
+                                            data={chartData}
+                                            config={plot}
+                                            transformationSprints={plot.legend === 'aiBaseline' ? transformationSprints : undefined}
+                                        />
                                     </CardContent>
                                 </Card>
                             </div>
@@ -514,6 +526,7 @@ export function AnalyticsDashboard({ filters, onFilterChange }: { filters: any; 
                                 <PowerBIChart
                                     data={pivotData(expandingPlot.dataSource === 'manual_metrics' ? manualData : rawData, expandingPlot)}
                                     config={expandingPlot}
+                                    transformationSprints={expandingPlot.legend === 'aiBaseline' ? transformationSprints : undefined}
                                 />
                             </div>
                             <div className="p-6 border-t border-border/10 bg-muted/5 flex items-center justify-center gap-6 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">

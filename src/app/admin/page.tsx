@@ -23,6 +23,8 @@ import {
     marketsAPI, adminAccountsAPI, adminProjectsAPI, adminTeamsAPI, adminTeamMembersAPI, adminUsersAPI, adminEmployeesAPI, adminOrganizationsAPI, adminSprintMetricsAPI, adminReportSchedulesAPI,
 } from '@/lib/api/admin';
 import { useRole } from '@/contexts/role-context';
+import ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
 import { getBadgeStyles } from '@/lib/badges';
 
 // ═══════════════════════════ TYPES ═══════════════════════════
@@ -1370,6 +1372,7 @@ function EntityDialog({ open, onOpenChange, tab, editItem, onSave, organizations
                                 <Select value={form.role || 'TEAM'} onValueChange={v => { set('role', v); set('scopeOrgId', ''); set('scopeMarketId', ''); set('scopeAccountId', ''); set('scopeProjectId', ''); set('scopeTeamId', ''); }}>
                                     <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
                                     <SelectContent>
+                                        <SelectItem value="SUPERADMIN">SUPERADMIN</SelectItem>
                                         <SelectItem value="ORG">Organization</SelectItem>
                                         <SelectItem value="MARKET">Market</SelectItem>
                                         <SelectItem value="ACCOUNT">Account</SelectItem>
@@ -1742,39 +1745,98 @@ function BulkUploadDialog({ open, onOpenChange, type, onSuccess }: BulkUploadDia
 
     const reset = () => { setFile(null); setResult(null); };
 
-    const handleDownloadTemplate = () => {
-        let headers: string[] = [];
-        let csvContent = '';
-        let fileName = '';
-
+    const handleDownloadTemplate = async () => {
         if (isEmployees) {
-            headers = ['employee_id', 'employee_name', 'email', 'org', 'country', 'market', 'account', 'project', 'team', 'team_id', 'role', 'employment_type', 'experience_years', 'project_ai_enabled', 'project_ai_tools_used', 'primary_ai_skill', 'primary_ai_skill_proficiency'];
-            const sampleRows = [
-                ['EMP-1001', 'John Doe', 'john.doe@example.com', 'Acme Corp', 'USA', 'US-Market', 'Aetna', 'Claims Mod', 'Alpha Team', 'T-ALPHA', 'Dev', 'Full-Time', '5', 'Yes', 'Copilot, ChatGPT', 'Python', '4'],
-                ['EMP-1002', 'Alice Smith', 'alice.smith@example.com', 'Acme Corp', 'USA', 'US-Market', 'Aetna', 'Claims Mod', 'Alpha Team', 'T-ALPHA', 'Team Lead', 'Full-Time', '8', 'Yes', 'Copilot', 'TypeScript', '5'],
-                ['EMP-1003', 'Bob Johnson', 'bob.johnson@example.com', 'Acme Corp', 'USA', 'US-Market', 'Aetna', 'Claims Mod', '', '', 'PM', 'Full-Time', '10', 'Yes', 'ChatGPT', 'Management', '3'],
-                ['EMP-1004', 'Charlie Brown', 'charlie.brown@example.com', 'Acme Corp', 'USA', 'US-Market', 'Aetna', '', '', '', 'Account', 'Full-Time', '12', 'No', '', '', '0'],
-                ['EMP-1005', 'Diana Prince', 'diana.prince@example.com', 'Acme Corp', 'USA', 'US-Market', '', '', '', '', 'Market', 'Full-Time', '15', 'No', '', '', '0'],
-                ['EMP-1006', 'Evan Wright', 'evan.wright@example.com', 'Acme Corp', 'USA', '', '', '', '', '', 'ORG', 'Full-Time', '18', 'No', '', '', '0'],
-                ['EMP-1007', 'Fiona Gallagher', 'fiona.gallagher@example.com', 'Acme Corp', 'USA', '', '', '', '', '', 'CTO', 'Full-Time', '20', 'Yes', 'Copilot, ChatGPT, Claude', 'Architecture', '5']
-            ];
-            csvContent = [headers.join(','), ...sampleRows.map(row => row.join(','))].join('\n');
-            fileName = 'employee_bulk_import_template.csv';
-        } else {
-            headers = ['org', 'country', 'market', 'account', 'project', 'team', 'team_size', 'project_ai_enabled', 'project_ai_tool_licenses', 'project_ai_tools_used', 'sprint_number', 'sprint_name', 'throughput_points', 'quality_score', 'velocity_points', 'done_to_said_ratio', 'technical_debt_index', 'user_stories_delivered'];
-            const sampleRow = ['Acme Corp', 'USA', 'US-Market', 'Aetna', 'Claims Mod', 'Alpha Team', '10', 'Yes', '12', 'Copilot', '1', 'Sprint-1', '45.5', '92.0', '50.0', '0.95', '12.5', '8'];
-            csvContent = [headers.join(','), sampleRow.join(',')].join('\n');
-            fileName = 'sprint_metrics_bulk_import_template.csv';
-        }
+            try {
+                const toastId = toast.loading('Generating template...');
+                let usersList: any[] = [];
+                try {
+                    const res = await adminUsersAPI.getAll();
+                    usersList = Array.isArray(res) ? res : res.data || [];
+                } catch (e) {
+                    console.error('Error fetching users:', e);
+                }
 
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', fileName);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+                const workbook = new ExcelJS.Workbook();
+                const worksheet = workbook.addWorksheet('Employees');
+
+                worksheet.columns = [
+                    { header: 'eName', key: 'eName', width: 25 },
+                    { header: 'Email', key: 'email', width: 30 },
+                    { header: 'Access Role', key: 'accessRole', width: 20 },
+                    { header: 'Employee ID', key: 'employeeId', width: 20 },
+                    { header: 'Job Role', key: 'jobRole', width: 25 }
+                ];
+
+                if (usersList && usersList.length > 0) {
+                    usersList.forEach(u => {
+                        let mappedRole = u.role;
+                        if (u.role === 'PROJECT_MANAGER') mappedRole = 'Project Manager';
+                        else if (u.role === 'TEAM_LEAD') mappedRole = 'Team Lead';
+                        else if (u.role === 'TEAM') mappedRole = 'Team Member';
+                        else if (u.role === 'ORG') mappedRole = 'Organization';
+                        else if (u.role === 'MARKET') mappedRole = 'Market';
+                        else if (u.role === 'ACCOUNT') mappedRole = 'Account';
+                        else if (u.role === 'CTO') mappedRole = 'CTO';
+                        else if (u.role === 'SUPERADMIN') mappedRole = 'SUPERADMIN';
+                        else if (u.role === 'ADMIN') mappedRole = 'ADMIN';
+
+                        worksheet.addRow({
+                            eName: u.fullName || '',
+                            email: u.email || '',
+                            accessRole: mappedRole,
+                            employeeId: u.employeeId || '',
+                            jobRole: u.jobRole || ''
+                        });
+                    });
+                } else {
+                    worksheet.addRow({ eName: 'John Doe', email: 'john.doe@example.com', accessRole: 'CTO', employeeId: 'EMP-1001', jobRole: 'Chief Technology Officer' });
+                    worksheet.addRow({ eName: 'Alice Smith', email: 'alice.smith@example.com', accessRole: 'Team Lead', employeeId: 'EMP-1002', jobRole: 'Senior Engineer' });
+                    worksheet.addRow({ eName: 'Bob Johnson', email: 'bob.johnson@example.com', accessRole: 'Project Manager', employeeId: 'EMP-1003', jobRole: 'Scrum Master' });
+                    worksheet.addRow({ eName: 'Charlie Brown', email: 'charlie.brown@example.com', accessRole: 'Account', employeeId: 'EMP-1004', jobRole: 'Account Director' });
+                    worksheet.addRow({ eName: 'Diana Prince', email: 'diana.prince@example.com', accessRole: 'Market', employeeId: 'EMP-1005', jobRole: 'Market Lead' });
+                    worksheet.addRow({ eName: 'Evan Wright', email: 'evan.wright@example.com', accessRole: 'Organization', employeeId: 'EMP-1006', jobRole: 'Org Admin' });
+                    worksheet.addRow({ eName: 'Fiona Gallagher', email: 'fiona.gallagher@example.com', accessRole: 'Team Member', employeeId: 'EMP-1007', jobRole: 'Developer' });
+                    worksheet.addRow({ eName: 'System Admin', email: 'admin@example.com', accessRole: 'SUPERADMIN', employeeId: 'EMP-1008', jobRole: 'System Administrator' });
+                }
+
+                // Add data validation
+                for (let i = 2; i <= (usersList.length > 0 ? usersList.length + 500 : 500); i++) {
+                    worksheet.getCell(`C${i}`).dataValidation = {
+                        type: 'list',
+                        allowBlank: true,
+                        showErrorMessage: true,
+                        errorStyle: 'error',
+                        errorTitle: 'Invalid Role',
+                        error: 'Please select a valid role from the dropdown list.',
+                        formulae: ['"SUPERADMIN,ADMIN,CTO,Organization,Market,Account,Project Manager,Team Lead,Team Member"']
+                    };
+                }
+                
+                worksheet.getRow(1).font = { bold: true };
+                
+                const buffer = await workbook.xlsx.writeBuffer();
+                const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                saveAs(blob, 'employee_bulk_import_template.xlsx');
+                toast.dismiss(toastId);
+                toast.success('Template downloaded');
+            } catch (err) {
+                console.error(err);
+                toast.error('Failed to generate template');
+            }
+        } else {
+            let headers = ['org', 'country', 'market', 'account', 'project', 'team', 'team_size', 'project_ai_enabled', 'project_ai_tool_licenses', 'project_ai_tools_used', 'sprint_number', 'sprint_name', 'throughput_points', 'quality_score', 'velocity_points', 'done_to_said_ratio', 'technical_debt_index', 'user_stories_delivered'];
+            const sampleRow = ['Acme Corp', 'USA', 'US-Market', 'Aetna', 'Claims Mod', 'Alpha Team', '10', 'Yes', '12', 'Copilot', '1', 'Sprint-1', '45.5', '92.0', '50.0', '0.95', '12.5', '8'];
+            let csvContent = [headers.join(','), sampleRow.join(',')].join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', 'sprint_metrics_bulk_import_template.csv');
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
     };
 
     useEffect(() => { if (!open) reset(); }, [open]);
@@ -1848,7 +1910,7 @@ function BulkUploadDialog({ open, onOpenChange, type, onSuccess }: BulkUploadDia
                         </div>
                         <div className="flex flex-wrap gap-1.5">
                             {(isEmployees
-                                ? ['employee_id', 'employee_name', 'org', 'project', 'team', 'team_id', 'role', 'project_ai_enabled']
+                                ? ['eName', 'Email', 'Access Role', 'Employee ID', 'Job Role']
                                 : ['team', 'sprint_number', 'throughput_points', 'quality_score', 'velocity_points', 'project_ai_enabled']
                             ).map(col => (
                                 <span key={col} className={cn(
@@ -1858,20 +1920,22 @@ function BulkUploadDialog({ open, onOpenChange, type, onSuccess }: BulkUploadDia
                                         : "bg-amber-500/10 text-amber-600 border-amber-500/20"
                                 )}>{col}</span>
                             ))}
-                            <span className="text-[10px] text-muted-foreground italic px-1">+ all other metrics</span>
+                            {!isEmployees && <span className="text-[10px] text-muted-foreground italic px-1">+ all other metrics</span>}
                         </div>
+                        {isEmployees && (
                         <div className="mt-3 pt-3 border-t border-border/20 space-y-1.5">
-                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Role Mapping Reference</p>
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Access Role Values</p>
                             <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[10px]">
+                                <div className="flex justify-between border-b border-border/10 pb-0.5"><span className="text-muted-foreground">Chief Technology Officer</span> <span className="font-bold text-violet-600">CTO</span></div>
                                 <div className="flex justify-between border-b border-border/10 pb-0.5"><span className="text-muted-foreground">Organization</span> <span className="font-bold text-violet-600">ORG</span></div>
                                 <div className="flex justify-between border-b border-border/10 pb-0.5"><span className="text-muted-foreground">Market</span> <span className="font-bold text-violet-600">MARKET</span></div>
                                 <div className="flex justify-between border-b border-border/10 pb-0.5"><span className="text-muted-foreground">Account</span> <span className="font-bold text-violet-600">ACCOUNT</span></div>
                                 <div className="flex justify-between border-b border-border/10 pb-0.5"><span className="text-muted-foreground">Project Manager</span> <span className="font-bold text-violet-600">PROJECT_MANAGER</span></div>
                                 <div className="flex justify-between border-b border-border/10 pb-0.5"><span className="text-muted-foreground">Team Lead</span> <span className="font-bold text-violet-600">TEAM_LEAD</span></div>
                                 <div className="flex justify-between border-b border-border/10 pb-0.5"><span className="text-muted-foreground">Team Member</span> <span className="font-bold text-violet-600">TEAM</span></div>
-                                <div className="flex justify-between border-b border-border/10 pb-0.5"><span className="text-muted-foreground">CTO</span> <span className="font-bold text-violet-600">CTO</span></div>
                             </div>
                         </div>
+                        )}
                     </div>
 
                     {/* Drop zone */}
