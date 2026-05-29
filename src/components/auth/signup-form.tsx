@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Mail, ArrowRight, UserCircle, ShieldCheck, User } from 'lucide-react';
+import { Mail, ArrowRight, UserCircle, ShieldCheck, User, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -22,11 +22,12 @@ export function SignUpForm() {
         email: '',
         fullName: '',
         role: 'TEAM' as UserRole,
+        password: '',
     });
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!formData.email || !formData.fullName) {
+        if (!formData.email || !formData.fullName || !formData.password) {
             toast.error('Please fill in all required fields');
             return;
         }
@@ -38,6 +39,7 @@ export function SignUpForm() {
                 email: formData.email,
                 fullName: formData.fullName,
                 role: formData.role,
+                password: formData.password,
             });
 
             // Store token and user data
@@ -101,6 +103,21 @@ export function SignUpForm() {
                                 className="pl-11 h-12 bg-white/5 border-white/10 rounded-xl focus:bg-white/10 focus-visible:ring-primary/40 text-white placeholder:text-slate-600"
                                 value={formData.email}
                                 onChange={(e) => handleInputChange('email', e.target.value)}
+                                required
+                            />
+                        </div>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="password" className="text-sm font-medium text-slate-200">Password</Label>
+                        <div className="relative group">
+                            <Lock className="absolute left-3.5 top-3.5 h-4 w-4 text-slate-500 group-focus-within:text-primary transition-colors" />
+                            <Input
+                                id="password"
+                                type="password"
+                                placeholder="••••••••"
+                                className="pl-11 h-12 bg-white/5 border-white/10 rounded-xl focus:bg-white/10 focus-visible:ring-primary/40 text-white placeholder:text-slate-600"
+                                value={formData.password}
+                                onChange={(e) => handleInputChange('password', e.target.value)}
                                 required
                             />
                         </div>

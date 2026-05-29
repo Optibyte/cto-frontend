@@ -15,8 +15,8 @@ export function RouteGuard({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         if (isInitializing) return;
 
-        // Skip auth check for login/signup
-        const isAuthRoute = pathname === '/login' || pathname === '/signup';
+        // Skip auth check for login/signup/forgot-password/reset-password
+        const isAuthRoute = pathname === '/login' || pathname === '/signup' || pathname === '/forgot-password' || pathname === '/reset-password';
         
         if (!isAuthenticated && !isAuthRoute) {
             router.push('/login');

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Mail, ArrowRight, Fingerprint } from 'lucide-react';
+import { Mail, ArrowRight, Fingerprint, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,24 +12,14 @@ import { useRole } from '@/contexts/role-context';
 import { UserRole } from '@/lib/types';
 import { authAPI } from '@/lib/api/auth';
 
-const LogoGraphic = () => (
-    <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-24 h-24 mb-6">
-        <rect x="12" y="12" width="16" height="16" rx="4" stroke="#8B5CF6" strokeWidth="3"/>
-        <rect x="36" y="12" width="16" height="16" rx="4" stroke="#06B6D4" strokeWidth="3"/>
-        <rect x="12" y="36" width="16" height="16" rx="4" stroke="#8B5CF6" strokeWidth="3"/>
-        <rect x="36" y="36" width="16" height="16" rx="4" stroke="#06B6D4" strokeWidth="3"/>
-        <path d="M28 20 L36 20" stroke="#06B6D4" strokeWidth="3" strokeLinecap="round"/>
-        <path d="M20 28 L20 36" stroke="#8B5CF6" strokeWidth="3" strokeLinecap="round"/>
-        <path d="M28 44 L36 44" stroke="#8B5CF6" strokeWidth="3" strokeLinecap="round"/>
-        <path d="M44 28 L44 36" stroke="#06B6D4" strokeWidth="3" strokeLinecap="round"/>
-    </svg>
-);
+
 
 export function LoginForm() {
     const router = useRouter();
     const { setRole, setIsAuthenticated, setUser, setToken } = useRole();
     const [isLoading, setIsLoading] = useState(false);
     const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
     const [isSSOMode, setIsSSOMode] = useState(false);
     const [ssoDomain, setSsoDomain] = useState('');
     const [ssoAuthenticating, setSsoAuthenticating] = useState(false);
@@ -41,11 +31,15 @@ export function LoginForm() {
             toast.error('Please enter your email');
             return;
         }
+        if (!password) {
+            toast.error('Please enter your password');
+            return;
+        }
 
         setIsLoading(true);
 
         try {
-            const response = await authAPI.login({ email });
+            const response = await authAPI.login({ email, password });
 
             // Store token and user data
             setToken(response.access_token);
@@ -100,9 +94,9 @@ export function LoginForm() {
                         let loginEmail = ssoDomain.includes('@') ? ssoDomain : 'cto@skillvector.com';
                         
                         // Fallback to cto@skillvector.com if it doesn't match an active user
-                        const response = await authAPI.login({ email: loginEmail }).catch(async () => {
+                        const response = await authAPI.login({ email: loginEmail, password: 'Password123' }).catch(async () => {
                             // If user email failed, login as default CTO user
-                            return await authAPI.login({ email: 'cto@skillvector.com' });
+                            return await authAPI.login({ email: 'cto@skillvector.com', password: 'Password123' });
                         });
 
                         // Store token and user data
@@ -128,12 +122,13 @@ export function LoginForm() {
             
             {/* Logo / Branding Card (Left Pane) */}
             <div className="w-full md:w-1/2 flex flex-col items-center justify-center p-12 md:p-16 bg-gradient-to-b from-[#161225] to-[#0a0a0b] relative border-r border-white/5">
-                <div className="relative z-10 flex flex-col items-center justify-center h-full">
-                    <LogoGraphic />
-                    <div className="text-center space-y-4">
-                        <h1 className="text-[28px] font-bold tracking-tight text-[#f8fafc]">SkillVector</h1>
-                        <p className="text-[15px] text-[#94a3b8] font-medium">Performance Intelligence</p>
+                <div className="relative z-10 flex flex-col items-center justify-center h-full space-y-6">
+                    <div className="flex items-center gap-3">
+                        <img src="/ct-icon.png" alt="Icon" className="h-10 w-auto object-contain shrink-0" />
+                        <h1 className="text-[36px] font-black tracking-tight text-[#f8fafc] leading-none">SkillVector</h1>
                     </div>
+                    <img src="/logo.png" alt="CitiusTech Logo" className="h-[40px] w-auto object-contain shrink-0 opacity-90" />
+                    <p className="text-[14px] text-[#94a3b8] font-medium uppercase tracking-[0.15em]">Performance Intelligence</p>
                 </div>
             </div>
 
@@ -198,6 +193,30 @@ export function LoginForm() {
                                     className="pl-12 h-14 bg-[#eeebff] border-2 border-[#8b5cf6] rounded-xl text-[#0f172a] placeholder:text-[#94a3b8] focus-visible:ring-0 focus-visible:ring-offset-0 focus:border-[#7c3aed] text-[15px] font-medium transition-colors"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
+                                    required
+                                />
+                            </div>
+                        </div>
+
+                        <div className="space-y-3">
+                            <div className="flex justify-between items-center">
+                                <Label htmlFor="password" className="text-[13px] font-semibold text-[#f8fafc]">Password</Label>
+                                <Link
+                                    href="/forgot-password"
+                                    className="text-[12px] font-semibold text-[#a78bfa] hover:text-[#c4b5fd] transition-colors"
+                                >
+                                    Forgot password?
+                                </Link>
+                            </div>
+                            <div className="relative group">
+                                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-[18px] w-[18px] text-[#a78bfa]" />
+                                <Input
+                                    id="password"
+                                    type="password"
+                                    placeholder="••••••••"
+                                    className="pl-12 h-14 bg-[#eeebff] border-2 border-[#8b5cf6] rounded-xl text-[#0f172a] placeholder:text-[#94a3b8] focus-visible:ring-0 focus-visible:ring-offset-0 focus:border-[#7c3aed] text-[15px] font-medium transition-colors"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
                                     required
                                 />
                             </div>

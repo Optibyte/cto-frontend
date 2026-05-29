@@ -8,6 +8,7 @@ const authClient = axios.create({
 
 export interface LoginRequest {
     email: string;
+    password?: string;
 }
 
 export interface SignupRequest {
@@ -21,6 +22,7 @@ export interface SignupRequest {
     accountId?: string;
     projectId?: string;
     teamId?: string;
+    password?: string;
 }
 
 export interface AuthResponse {
@@ -47,6 +49,16 @@ export const authAPI = {
 
     signup: async (data: SignupRequest): Promise<AuthResponse> => {
         const response = await authClient.post('/signup', data);
+        return response.data;
+    },
+
+    forgotPassword: async (email: string): Promise<{ message: string }> => {
+        const response = await authClient.post('/forgot-password', { email });
+        return response.data;
+    },
+
+    resetPassword: async (email: string, newPassword: string): Promise<{ success: boolean; message: string }> => {
+        const response = await authClient.post('/reset-password', { email, newPassword });
         return response.data;
     },
 };
