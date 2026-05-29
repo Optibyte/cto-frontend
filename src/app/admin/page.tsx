@@ -29,7 +29,7 @@ import { getBadgeStyles } from '@/lib/badges';
 
 // ═══════════════════════════ TYPES ═══════════════════════════
 
-type TabKey = 'organizations' | 'markets' | 'accounts' | 'projects' | 'ai-projects' | 'teams' | 'members' | 'users' | 'badges' | 'report-schedules';
+type TabKey = 'organizations' | 'markets' | 'accounts' | 'projects' | 'ai-projects' | 'teams' | 'members' | 'users' | 'report-schedules';
 
 interface TabConfig {
     key: TabKey;
@@ -61,11 +61,9 @@ const TABS: TabConfig[] = [
     { key: 'markets', label: 'Markets', icon: Globe2, color: 'text-blue-500', gradient: 'from-blue-600 to-blue-400' },
     { key: 'accounts', label: 'Accounts', icon: Briefcase, color: 'text-emerald-500', gradient: 'from-emerald-600 to-emerald-400' },
     { key: 'projects', label: 'Projects', icon: FolderKanban, color: 'text-violet-500', gradient: 'from-violet-600 to-violet-400' },
-    { key: 'ai-projects', label: 'AI Projects', icon: Zap, color: 'text-violet-600', gradient: 'from-violet-700 to-violet-500' },
     { key: 'teams', label: 'Teams', icon: Users2, color: 'text-amber-500', gradient: 'from-amber-600 to-amber-400' },
     { key: 'members', label: 'Team Members', icon: UserPlus, color: 'text-cyan-500', gradient: 'from-cyan-600 to-cyan-400' },
     { key: 'users', label: 'Users', icon: Building2, color: 'text-rose-500', gradient: 'from-rose-600 to-rose-400' },
-    { key: 'badges', label: 'Assign Badges', icon: Award, color: 'text-amber-500', gradient: 'from-amber-600 to-amber-400' },
     { key: 'report-schedules', label: 'Schedule Reports', icon: Mail, color: 'text-violet-500', gradient: 'from-violet-600 to-violet-400' },
 ];
 
@@ -78,10 +76,10 @@ export default function AdminPage() {
     // Filter tabs based on role
     const filteredTabs = TABS.filter(tab => {
         if (role === 'ORG' || role === 'CTO') return true;
-        if (role === 'MARKET') return ['markets', 'accounts', 'ai-projects', 'teams', 'members', 'users', 'badges', 'report-schedules'].includes(tab.key);
-        if (role === 'ACCOUNT') return ['accounts', 'ai-projects', 'teams', 'members', 'users', 'badges', 'report-schedules'].includes(tab.key);
-        if (role === 'PROJECT_MANAGER' || role === 'PROJECT') return ['projects', 'ai-projects', 'teams', 'members', 'users', 'badges', 'report-schedules'].includes(tab.key);
-        if (role === 'TEAM_LEAD') return ['teams', 'members', 'users', 'badges'].includes(tab.key);
+        if (role === 'MARKET') return ['markets', 'accounts', 'teams', 'members', 'users', 'report-schedules'].includes(tab.key);
+        if (role === 'ACCOUNT') return ['accounts', 'teams', 'members', 'users', 'report-schedules'].includes(tab.key);
+        if (role === 'PROJECT_MANAGER' || role === 'PROJECT') return ['projects', 'teams', 'members', 'users', 'report-schedules'].includes(tab.key);
+        if (role === 'TEAM_LEAD') return ['teams', 'members', 'users'].includes(tab.key);
         return ['teams', 'members'].includes(tab.key); // Default for lower roles if they can access admin at all
     });
 
@@ -96,6 +94,8 @@ export default function AdminPage() {
 
     // ── Search ────────────────────────────────────────────────
     const [tableSearch, setTableSearch] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState('');
+    const [teamFilter, setTeamFilter] = useState<'all' | 'normal' | 'transformation'>('all');
 
     // ── Pagination ────────────────────────────────────────────
     const PAGE_SIZE = 10;
@@ -111,15 +111,22 @@ export default function AdminPage() {
     const [users, setUsers] = useState<any[]>([]);
     const [teams, setTeams] = useState<any[]>([]);
 
-    // Debounced server-side search (used for Users tab)
-    const [serverSearch, setServerSearch] = useState('');
+    // Debounced server-side search (used for Users & Teams tabs)
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(tableSearch);
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [tableSearch]);
 
-    const fetchData = useCallback(async (page: number, tab: TabKey, search?: string) => {
+    const fetchData = useCallback(async (page: number, tab: TabKey, search?: string, transformationFilter?: string) => {
         setLoading(true);
         try {
             let result: any;
-            if (tab === 'users' || tab === 'badges') {
+            if (tab === 'users') {
                 result = await adminUsersAPI.getAll(page, PAGE_SIZE, search);
+            } else if (tab === 'teams') {
+                result = await adminTeamsAPI.getAll(page, PAGE_SIZE, search, transformationFilter);
             } else {
                 const apiMap: Record<string, (page?: number, limit?: number, aiEnabled?: boolean) => Promise<any>> = {
                     organizations: adminOrganizationsAPI.getAll,
@@ -127,7 +134,7 @@ export default function AdminPage() {
                     accounts: adminAccountsAPI.getAll,
                     projects: (p, l) => adminProjectsAPI.getAll(p, l, false),
                     'ai-projects': (p, l) => adminProjectsAPI.getAll(p, l, true),
-                    teams: adminTeamsAPI.getAll,
+                    teams: adminTeamsAPI.getAll as any,
                     members: adminTeamMembersAPI.getAll as any,
                     'report-schedules': adminReportSchedulesAPI.getAll,
                 };
@@ -175,22 +182,14 @@ export default function AdminPage() {
     useEffect(() => { fetchLinkedData(); }, [fetchLinkedData]);
 
     useEffect(() => {
-        fetchData(currentPage, activeTab);
-    }, [currentPage, activeTab, fetchData]);
+        const searchParam = (activeTab === 'users' || activeTab === 'teams') ? debouncedSearch.trim() || undefined : undefined;
+        const transfParam = activeTab === 'teams' ? (teamFilter === 'normal' ? 'false' : teamFilter === 'transformation' ? 'true' : undefined) : undefined;
+        fetchData(currentPage, activeTab, searchParam, transfParam);
+    }, [currentPage, activeTab, fetchData, debouncedSearch, teamFilter]);
 
-    // Server-side search for Users & Badges tab — debounce 300ms
-    useEffect(() => {
-        if (activeTab !== 'users' && activeTab !== 'badges') return;
-        const timer = setTimeout(() => {
-            setCurrentPage(1);
-            fetchData(1, activeTab, tableSearch.trim() || undefined);
-        }, 300);
-        return () => clearTimeout(timer);
-    }, [tableSearch, activeTab]); // eslint-disable-line
-
-    // Search filter (client-side for all tabs except 'users' / 'badges' which use server-side search)
+    // Search filter (client-side for all tabs except 'users' / 'teams' which use server-side search)
     const filteredData = useMemo(() => {
-        if (activeTab === 'users' || activeTab === 'badges') return data; // server already filtered
+        if (activeTab === 'users' || activeTab === 'teams') return data; // server already filtered
         const q = tableSearch.trim().toLowerCase();
         if (!q) return data;
         return data.filter(item =>
@@ -203,17 +202,17 @@ export default function AdminPage() {
     }, [data, tableSearch, activeTab]);
 
     // Pagination derived values (based on filtered data)
-    const totalItemsToUse = isServerPaginated && !tableSearch.trim() ? totalServerItems : filteredData.length;
+    const totalItemsToUse = isServerPaginated ? totalServerItems : filteredData.length;
     const totalPages = Math.max(1, Math.ceil(totalItemsToUse / PAGE_SIZE));
 
     const pagedData = useMemo(() => {
         let filtered = filteredData;
-        if (isServerPaginated && !tableSearch.trim()) return filtered;
+        if (isServerPaginated) return filtered;
         return filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
-    }, [filteredData, currentPage, isServerPaginated, tableSearch, activeTab]);
+    }, [filteredData, currentPage, isServerPaginated]);
 
-    // Reset to page 1 when search changes
-    useEffect(() => { setCurrentPage(1); }, [tableSearch]);
+    // Reset to page 1 when search or filter changes
+    useEffect(() => { setCurrentPage(1); }, [tableSearch, teamFilter]);
 
     const handleCreate = (initialData: any = null) => {
         const isEvent = initialData && (initialData.nativeEvent instanceof Event || initialData.target);
@@ -389,7 +388,23 @@ export default function AdminPage() {
                                 </button>
                             )}
                         </div>
-                        <Button variant="ghost" size="sm" className="rounded-xl gap-2 shrink-0" onClick={() => fetchData(currentPage, activeTab)}>
+                        {activeTab === 'teams' && (
+                            <Select value={teamFilter} onValueChange={(v: any) => setTeamFilter(v)}>
+                                <SelectTrigger className="w-[180px] h-9 rounded-xl text-xs font-semibold shrink-0 bg-background border-border">
+                                    <SelectValue placeholder="All Teams" />
+                                </SelectTrigger>
+                                <SelectContent className="rounded-xl">
+                                    <SelectItem value="all">All Teams</SelectItem>
+                                    <SelectItem value="normal">Normal Teams</SelectItem>
+                                    <SelectItem value="transformation">Transformation Monitor Teams</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        )}
+                        <Button variant="ghost" size="sm" className="rounded-xl gap-2 shrink-0" onClick={() => {
+                            const searchParam = (activeTab === 'users' || activeTab === 'teams') ? debouncedSearch.trim() || undefined : undefined;
+                            const transfParam = activeTab === 'teams' ? (teamFilter === 'normal' ? 'false' : teamFilter === 'transformation' ? 'true' : undefined) : undefined;
+                            fetchData(currentPage, activeTab, searchParam, transfParam);
+                        }}>
                             <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} /> Refresh
                         </Button>
                     </div>
@@ -422,9 +437,7 @@ export default function AdminPage() {
                                             {getColumns(activeTab).map(col => (
                                                 <th key={col} className="pb-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">{col}</th>
                                             ))}
-                                            {activeTab !== 'badges' && (
-                                                <th className="pb-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider pr-2">Actions</th>
-                                            )}
+                                            <th className="pb-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider pr-2">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -444,7 +457,6 @@ export default function AdminPage() {
                                                         fetchData(currentPage, activeTab);
                                                     }
                                                 )}
-                                                {activeTab !== 'badges' && (
                                                     <td className="py-3 text-right pr-2">
                                                         <div className="flex gap-1.5 justify-end opacity-0 group-hover:opacity-100 transition-all">
                                                             {!(role === 'TEAM_LEAD' && activeTab !== 'members' && activeTab !== 'users') && (
@@ -468,7 +480,6 @@ export default function AdminPage() {
                                                             )}
                                                         </div>
                                                     </td>
-                                                )}
                                             </tr>
                                         ))}
                                     </tbody>
@@ -569,7 +580,6 @@ function getColumns(tab: TabKey): string[] {
         case 'teams': return ['Name', 'AI Enabled', 'Project', 'Members', 'Active'];
         case 'members': return ['User', 'Email', 'Team', 'Role in Team', 'Joined'];
         case 'users': return ['Name', 'Email', 'Access Role', 'Employee ID', 'Job Role', 'Active'];
-        case 'badges': return ['User', 'Email', 'Access Role', 'Current Badge', 'Assign Certification Badge'];
         case 'report-schedules': return ['Name', 'Recipients', 'Frequency', 'Time', 'Report Type', 'Fenced Projects', 'Last Sent', 'Status', 'Dispatch'];
     }
 }
@@ -724,92 +734,7 @@ function renderRow(tab: TabKey, item: any, onBadgeAssign?: (userId: string, badg
                 <td className="py-3 text-sm text-muted-foreground">{item.jobRole || '—'}</td>
                 <td className="py-3">{item.isActive ? <Badge className="bg-emerald-500/10 text-emerald-500 rounded-full text-[10px]" variant="outline">Active</Badge> : <Badge variant="outline" className="rounded-full text-[10px]">Inactive</Badge>}</td>
             </>);
-        case 'badges':
-            return (<>
-                <td className="py-3 text-sm font-semibold">{item.fullName}</td>
-                <td className="py-3 text-sm text-muted-foreground">{item.email}</td>
-                <td className="py-3"><Badge className={cn('rounded-full text-[10px] px-2', {
-                    'bg-violet-500/10 text-violet-500 border-violet-500/20': item.role === 'ORG',
-                    'bg-blue-500/10 text-blue-500 border-blue-500/20': item.role === 'MARKET',
-                    'bg-emerald-500/10 text-emerald-500 border-emerald-500/20': item.role === 'ACCOUNT',
-                    'bg-amber-500/10 text-amber-500 border-amber-500/20': item.role === 'PROJECT_MANAGER',
-                    'bg-indigo-500/10 text-indigo-500 border-indigo-500/20': item.role === 'PROJECT',
-                    'bg-cyan-500/10 text-cyan-500 border-cyan-500/20': item.role === 'TEAM_LEAD',
-                    'bg-slate-500/10 text-slate-500 border-slate-500/20': item.role === 'TEAM',
-                })} variant="outline">{item.role}</Badge></td>
-                <td className="py-3">
-                    <div className="flex flex-wrap gap-1.5 max-w-[200px]">
-                        {item.badge && item.badge !== 'none' ? (
-                            item.badge.split(',').map((badgeName: string) => {
-                                const trimmed = badgeName.trim();
-                                if (!trimmed || trimmed === 'none') return null;
-                                const badgeStyle = getBadgeStyles(trimmed);
-                                return (
-                                    <span key={trimmed} className={cn(
-                                        "inline-flex items-center gap-1 border px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider shadow-sm",
-                                        badgeStyle.bg,
-                                        badgeStyle.glow
-                                    )}>
-                                        <badgeStyle.icon className="h-2.5 w-2.5 animate-pulse" />
-                                        {badgeStyle.label}
-                                    </span>
-                                );
-                            })
-                        ) : (
-                            <span className="text-xs text-muted-foreground italic">None</span>
-                        )}
-                    </div>
-                </td>
-                <td className="py-3">
-                    <div className="flex flex-wrap gap-1 max-w-[480px]">
-                        {AVAILABLE_BADGES.map((b) => {
-                            const badgeList = item.badge ? item.badge.split(',').map((x: string) => x.trim()).filter((x: string) => x && x !== 'none') : [];
-                            const isCurrent = b.name === 'none' 
-                                ? (badgeList.length === 0)
-                                : badgeList.includes(b.name);
-                            const badgeStyle = b.name === 'none' ? null : getBadgeStyles(b.name);
-                            return (
-                                <button
-                                    key={b.name}
-                                    onClick={async () => {
-                                        if (onBadgeAssign) {
-                                            try {
-                                                let nextBadges: string[];
-                                                if (b.name === 'none') {
-                                                    nextBadges = [];
-                                                } else {
-                                                    if (badgeList.includes(b.name)) {
-                                                        // Toggle off (remove)
-                                                        nextBadges = badgeList.filter((x: string) => x !== b.name);
-                                                    } else {
-                                                        // Toggle on (add)
-                                                        nextBadges = [...badgeList, b.name];
-                                                    }
-                                                }
-                                                const finalVal = nextBadges.join(', ');
-                                                await onBadgeAssign(item.id, finalVal || 'none');
-                                                toast.success(`Updated badges for ${item.fullName}`);
-                                            } catch (err: any) {
-                                                toast.error(`Assignment failed: ${err.message}`);
-                                            }
-                                        }
-                                    }}
-                                    className={cn(
-                                        "inline-flex items-center gap-1 border px-2 py-0.5 rounded-full text-[8px] font-bold uppercase transition-all duration-200 hover:scale-105 shadow-sm",
-                                        isCurrent 
-                                            ? (b.name === 'none' ? "bg-muted text-muted-foreground border-muted-foreground/30 font-black" : `${badgeStyle?.bg} ${badgeStyle?.glow} border-primary/50 font-black`)
-                                            : "bg-background text-muted-foreground border-border/80 hover:text-foreground hover:bg-muted"
-                                    )}
-                                    title={b.name === 'none' ? "Clear Badges" : `Toggle ${b.name}`}
-                                >
-                                    {badgeStyle ? <badgeStyle.icon className="h-2 w-2 animate-pulse" /> : <X className="h-2 w-2" />}
-                                    {b.label}
-                                </button>
-                            );
-                        })}
-                    </div>
-                </td>
-            </>);
+
         case 'report-schedules':
             return (<>
                 <td className="py-3 text-sm font-semibold">{item.name || 'Unnamed Schedule'}</td>
@@ -947,6 +872,10 @@ function EntityDialog({ open, onOpenChange, tab, editItem, onSave, organizations
                     initialForm.userIds = Array.from(ids).filter(Boolean);
                 }
 
+                if (tab === 'teams') {
+                    initialForm.isTransformationMonitor = !!(editItem.transformationStartDate || editItem.transformationEndDate);
+                }
+
                 setForm(initialForm);
             } else {
                 setForm(getDefaultForm(tab));
@@ -957,6 +886,16 @@ function EntityDialog({ open, onOpenChange, tab, editItem, onSave, organizations
     const isEdit = !!editItem && !!editItem.id;
 
     const handleSubmit = async () => {
+        if (tab === 'teams') {
+            if (!form.teamId || !form.teamId.trim()) {
+                toast.error('Team ID is required');
+                return;
+            }
+            if (!form.name || !form.name.trim()) {
+                toast.error('Team Name is required');
+                return;
+            }
+        }
         setSaving(true);
         try {
             const payload = buildPayload(tab, form, isEdit);
@@ -1126,42 +1065,6 @@ function EntityDialog({ open, onOpenChange, tab, editItem, onSave, organizations
                             </div>
 
 
-                            <div className="flex items-center space-x-2 py-2">
-                                <input
-                                    type="checkbox"
-                                    id="ai-enabled"
-                                    className="h-4 w-4 rounded border-violet-500"
-                                    checked={!!form.aiEnabled}
-                                    onChange={(e) => set('aiEnabled', e.target.checked)}
-                                />
-                                <Label htmlFor="ai-enabled" className="cursor-pointer font-bold text-violet-600">AI Enabled Project</Label>
-                            </div>
-
-                            {!!form.aiEnabled && (
-                                <div className="space-y-4 p-4 rounded-2xl bg-violet-500/5 border border-violet-500/10 animate-in fade-in slide-in-from-top-2 duration-300">
-                                    <p className="text-[10px] font-black uppercase tracking-wider text-violet-600">AI Tooling Configuration</p>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-2">
-                                            <Label>AI Licenses</Label>
-                                            <Input type="number" className="rounded-xl bg-background" value={form.aiToolLicenses || 0} onChange={e => set('aiToolLicenses', Number(e.target.value))} />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label>AI Tools (comma separated)</Label>
-                                            <Input className="rounded-xl bg-background" value={form.aiToolsUsed?.join(', ') || ''} onChange={e => set('aiToolsUsed', e.target.value.split(',').map(s => s.trim()))} placeholder="Copilot, ChatGPT" />
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
-                            {!!form.aiEnabled && (
-                                <div className="space-y-4 p-4 rounded-2xl bg-violet-500/5 border border-violet-500/10 animate-in fade-in slide-in-from-top-2 duration-300">
-                                    <p className="text-xs font-black uppercase tracking-wider text-violet-600">AI Transformation Rollout</p>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-2"><Label>Start Date</Label><Input type="date" className="rounded-xl bg-background" value={form.digitalTransformationStartDate ? form.digitalTransformationStartDate.split('T')[0] : ''} onChange={e => set('digitalTransformationStartDate', e.target.value)} /></div>
-                                        <div className="space-y-2"><Label>End Date</Label><Input type="date" className="rounded-xl bg-background" value={form.digitalTransformationEndDate ? form.digitalTransformationEndDate.split('T')[0] : ''} onChange={e => set('digitalTransformationEndDate', e.target.value)} /></div>
-                                    </div>
-                                </div>
-                            )}
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <Label>Status</Label>
@@ -1244,7 +1147,7 @@ function EntityDialog({ open, onOpenChange, tab, editItem, onSave, organizations
 
                         {tab === 'teams' && (<>
                             <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-2"><Label>Team ID</Label><Input className="rounded-xl" value={form.teamId || ''} onChange={e => set('teamId', e.target.value)} placeholder="e.g. T-CORE-BANK" /></div>
+                                <div className="space-y-2"><Label>Team ID *</Label><Input className="rounded-xl" value={form.teamId || ''} onChange={e => set('teamId', e.target.value)} placeholder="e.g. T-CORE-BANK" /></div>
                                 <div className="space-y-2"><Label>Name *</Label><Input className="rounded-xl" value={form.name || ''} onChange={e => set('name', e.target.value)} placeholder="e.g. Core Banking" /></div>
                             </div>
                             <div className="space-y-2"><Label>Description</Label><Input className="rounded-xl" value={form.description || ''} onChange={e => set('description', e.target.value)} placeholder="Team description" /></div>
@@ -1276,6 +1179,44 @@ function EntityDialog({ open, onOpenChange, tab, editItem, onSave, organizations
                                     </Select>
                                 </div>
                             </div>
+                            
+                            <div className="space-y-2">
+                                <Label>Onboard Date</Label>
+                                <Input type="date" className="rounded-xl" value={form.onboardDate ? form.onboardDate.split('T')[0] : ''} onChange={e => set('onboardDate', e.target.value)} />
+                            </div>
+
+                            <div className="flex items-center space-x-2 py-2">
+                                <input
+                                    type="checkbox"
+                                    id="transformation-monitor"
+                                    className="h-4 w-4 rounded border-violet-500"
+                                    checked={!!form.isTransformationMonitor}
+                                    onChange={(e) => {
+                                        set('isTransformationMonitor', e.target.checked);
+                                        if (!e.target.checked) {
+                                            set('transformationStartDate', '');
+                                            set('transformationEndDate', '');
+                                        }
+                                    }}
+                                />
+                                <Label htmlFor="transformation-monitor" className="cursor-pointer font-bold text-violet-600">Transformation Monitor</Label>
+                            </div>
+
+                            {!!form.isTransformationMonitor && (
+                                <div className="space-y-4 p-4 rounded-2xl bg-violet-500/5 border border-violet-500/10 animate-in fade-in slide-in-from-top-2 duration-300">
+                                    <p className="text-xs font-black uppercase tracking-wider text-violet-600">Transformation Dates</p>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label>Start Date</Label>
+                                            <Input type="date" className="rounded-xl bg-background" value={form.transformationStartDate ? form.transformationStartDate.split('T')[0] : ''} onChange={e => set('transformationStartDate', e.target.value)} />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>End Date</Label>
+                                            <Input type="date" className="rounded-xl bg-background" value={form.transformationEndDate ? form.transformationEndDate.split('T')[0] : ''} onChange={e => set('transformationEndDate', e.target.value)} />
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </>)}
 
                         {tab === 'members' && (<>
@@ -1631,10 +1572,9 @@ function getDefaultForm(tab: TabKey): Record<string, any> {
         case 'accounts': return { name: '', marketId: '', accountManagerId: '' };
         case 'projects': return { name: '', startDate: '', enddate: '', status: 'PLANNED', teamSize: 0, progress: 0, jiraProjectKey: '', jiraBoardId: '', githubRepoId: '', githubToken: '', license: '', isDigitalTransformation: false, digitalTransformationStartDate: '', digitalTransformationEndDate: '', aiEnabled: false, aiToolLicenses: 0, aiToolsUsed: [] };
         case 'ai-projects': return { name: '', startDate: '', enddate: '', status: 'PLANNED', teamSize: 0, progress: 0, jiraProjectKey: '', jiraBoardId: '', githubRepoId: '', githubToken: '', license: '', isDigitalTransformation: false, digitalTransformationStartDate: '', digitalTransformationEndDate: '', aiEnabled: true, aiToolLicenses: 0, aiToolsUsed: [] };
-        case 'teams': return { teamId: '', name: '', description: '', teamLeadId: '', accountId: '', projectId: '' };
+        case 'teams': return { teamId: '', name: '', description: '', teamLeadId: '', accountId: '', projectId: '', onboardDate: '', transformationStartDate: '', transformationEndDate: '', isTransformationMonitor: false };
         case 'members': return { teamId: '', userIds: [], roleInTeam: 'Member' };
         case 'users': return { fullName: '', email: '', role: 'TEAM', jobRole: '', employeeId: '', auth0Id: '', jiraAccountId: '', githubEmail: '', scopeOrgId: '', scopeMarketId: '', scopeAccountId: '', scopeProjectId: '', scopeTeamId: '', badge: '' };
-        case 'badges': return {};
         case 'report-schedules': return { name: '', recipients: '', frequency: 'WEEKLY', scheduleTime: '09:00', reportType: 'PERFORMANCE', projectIds: [], isActive: true };
     }
 }
@@ -1674,11 +1614,21 @@ function buildPayload(tab: TabKey, form: Record<string, any>, isEdit: boolean): 
         }
         case 'teams': {
             const t: any = { name: form.name };
-            if (form.teamId !== undefined) t.teamId = form.teamId;
+            if (form.teamId !== undefined) t.teamId = form.teamId.trim();
             if (form.teamLeadId && form.teamLeadId !== 'none') t.teamLeadId = form.teamLeadId;
             if (form.description) t.description = form.description;
             if (form.accountId) t.accountId = form.accountId;
             if (form.projectId) t.projectId = form.projectId;
+            
+            // Map onboard and transformation dates
+            t.onboardDate = form.onboardDate ? form.onboardDate : null;
+            if (form.isTransformationMonitor) {
+                t.transformationStartDate = form.transformationStartDate ? form.transformationStartDate : null;
+                t.transformationEndDate = form.transformationEndDate ? form.transformationEndDate : null;
+            } else {
+                t.transformationStartDate = null;
+                t.transformationEndDate = null;
+            }
             return t;
         }
         case 'members': return { teamId: form.teamId, userIds: form.userIds || [], roleInTeam: form.roleInTeam || 'Member' };
@@ -1713,7 +1663,6 @@ function buildPayload(tab: TabKey, form: Record<string, any>, isEdit: boolean): 
             }
             return u;
         }
-        case 'badges': return {};
         case 'report-schedules': return {
             name: form.name,
             recipients: form.recipients,

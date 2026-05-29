@@ -199,15 +199,38 @@ function BadgePopover({ userId, userName, currentBadge, onUpdate }: {
                 <button
                     onClick={(e) => e.stopPropagation()}
                     className={cn(
-                        "p-1.5 rounded-lg transition-all duration-200 shrink-0 cursor-pointer z-50",
-                        "hover:bg-primary/10 hover:text-primary hover:scale-110",
+                        "h-8 px-2.5 flex items-center gap-1.5 rounded-xl border transition-all duration-300 shrink-0 cursor-pointer z-50 shadow-sm group active:scale-95",
                         open
-                            ? "bg-primary/15 text-primary shadow-sm"
-                            : "text-muted-foreground"
+                            ? "bg-gradient-to-br from-primary via-purple-600 to-indigo-500 text-white border-transparent shadow-lg shadow-primary/30"
+                            : "bg-gradient-to-br from-primary/10 via-purple-500/5 to-indigo-500/10 border-primary/20 text-primary hover:from-primary hover:via-purple-600 hover:to-indigo-500 hover:text-white hover:scale-105 hover:shadow-lg hover:shadow-primary/25",
+                        badgeList.length === 0 && "badge-assign-btn border-primary/40"
                     )}
                     title="Manage badges"
                 >
-                    <Award className="h-3.5 w-3.5" />
+                    <style dangerouslySetInnerHTML={{__html: `
+                        @keyframes badge-float-sonar {
+                            0% {
+                                transform: translateY(0px) scale(1);
+                                box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.6);
+                            }
+                            50% {
+                                transform: translateY(-3px) scale(1.05);
+                                box-shadow: 0 0 0 8px rgba(139, 92, 246, 0);
+                            }
+                            100% {
+                                transform: translateY(0px) scale(1);
+                                box-shadow: 0 0 0 0 rgba(139, 92, 246, 0);
+                            }
+                        }
+                        .badge-assign-btn {
+                            animation: badge-float-sonar 2.2s infinite ease-in-out;
+                        }
+                        .badge-assign-btn:hover {
+                            animation-play-state: paused;
+                        }
+                    `}} />
+                    <Award className="h-4 w-4 transition-transform duration-300 group-hover:rotate-12 group-hover:scale-110" />
+                    <span className="text-[9px] font-black uppercase tracking-wider">Assign Badges</span>
                 </button>
             </Popover.Trigger>
             <Popover.Portal>
@@ -244,17 +267,17 @@ function BadgePopover({ userId, userName, currentBadge, onUpdate }: {
                                         onClick={() => handleToggle(b.name)}
                                         disabled={saving}
                                         className={cn(
-                                            "flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-left transition-all duration-100 cursor-pointer",
+                                            "flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-left transition-all duration-200 cursor-pointer active:scale-95 hover:scale-[1.02] group/popover-badge",
                                             isActive
                                                 ? "bg-primary/10 ring-1 ring-primary/25"
                                                 : "hover:bg-muted/60"
                                         )}
                                     >
                                         <span className={cn(
-                                            "shrink-0 p-0.5 rounded",
+                                            "shrink-0 p-0.5 rounded transition-transform duration-300 group-hover/popover-badge:scale-110",
                                             isActive ? badgeStyle.bg : "text-muted-foreground/50"
                                         )}>
-                                            <badgeStyle.icon className="h-2.5 w-2.5" />
+                                            <badgeStyle.icon className="h-2.5 w-2.5 transition-transform duration-500 group-hover/popover-badge:rotate-12" />
                                         </span>
                                         <span className={cn(
                                             "flex-1 text-[10px] font-semibold truncate leading-tight",
@@ -413,14 +436,14 @@ function MemberProfileModal({ member, onClose, onUpdate }: MemberProfileModalPro
                                             };
 
                                             return (
-                                                <div key={badgeName} className="flex gap-3 p-3 rounded-xl border border-border/40 bg-muted/10 hover:bg-muted/20 transition-all">
+                                                <div key={badgeName} className="flex gap-3 p-3 rounded-xl border border-border/40 bg-muted/10 hover:bg-muted/20 transition-all group/modal-badge hover:scale-[1.01] hover:shadow-sm cursor-help">
                                                     <div className="shrink-0 pt-0.5">
                                                         <span className={cn(
-                                                            "inline-flex items-center justify-center p-1.5 rounded-lg border shadow-sm",
+                                                            "inline-flex items-center justify-center p-1.5 rounded-lg border shadow-sm transition-all duration-300 group-hover/modal-badge:scale-110 group-hover/modal-badge:shadow-md",
                                                             badgeStyle.bg,
                                                             badgeStyle.glow
                                                         )}>
-                                                            <badgeStyle.icon className="h-4 w-4" />
+                                                            <badgeStyle.icon className="h-4 w-4 transition-transform duration-500 group-hover/modal-badge:rotate-12" />
                                                         </span>
                                                     </div>
                                                     <div className="space-y-0.5 min-w-0">
@@ -568,6 +591,21 @@ export function MemberListLevel() {
 
     return (
         <div className="space-y-6 fade-in">
+            <style dangerouslySetInnerHTML={{__html: `
+                .custom-badge-scroll::-webkit-scrollbar {
+                    width: 3px;
+                }
+                .custom-badge-scroll::-webkit-scrollbar-track {
+                    background: transparent;
+                }
+                .custom-badge-scroll::-webkit-scrollbar-thumb {
+                    background: rgba(139, 92, 246, 0.25);
+                    border-radius: 9999px;
+                }
+                .custom-badge-scroll::-webkit-scrollbar-thumb:hover {
+                    background: rgba(139, 92, 246, 0.45);
+                }
+            `}} />
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                 <div>
                     <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground mb-1 uppercase tracking-widest">
@@ -628,20 +666,20 @@ export function MemberListLevel() {
                                         </div>
                                         
                                         {/* Badge Display + Inline Edit Icon */}
-                                        <div className="flex items-start gap-1 pt-1.5">
-                                            <div className="flex flex-wrap gap-1 flex-1 min-h-[22px]">
+                                        <div className="space-y-2 pt-2">
+                                            <div className="flex flex-wrap gap-1 w-full max-h-[50px] min-h-[22px] overflow-y-auto pr-1 custom-badge-scroll">
                                                 {badgesList.length > 0 ? (
                                                     badgesList.map((badgeName: string) => {
                                                         const badgeStyle = getBadgeStyles(badgeName);
                                                         return (
                                                             <span key={badgeName} className={cn(
-                                                                "inline-flex items-center gap-1 border px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider shadow-sm transition-all duration-300 hover:scale-[1.02]",
+                                                                "inline-flex items-center gap-1 border px-2.5 py-0.5 rounded-full text-[8.5px] font-black uppercase tracking-wider shadow-sm transition-all duration-500 hover:scale-110 group/badge hover:shadow-md cursor-help",
                                                                 badgeStyle.bg,
                                                                 badgeStyle.glow
-                                                            )}>
-                                                                <badgeStyle.icon className="h-2 w-2 animate-pulse" />
+                                                             )}>
+                                                                <badgeStyle.icon className="h-2.5 w-2.5 transition-transform duration-700 group-hover/badge:rotate-[360deg]" />
                                                                 {badgeStyle.label}
-                                                            </span>
+                                                             </span>
                                                         );
                                                     })
                                                 ) : (
@@ -649,12 +687,14 @@ export function MemberListLevel() {
                                                 )}
                                             </div>
                                             {/* Badge assignment icon */}
-                                            <BadgePopover
-                                                userId={user?.id}
-                                                userName={user?.fullName || ''}
-                                                currentBadge={user?.badge || ''}
-                                                onUpdate={refreshTeam}
-                                            />
+                                            <div className="flex justify-end pt-0.5">
+                                                <BadgePopover
+                                                    userId={user?.id}
+                                                    userName={user?.fullName || ''}
+                                                    currentBadge={user?.badge || ''}
+                                                    onUpdate={refreshTeam}
+                                                />
+                                            </div>
                                         </div>
                                     </div>
 

@@ -34,13 +34,11 @@ import {
     Tooltip as RechartsTooltip,
     ResponsiveContainer,
     ReferenceLine,
-    ReferenceArea,
     Legend,
 } from 'recharts';
 import { cn } from '@/lib/utils';
 import { useSprintMetrics } from '@/hooks/use-metrics';
-import { useOrgHierarchy } from '@/hooks/use-hierarchy';
-import { useProjects } from '@/hooks/use-projects';
+import { useTeams } from '@/hooks/use-teams';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -79,14 +77,11 @@ interface DTAlert {
 
 // ─── Helper Functions ─────────────────────────────────────────────────────────
 
-function getPhaseForMetric(m: any, defaultProject: any): DTPhase {
+function getPhaseForMetric(m: any, selectedTeam: any): DTPhase {
     const sDate = m.sprintDate ? new Date(m.sprintDate) : (m.time ? new Date(m.time) : null);
     
-    // Look for team-level dates first, fallback to project-level dates
-    const tStart = m.team?.transformationStartDate ? new Date(m.team.transformationStartDate) : 
-                   (defaultProject?.digitalTransformationStartDate ? new Date(defaultProject.digitalTransformationStartDate) : null);
-    const tEnd = m.team?.transformationEndDate ? new Date(m.team.transformationEndDate) : 
-                 (defaultProject?.digitalTransformationEndDate ? new Date(defaultProject.digitalTransformationEndDate) : null);
+    const tStart = selectedTeam?.transformationStartDate ? new Date(selectedTeam.transformationStartDate) : null;
+    const tEnd = selectedTeam?.transformationEndDate ? new Date(selectedTeam.transformationEndDate) : null;
 
     if (!sDate || !tStart) {
         // Fall back to sprint number rule
@@ -255,7 +250,6 @@ function MetricChartCard({ analysis }: { analysis: MetricAnalysis }) {
                             content={<CustomTooltip analysis={analysis} />}
                         />
 
-                        {/* Central Line / Baseline Reference */}
                         <ReferenceLine
                             y={analysis.baseline}
                             stroke="#10b981"
@@ -264,7 +258,6 @@ function MetricChartCard({ analysis }: { analysis: MetricAnalysis }) {
                             label={{ value: `CL: ${analysis.baseline.toFixed(1)}`, position: 'insideTopLeft', fill: '#10b981', fontSize: 9, fontWeight: 'bold' }}
                         />
 
-                        {/* UCL and LCL Control Limits */}
                         <ReferenceLine
                             y={analysis.ucl}
                             stroke="#ef4444"
@@ -280,7 +273,6 @@ function MetricChartCard({ analysis }: { analysis: MetricAnalysis }) {
                             label={{ value: `LCL (-2σ): ${analysis.lcl.toFixed(1)}`, position: 'insideBottomRight', fill: '#ef4444', fontSize: 9, fontWeight: 'bold' }}
                         />
 
-                        {/* DT Phase Boundaries (Vertical Lines) */}
                         {dtStartLabel && (
                             <ReferenceLine
                                 x={dtStartLabel}
@@ -298,7 +290,6 @@ function MetricChartCard({ analysis }: { analysis: MetricAnalysis }) {
                             />
                         )}
 
-                        {/* Main Value Line */}
                         <Line
                             name={`${analysis.metricName} Value`}
                             type="monotone"
@@ -319,49 +310,33 @@ function MetricChartCard({ analysis }: { analysis: MetricAnalysis }) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export function DTMonitoringDashboard() {
-    const [selectedProjectId, setSelectedProjectId] = useState<string>('');
+    const [selectedTeamId, setSelectedTeamId] = useState<string>('');
     const [sprintFilter, setSprintFilter] = useState<'all' | 'recent' | 'recent5' | 'recent10'>('all');
 
-    const { data: allProjects = [] } = useProjects();
+    const { data: allTeams = [] } = useTeams();
     const { data: sprintMetrics = [], isLoading: metricsLoading } = useSprintMetrics();
-    const { data: hierarchy } = useOrgHierarchy();
 
-    // All active projects
-    const dtProjects = useMemo(() =>
-        (allProjects as any[]).filter((p: any) => p.isDigitalTransformation === true || p.aiEnabled === true),
-        [allProjects]
+    // Only teams with digital transformation dates configured
+    const transformationTeams = useMemo(() =>
+        (allTeams as any[]).filter((t: any) => t.transformationStartDate || t.transformationEndDate),
+        [allTeams]
     );
 
-    const effectiveProjectId = selectedProjectId || dtProjects[0]?.id || '';
+    const effectiveTeamId = selectedTeamId || transformationTeams[0]?.id || '';
 
-    const selectedProject = useMemo(() =>
-        (allProjects as any[]).find((p: any) => p.id === effectiveProjectId),
-        [allProjects, effectiveProjectId]
+    const selectedTeam = useMemo(() =>
+        (allTeams as any[]).find((t: any) => t.id === effectiveTeamId),
+        [allTeams, effectiveTeamId]
     );
 
-    const projectTeams = useMemo(() => {
-        if (!hierarchy || !effectiveProjectId) return [];
-        const teams: any[] = [];
-        hierarchy.markets?.forEach((m: any) =>
-            m.accounts?.forEach((a: any) =>
-                a.teams?.forEach((t: any) => {
-                    if (t.projectId === effectiveProjectId) teams.push(t);
-                })
-            )
-        );
-        return teams;
-    }, [hierarchy, effectiveProjectId]);
-
-    const projectTeamIds = useMemo(() => projectTeams.map((t: any) => t.id), [projectTeams]);
-
-    const projectMetrics = useMemo(() =>
-        (sprintMetrics as any[]).filter((m: any) => projectTeamIds.includes(m.teamId)),
-        [sprintMetrics, projectTeamIds]
+    const teamMetrics = useMemo(() =>
+        (sprintMetrics as any[]).filter((m: any) => m.teamId === effectiveTeamId),
+        [sprintMetrics, effectiveTeamId]
     );
 
     // Compute metrics
     const metricAnalyses = useMemo((): MetricAnalysis[] => {
-        if (projectMetrics.length === 0) return [];
+        if (teamMetrics.length === 0) return [];
 
         const sprintFields = [
             { key: 'velocityPoints', name: 'Sprint Velocity', higherIsBetter: true },
@@ -372,18 +347,18 @@ export function DTMonitoringDashboard() {
         ];
 
         return sprintFields.map(field => {
-            const mList = projectMetrics.map(m => ({
+            const mList = teamMetrics.map(m => ({
                  value: Number(m[field.key] || 0),
                  sprintNumber: Number(m.sprintNumber || 1),
                  sprintDate: m.sprintDate || m.time || null,
-                 team: m.team,
+                 team: m.team || selectedTeam,
             })).sort((a, b) => a.sprintNumber - b.sprintNumber);
 
             // Group by Sprint Number
             const bySprint: Record<number, { values: number[]; phase: DTPhase; sprintNumber: number }> = {};
             mList.forEach((m: any) => {
                 const sprint = m.sprintNumber;
-                const phase = getPhaseForMetric(m, selectedProject);
+                const phase = getPhaseForMetric(m, selectedTeam);
                 if (!bySprint[sprint]) bySprint[sprint] = { values: [], phase, sprintNumber: sprint };
                 bySprint[sprint].values.push(m.value);
             });
@@ -423,7 +398,7 @@ export function DTMonitoringDashboard() {
                 phaseData = phaseData.slice(-10);
             }
 
-            // Anomaly/Degradation Alerts (degradation of 50% or violating LCL/UCL control limits)
+            // Anomaly/Degradation Alerts
             const alerts: DTAlert[] = [];
             if (baseline > 0) {
                 if (duringAvg !== null) {
@@ -475,7 +450,7 @@ export function DTMonitoringDashboard() {
                 alerts,
             };
         });
-    }, [projectMetrics, selectedProject, sprintFilter]);
+    }, [teamMetrics, selectedTeam, sprintFilter]);
 
     const allAlerts = useMemo(() =>
         metricAnalyses.flatMap(a => a.alerts).sort((a, b) =>
@@ -502,21 +477,13 @@ export function DTMonitoringDashboard() {
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.setAttribute('download', `Transformation_Metrics_Report_${selectedProject?.name?.replace(/\s+/g, '_') || 'Project'}.csv`);
+        link.setAttribute('download', `Transformation_Metrics_Report_${selectedTeam?.name?.replace(/\s+/g, '_') || 'Team'}.csv`);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
     };
 
-    const summaryStats = useMemo(() => {
-        const improving = metricAnalyses.filter(a =>
-            a.afterAvg !== null && a.afterAvg >= a.baseline
-        ).length;
-        const aboveBaselineAfter = metricAnalyses.filter(a => a.afterAvg !== null && a.afterAvg > a.baseline).length;
-        return { improving, aboveBaselineAfter, total: metricAnalyses.length };
-    }, [metricAnalyses]);
-
-    if (dtProjects.length === 0) {
+    if (transformationTeams.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center py-24 text-center space-y-4 rounded-[2rem] border border-dashed border-border/50 bg-card/30">
                 <div className="relative">
@@ -526,9 +493,9 @@ export function DTMonitoringDashboard() {
                     </div>
                 </div>
                 <div className="space-y-2 max-w-md">
-                    <h3 className="text-xl font-bold">No Transformation Projects</h3>
+                    <h3 className="text-xl font-bold">No Transformation Teams</h3>
                     <p className="text-muted-foreground text-sm">
-                        Enable Transformation or AI flags on projects to monitor performance timelines.
+                        Enable Transformation dates on teams in the Admin Console to monitor performance timelines.
                     </p>
                 </div>
             </div>
@@ -548,7 +515,6 @@ export function DTMonitoringDashboard() {
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            {/* Header / Selector */}
             <div className="flex flex-wrap items-center justify-between gap-5 p-6 rounded-[2rem] bg-white/50 dark:bg-black/20 border border-border/50 backdrop-blur-xl shadow-sm">
                 <div className="flex items-center gap-3">
                     <div className="p-3 rounded-2xl bg-indigo-500/10 text-indigo-500">
@@ -563,7 +529,6 @@ export function DTMonitoringDashboard() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-4">
-                    {/* Sprint Filter */}
                     <div className="flex flex-col gap-1">
                         <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/80 flex items-center gap-1">
                             <Calendar className="h-3 w-3" /> Filter Sprints
@@ -581,16 +546,15 @@ export function DTMonitoringDashboard() {
                         </Select>
                     </div>
 
-                    {/* Project Selector */}
                     <div className="flex flex-col gap-1">
-                        <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/80">Project Scope</span>
-                        <Select value={effectiveProjectId} onValueChange={setSelectedProjectId}>
+                        <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/80">Team Scope</span>
+                        <Select value={effectiveTeamId} onValueChange={setSelectedTeamId}>
                             <SelectTrigger className="w-[200px] rounded-xl bg-background/50 border-border/50 h-10 font-bold text-xs shadow-sm">
-                                <SelectValue placeholder="Select Project" />
+                                <SelectValue placeholder="Select Team" />
                             </SelectTrigger>
                             <SelectContent className="rounded-2xl">
-                                {dtProjects.map((p: any) => (
-                                    <SelectItem key={p.id} value={p.id} className="font-bold text-xs">{p.name}</SelectItem>
+                                {transformationTeams.map((t: any) => (
+                                    <SelectItem key={t.id} value={t.id} className="font-bold text-xs">{t.name}</SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
@@ -606,8 +570,7 @@ export function DTMonitoringDashboard() {
                 </div>
             </div>
 
-            {/* Timeline phase banner */}
-            {selectedProject && (
+            {selectedTeam && (
                 <div className="flex flex-wrap gap-4 items-center p-5 rounded-[2rem] bg-indigo-500/[0.03] border border-indigo-500/10">
                     <div className="flex items-center gap-2">
                         <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400">Date-wise Phases</span>
@@ -626,12 +589,11 @@ export function DTMonitoringDashboard() {
                         </Badge>
                     </div>
                     <div className="ml-auto text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-                        {projectTeamIds.length} Teams Monitored
+                        Selected Team Monitored
                     </div>
                 </div>
             )}
 
-            {/* Alerts */}
             {allAlerts.length > 0 && (
                 <div className="space-y-3">
                     <div className="flex items-center gap-2">
@@ -648,14 +610,12 @@ export function DTMonitoringDashboard() {
                 </div>
             )}
 
-            {/* Timelines Grid */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                 {metricAnalyses.map(analysis => (
                     <MetricChartCard key={analysis.metricType} analysis={analysis} />
                 ))}
             </div>
 
-            {/* Perfect state banner */}
             {allAlerts.length === 0 && metricAnalyses.length > 0 && (
                 <div className="flex items-center gap-4 p-6 rounded-[2rem] bg-emerald-500/[0.04] border border-emerald-500/25 shadow-xl shadow-emerald-500/[0.02]">
                     <CheckCircle2 className="h-6 w-6 text-emerald-400 shrink-0" />

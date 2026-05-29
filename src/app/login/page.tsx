@@ -11,7 +11,7 @@ export default function LoginPage() {
             
             <div className="w-full pb-8 flex flex-col items-center justify-center relative">
                 <p className="text-[#64748b] text-[13px] font-medium">
-                    &copy; 2026 CTO Performance Intelligence Platform. All rights reserved.
+                    &copy; 2026 SkillVector Performance Intelligence Platform. All rights reserved.
                 </p>
                 
                 

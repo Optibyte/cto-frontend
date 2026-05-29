@@ -37,7 +37,7 @@ export function Header() {
     const currentRole = ROLES.find((r) => r.value === role) || ROLES[0];
 
     // Get display email and ID
-    const displayEmail = user?.email || user?.user?.email || 'user@ctoplatform.com';
+    const displayEmail = user?.email || user?.user?.email || 'user@skillvector.com';
     const displayId = user?.id || '';
 
     return (

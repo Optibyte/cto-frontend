@@ -532,7 +532,7 @@ function SsoConnectModal({ open, onOpenChange, onSuccess }: {
                     {/* Domain & Endpoint */}
                     <div className="space-y-1.5">
                         <Label className="text-xs">SSO Domain (Auto-matches user email at login) *</Label>
-                        <Input className="rounded-lg h-9 bg-background" placeholder="e.g. ctoplatform.com or company.com" value={domain} onChange={e => setDomain(e.target.value)} />
+                        <Input className="rounded-lg h-9 bg-background" placeholder="e.g. skillvector.com or company.com" value={domain} onChange={e => setDomain(e.target.value)} />
                     </div>
 
                     <div className="space-y-1.5">
@@ -568,7 +568,7 @@ function SsoConnectModal({ open, onOpenChange, onSuccess }: {
                                 <div className="space-y-2">
                                     <div className="grid grid-cols-12 gap-2 text-[10px] font-bold text-muted-foreground uppercase">
                                         <div className="col-span-6">AD Security Group</div>
-                                        <div className="col-span-5">CTO Platform Role</div>
+                                        <div className="col-span-5">SkillVector Role</div>
                                         <div className="col-span-1 text-center">Del</div>
                                     </div>
                                     <div className="space-y-1.5 max-h-[120px] overflow-y-auto">
@@ -605,7 +605,7 @@ function SsoConnectModal({ open, onOpenChange, onSuccess }: {
                         <div className="flex items-center justify-between">
                             <div className="space-y-0.5">
                                 <p className="font-semibold text-sm">Just-In-Time (JIT) Provisioning</p>
-                                <p className="text-muted-foreground text-[10px]">Automatically create new user profiles in CTO Platform on their first successful SSO login.</p>
+                                <p className="text-muted-foreground text-[10px]">Automatically create new user profiles in SkillVector on their first successful SSO login.</p>
                             </div>
                             <input type="checkbox" checked={jitProvision} onChange={e => setJitProvision(e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500" />
                         </div>

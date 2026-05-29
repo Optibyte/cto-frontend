@@ -309,7 +309,7 @@ export default function MetricsDashboardPage() {
             <div className="flex flex-col gap-6 pb-6 border-b border-border/10">
                 <div className="space-y-1">
                     <h1 className="text-4xl font-extrabold tracking-tight text-gradient">
-                        Metrics Dashboard
+                        Dashboard
                     </h1>
                     <p className="text-muted-foreground text-lg font-medium opacity-80">
                         View and analyze project and team performance metrics across all sources

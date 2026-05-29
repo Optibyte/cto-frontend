@@ -120,9 +120,9 @@ export function Sidebar() {
             {/* Logo */}
             <div className="flex h-24 items-center border-b border-border/10 bg-gradient-to-b from-primary/5 to-transparent px-6">
                 <Link href="/" className="flex items-center gap-4 transition-transform hover:translate-x-1 duration-300">
-                    <img src="/logo.png" alt="DevPulse Logo" className="h-[70px] w-auto object-contain drop-shadow-[0_0_15px_rgba(139,92,246,0.5)] shrink-0" />
+                    <img src="/logo.png" alt="SkillVector Logo" className="h-[70px] w-auto object-contain drop-shadow-[0_0_15px_rgba(139,92,246,0.5)] shrink-0" />
                     <div className="flex flex-col items-start justify-center pt-0.5">
-                        <span className="text-[22px] font-black text-foreground tracking-tight leading-none whitespace-nowrap">DevPulse</span>
+                        <span className="text-[22px] font-black text-foreground tracking-tight leading-none whitespace-nowrap">SkillVector</span>
                         <span className="text-[10px] font-bold text-muted-foreground whitespace-nowrap uppercase tracking-[0.2em] mt-1">AI Platform</span>
                     </div>
                 </Link>

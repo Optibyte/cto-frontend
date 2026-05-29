@@ -96,13 +96,13 @@ export function LoginForm() {
                 setTimeout(async () => {
                     try {
                         // Determine which email to authenticate with
-                        // If it contains @, use it. Otherwise use cto@ctoplatform.com
-                        let loginEmail = ssoDomain.includes('@') ? ssoDomain : 'cto@ctoplatform.com';
+                        // If it contains @, use it. Otherwise use cto@skillvector.com
+                        let loginEmail = ssoDomain.includes('@') ? ssoDomain : 'cto@skillvector.com';
                         
-                        // Fallback to cto@ctoplatform.com if it doesn't match an active user
+                        // Fallback to cto@skillvector.com if it doesn't match an active user
                         const response = await authAPI.login({ email: loginEmail }).catch(async () => {
                             // If user email failed, login as default CTO user
-                            return await authAPI.login({ email: 'cto@ctoplatform.com' });
+                            return await authAPI.login({ email: 'cto@skillvector.com' });
                         });
 
                         // Store token and user data
@@ -131,7 +131,7 @@ export function LoginForm() {
                 <div className="relative z-10 flex flex-col items-center justify-center h-full">
                     <LogoGraphic />
                     <div className="text-center space-y-4">
-                        <h1 className="text-[28px] font-bold tracking-tight text-[#f8fafc]">CTO Platform</h1>
+                        <h1 className="text-[28px] font-bold tracking-tight text-[#f8fafc]">SkillVector</h1>
                         <p className="text-[15px] text-[#94a3b8] font-medium">Performance Intelligence</p>
                     </div>
                 </div>

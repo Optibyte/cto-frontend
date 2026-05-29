@@ -216,7 +216,7 @@ export function PDFReportGenerator({ analytics, plots, filters, rawData }: PDFRe
         doc.setPage(i);
         doc.setFontSize(8);
         doc.setTextColor(150);
-        doc.text(`CTO Platform AI Analytics - Page ${i} of ${totalPages}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+        doc.text(`SkillVector AI Analytics - Page ${i} of ${totalPages}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
       }
 
       doc.save(`Analytics_Report_${new Date().toISOString().split('T')[0]}.pdf`);

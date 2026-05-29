@@ -109,7 +109,17 @@ export const adminProjectsAPI = {
 const TEAMS_URL = `${API_BASE_URL}/api/v1/teams`;
 
 export const adminTeamsAPI = {
-    getAll: (page?: number, limit?: number) => apiFetch(page && limit ? `${TEAMS_URL}?page=${page}&limit=${limit}` : TEAMS_URL),
+    getAll: (page?: number, limit?: number, search?: string, transformation?: string) => {
+        const params = new URLSearchParams();
+        if (page && limit) {
+            params.set('page', String(page));
+            params.set('limit', String(limit));
+        }
+        if (search) params.set('search', search);
+        if (transformation) params.set('transformation', transformation);
+        const qs = params.toString();
+        return apiFetch(qs ? `${TEAMS_URL}?${qs}` : TEAMS_URL);
+    },
     getOne: (id: string) => apiFetch(`${TEAMS_URL}/${id}`),
     create: (data: any) =>
         apiFetch(TEAMS_URL, { method: 'POST', body: JSON.stringify(data) }),

@@ -18,7 +18,7 @@ export default function SignUpPage() {
                 </div>
                 <SignUpForm />
                 <p className="text-slate-500 text-sm">
-                    &copy; 2026 CTO Performance Intelligence Platform. All rights reserved.
+                    &copy; 2026 SkillVector Performance Intelligence Platform. All rights reserved.
                 </p>
             </div>
         </div>
