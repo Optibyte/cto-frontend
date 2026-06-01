@@ -148,7 +148,7 @@ export function PowerBIChart({
           boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
         }}
       />
-      <Legend verticalAlign="top" align="right" height={36} />
+      
       {baselineAvg !== null && (
         <ReferenceLine
           y={baselineAvg}
@@ -351,13 +351,13 @@ export function PowerBIChart({
           <Tooltip />
         </RadarChart>
       ) : ct === 'LineChart' ? (
-        <LineChart data={data} margin={{ top: 10, right: 30, left: 0, bottom: 20 }}>
+        <LineChart data={data} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>{hasLegend && <Legend verticalAlign="top" align="right" height={28} />}
           {transformationOverlays}
           {axes}
           {renderSeries()}
         </LineChart>
       ) : ct === 'AreaChart' ? (
-        <AreaChart data={data} margin={{ top: 10, right: 30, left: 0, bottom: 20 }}>
+        <AreaChart data={data} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>{hasLegend && <Legend verticalAlign="top" align="right" height={28} />} 
           {axes}
           {seriesKeys.map((key, i) => {
             const color = hasLegend
@@ -371,13 +371,14 @@ export function PowerBIChart({
                 name={hasLegend ? key : getLabel(key)}
                 fill={color}
                 stroke={color}
-                fillOpacity={0.15}
+                strokeWidth={2.5}
+                fillOpacity={0.18}
               />
             );
           })}
         </AreaChart>
       ) : ct === 'BarChart' ? (
-        <BarChart data={data} margin={{ top: 10, right: 30, left: 0, bottom: 20 }}>
+        <BarChart data={data} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>{hasLegend && <Legend verticalAlign="top" align="right" height={28} />} 
           {axes}
           {seriesKeys.map((key, i) => {
             const color = hasLegend
@@ -395,7 +396,7 @@ export function PowerBIChart({
           })}
         </BarChart>
       ) : (
-        <ComposedChart data={data} margin={{ top: 10, right: 30, left: 0, bottom: 20 }}>
+        <ComposedChart data={data} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>{hasLegend && <Legend verticalAlign="top" align="right" height={28} />} 
           {axes}
           {renderSeries()}
         </ComposedChart>
