@@ -26,8 +26,10 @@ import {
     LayoutGrid,
     Activity,
     Settings2,
+    Search,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { Input } from '@/components/ui/input';
 
 interface NavItem {
     title: string;
@@ -93,7 +95,7 @@ const ROLE_LABELS: Record<string, string> = {
 
     TEAM_LEAD: 'Team Lead',
     TEAM: 'Developer',
-    CTO: 'CTO',
+    CTO: 'Super Admin',
 };
 
 export function Sidebar() {
@@ -126,16 +128,6 @@ export function Sidebar() {
                     </div>
                     <img src="/logo.png" alt="CitiusTech Logo" className="h-[36px] w-auto object-contain shrink-0" />
                 </Link>
-            </div>
-
-            {/* Role Badge */}
-            <div className="px-4 py-3 border-b border-border/30">
-                <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-primary/10">
-                    <Shield className="h-4 w-4 text-primary" />
-                    <span className="text-[10px] font-semibold text-primary uppercase tracking-wider">
-                        {ROLE_LABELS[role] || role}
-                    </span>
-                </div>
             </div>
 
             {/* Navigation */}

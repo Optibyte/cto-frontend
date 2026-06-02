@@ -85,7 +85,7 @@ export function SprintBulkUploadPanel({ availableTeams = [] }: SprintBulkUploadP
         const teams = dbTeams as any[];
         
         // 1. Super admin / Org / Market / Account: see all teams
-        const isAdmin = ['CTO', 'SUPER_ADMIN', 'ORG', 'MARKET', 'ACCOUNT'].includes(role);
+        const isAdmin = ['CTO', 'SUPERADMIN', 'ORG', 'MARKET', 'ACCOUNT'].includes(role);
         if (isAdmin) {
             return teams;
         }

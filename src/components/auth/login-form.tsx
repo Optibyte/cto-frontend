@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Mail, ArrowRight, Fingerprint, Lock } from 'lucide-react';
+import { Mail, ArrowRight, Fingerprint, Lock, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -24,6 +24,7 @@ export function LoginForm() {
     const [ssoDomain, setSsoDomain] = useState('');
     const [ssoAuthenticating, setSsoAuthenticating] = useState(false);
     const [ssoStatus, setSsoStatus] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -201,24 +202,27 @@ export function LoginForm() {
                         <div className="space-y-3">
                             <div className="flex justify-between items-center">
                                 <Label htmlFor="password" className="text-[13px] font-semibold text-[#f8fafc]">Password</Label>
-                                <Link
-                                    href="/forgot-password"
-                                    className="text-[12px] font-semibold text-[#a78bfa] hover:text-[#c4b5fd] transition-colors"
-                                >
-                                    Forgot password?
-                                </Link>
+                                
                             </div>
                             <div className="relative group">
                                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-[18px] w-[18px] text-[#a78bfa]" />
                                 <Input
                                     id="password"
-                                    type="password"
+                                    type={showPassword ? 'text' : 'password'}
                                     placeholder="••••••••"
-                                    className="pl-12 h-14 bg-[#eeebff] border-2 border-[#8b5cf6] rounded-xl text-[#0f172a] placeholder:text-[#94a3b8] focus-visible:ring-0 focus-visible:ring-offset-0 focus:border-[#7c3aed] text-[15px] font-medium transition-colors"
+                                    className="pl-12 pr-12 h-14 bg-[#eeebff] border-2 border-[#8b5cf6] rounded-xl text-[#0f172a] placeholder:text-[#94a3b8] focus-visible:ring-0 focus-visible:ring-offset-0 focus:border-[#7c3aed] text-[15px] font-medium transition-colors"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     required
                                 />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(v => !v)}
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-[#a78bfa] hover:text-[#7c3aed] transition-colors"
+                                    tabIndex={-1}
+                                >
+                                    {showPassword ? <EyeOff className="h-[18px] w-[18px]" /> : <Eye className="h-[18px] w-[18px]" />}
+                                </button>
                             </div>
                         </div>
                         
@@ -260,15 +264,7 @@ export function LoginForm() {
                 
                 {!isSSOMode && !ssoAuthenticating && (
                     <div className="flex flex-col items-center gap-4 pt-4">
-                        <div className="flex items-center gap-2 text-[14px] text-[#94a3b8]">
-                            <span>Don't have an account?</span>
-                            <Link
-                                href="/signup"
-                                className="font-semibold text-[#a78bfa] hover:text-[#c4b5fd] transition-colors"
-                            >
-                                Sign up now
-                            </Link>
-                        </div>
+                        
                     </div>
                 )}
             </div>

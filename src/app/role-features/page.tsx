@@ -42,9 +42,9 @@ interface FeatureCategory {
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 const ROLES: { key: RoleKey; label: string; description: string; color: string; icon: React.ElementType }[] = [
-    { key: 'SUPERADMIN', label: 'Super Admin', description: 'System Administrator', color: 'from-pink-500 to-rose-600', icon: Star },
+    { key: 'SUPERADMIN', label: 'System Admin', description: 'System Administrator', color: 'from-pink-500 to-rose-600', icon: Star },
     { key: 'ADMIN', label: 'Admin', description: 'Administrator', color: 'from-rose-500 to-red-600', icon: ShieldCheck },
-    { key: 'CTO', label: 'CTO', description: 'Chief Technology Officer', color: 'from-violet-500 to-purple-600', icon: Star },
+    { key: 'CTO', label: 'Super Admin', description: 'Chief Technology Officer', color: 'from-violet-500 to-purple-600', icon: Star },
     { key: 'ORG', label: 'Organization', description: 'Org-level admin access', color: 'from-blue-500 to-indigo-600', icon: Globe },
     { key: 'MARKET', label: 'Market', description: 'Market-level manager', color: 'from-cyan-500 to-blue-500', icon: BarChart3 },
     { key: 'ACCOUNT', label: 'Account', description: 'Account-level manager', color: 'from-teal-500 to-cyan-500', icon: Database },

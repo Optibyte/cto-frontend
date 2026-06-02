@@ -509,6 +509,54 @@ export function AnalyticsDashboard({ filters, onFilterChange }: { filters: any; 
 
     const rawData = Array.isArray(rawMetricsData) ? rawMetricsData : [];
     const manualData = Array.isArray(manualMetricsData) ? manualMetricsData : [];
+
+    const exportCSV = () => {
+        try {
+            const rows: string[][] = [];
+
+            // Section 1: KPI Summary
+            rows.push(['=== KPI Summary ===']);
+            rows.push(['Metric', 'Value']);
+            const dtsVal = (analytics?.kpi?.avgDoneToSaid || 0) > 1 ? analytics?.kpi?.avgDoneToSaid : (analytics?.kpi?.avgDoneToSaid || 0) * 100;
+            rows.push(['Avg Done-to-Said', `${Number(dtsVal).toFixed(1)}%`]);
+            rows.push(['Tech Debt Index', Number(analytics?.kpi?.avgTechDebt || 0).toFixed(2)]);
+            rows.push(['Active Projects', String(analytics?.kpi?.totalProjectCount ?? analytics?.kpi?.projectCount ?? 0)]);
+            rows.push(['Avg Throughput', `${Number(analytics?.kpi?.avgThroughput || 0).toFixed(1)} Pts`]);
+            rows.push(['Avg Quality', `${Number(analytics?.kpi?.avgQuality || 0).toFixed(1)}%`]);
+            rows.push(['Avg Velocity', `${Number(analytics?.kpi?.avgVelocity || 0).toFixed(1)} Pts`]);
+            rows.push(['Sprint Count', String(analytics?.kpi?.sprintCount || 0)]);
+            rows.push([]);
+
+            // Section 2: Raw Sprint Data
+            if (rawData.length > 0) {
+                rows.push(['=== Sprint-Level Metrics ===']);
+                const cols = ['sprintNumber', 'teamName', 'velocityPoints', 'throughputPoints', 'qualityScore', 'doneToSaidRatio', 'technicalDebtIndex'];
+                const headers = ['Sprint', 'Team', 'Velocity', 'Throughput', 'Quality Score', 'Done-to-Said Ratio', 'Tech Debt Index'];
+                rows.push(headers);
+                rawData.forEach((r: any) => {
+                    rows.push(cols.map(c => {
+                        if (c === 'teamName') return r.team?.name || r.teamName || '';
+                        return String(r[c] ?? '');
+                    }));
+                });
+            }
+
+            const csvContent = rows.map(r => r.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Analytics_Export_${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            toast.success('CSV exported successfully!');
+        } catch (err) {
+            console.error('CSV export error:', err);
+            toast.error('Failed to export CSV.');
+        }
+    };
     const maxSprint = rawData.length ? Math.max(...rawData.map((r: any) => r.sprintNumber || 1)) : 10;
 
     // Pre-compute transformation sprint labels once from the raw sprint data.
@@ -550,16 +598,34 @@ export function AnalyticsDashboard({ filters, onFilterChange }: { filters: any; 
                     <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-75">
                         Performance KPIs
                     </span>
-                    {selectedStarterId === 'custom' && (
+                    <div className="flex items-center gap-2">
+                        {selectedStarterId === 'custom' && (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setIsKpiConfigOpen(true)}
+                                className="rounded-xl h-8 text-[10px] font-black tracking-wider uppercase text-violet-600 hover:text-violet-700 hover:bg-violet-500/10 transition-colors"
+                            >
+                                <Settings2 className="w-3.5 h-3.5 mr-1.5" /> Customize KPIs
+                            </Button>
+                        )}
                         <Button
-                            variant="ghost"
+                            variant="outline"
                             size="sm"
-                            onClick={() => setIsKpiConfigOpen(true)}
-                            className="rounded-xl h-8 text-[10px] font-black tracking-wider uppercase text-violet-600 hover:text-violet-700 hover:bg-violet-500/10 transition-colors"
+                            onClick={openPdfDialog}
+                            className="rounded-xl h-8 text-[10px] font-black tracking-wider uppercase bg-background/50 border-border/50 hover:bg-violet-500/10 hover:text-violet-700 transition-colors"
                         >
-                            <Settings2 className="w-3.5 h-3.5 mr-1.5" /> Customize KPIs
+                            <FileText className="w-3.5 h-3.5 mr-1.5" /> Export PDF
                         </Button>
-                    )}
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={exportCSV}
+                            className="rounded-xl h-8 text-[10px] font-black tracking-wider uppercase bg-background/50 border-border/50 hover:bg-emerald-500/10 hover:text-emerald-700 transition-colors"
+                        >
+                            <Download className="w-3.5 h-3.5 mr-1.5" /> Export CSV
+                        </Button>
+                    </div>
                 </div>
 
                 {selectedStarterId !== 'custom' && starterStats && activeStarterConfig ? (
@@ -672,21 +738,15 @@ export function AnalyticsDashboard({ filters, onFilterChange }: { filters: any; 
                                         </Select>
                                     </div>
 
-                                    <Button 
-                                        variant="outline" 
-                                        onClick={() => { setSelectedStarterId('custom'); setEditMode(true); }} 
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => { setSelectedStarterId('custom'); setEditMode(true); }}
                                         className="rounded-xl font-bold text-xs h-9 bg-background/50 border-border/50"
                                     >
                                         <Edit3 className="w-4 h-4 mr-1.5" /> Edit
                                     </Button>
 
-                                    <Button 
-                                        variant="outline" 
-                                        className="rounded-xl font-bold text-xs h-9 bg-background/50 border-border/50" 
-                                        onClick={openPdfDialog}
-                                    >
-                                        <FileText className="w-4 h-4 mr-1.5" /> Export PDF
-                                    </Button>
+
                                 </div>
                             </div>
 
@@ -1696,7 +1756,7 @@ export function AnalyticsDashboard({ filters, onFilterChange }: { filters: any; 
                             { id: 'starter-chart-control', title: 'Control Chart (I-MR)', subtitle: 'Statistical process control limits' },
                             { id: 'starter-chart-dist', title: `${activeStarterConfig.label} Distribution`, subtitle: 'Frequency distribution histogram' },
                             { id: 'starter-chart-donut', title: 'Team / Source Contribution', subtitle: 'Breakdown of metrics by team' },
-                          ].filter(c => pdfSelectedIds.has(c.id))
+                        ].filter(c => pdfSelectedIds.has(c.id))
                         : []
                 }
             />

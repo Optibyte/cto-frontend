@@ -15,7 +15,8 @@ import {
 import {
     Building2, Globe2, Briefcase, FolderKanban, Users2, UserPlus,
     Plus, Pencil, Trash2, Loader2, RefreshCw, ChevronRight, ChevronLeft, X, Search, CheckSquare, Square,
-    Upload, FileSpreadsheet, CheckCircle2, AlertCircle, Download, Zap, Award, Mail, Clock, Calendar
+    Upload, FileSpreadsheet, CheckCircle2, AlertCircle, Download, Zap, Award, Mail, Clock, Calendar,
+    Eye, EyeOff
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -722,6 +723,7 @@ function renderRow(tab: TabKey, item: any, onBadgeAssign?: (userId: string, badg
                 </td>
                 <td className="py-3 text-sm text-muted-foreground">{item.email}</td>
                 <td className="py-3"><Badge className={cn('rounded-full text-[10px] px-2', {
+                    'bg-purple-500/10 text-purple-500 border-purple-500/20': item.role === 'CTO',
                     'bg-violet-500/10 text-violet-500 border-violet-500/20': item.role === 'ORG',
                     'bg-blue-500/10 text-blue-500 border-blue-500/20': item.role === 'MARKET',
                     'bg-emerald-500/10 text-emerald-500 border-emerald-500/20': item.role === 'ACCOUNT',
@@ -729,7 +731,7 @@ function renderRow(tab: TabKey, item: any, onBadgeAssign?: (userId: string, badg
                     'bg-indigo-500/10 text-indigo-500 border-indigo-500/20': item.role === 'PROJECT',
                     'bg-cyan-500/10 text-cyan-500 border-cyan-500/20': item.role === 'TEAM_LEAD',
                     'bg-slate-500/10 text-slate-500 border-slate-500/20': item.role === 'TEAM',
-                })} variant="outline">{item.role}</Badge></td>
+                })} variant="outline">{item.role === 'CTO' ? 'Super Admin' : item.role}</Badge></td>
                 <td className="py-3 text-sm text-muted-foreground">{item.employeeId || '—'}</td>
                 <td className="py-3 text-sm text-muted-foreground">{item.jobRole || '—'}</td>
                 <td className="py-3">{item.isActive ? <Badge className="bg-emerald-500/10 text-emerald-500 rounded-full text-[10px]" variant="outline">Active</Badge> : <Badge variant="outline" className="rounded-full text-[10px]">Inactive</Badge>}</td>
@@ -805,6 +807,8 @@ function EntityDialog({ open, onOpenChange, tab, editItem, onSave, organizations
     const [form, setForm] = useState<Record<string, any>>({});
     const [saving, setSaving] = useState(false);
     const [userSearch, setUserSearch] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     
     // Unique data lists to prevent duplicate dropdown entries
     const uniqueOrgs = useMemo(() => {
@@ -858,7 +862,9 @@ function EntityDialog({ open, onOpenChange, tab, editItem, onSave, organizations
 
     useEffect(() => {
         if (open) {
-            setUserSearch(''); // Reset search on open
+            setUserSearch('');
+            setShowPassword(false);
+            setShowConfirmPassword(false);
             if (editItem) {
                 const initialForm = { ...editItem };
 
@@ -894,6 +900,18 @@ function EntityDialog({ open, onOpenChange, tab, editItem, onSave, organizations
             if (!form.name || !form.name.trim()) {
                 toast.error('Team Name is required');
                 return;
+            }
+        }
+        if (tab === 'users') {
+            if (!isEdit && (!form.password || !form.password.trim())) {
+                toast.error('Password is required');
+                return;
+            }
+            if (form.password && form.password.trim()) {
+                if (form.password !== form.passwordConfirmation) {
+                    toast.error('Passwords do not match');
+                    return;
+                }
             }
         }
         setSaving(true);
@@ -1113,7 +1131,7 @@ function EntityDialog({ open, onOpenChange, tab, editItem, onSave, organizations
                                             />
                                             <label htmlFor={`pm-${u.id}`} className="grid cursor-pointer flex-1">
                                                 <span className="text-sm font-medium leading-none">{u.fullName}</span>
-                                                <span className="text-[10px] text-muted-foreground line-clamp-1">{u.role} • {u.email}</span>
+                                                <span className="text-[10px] text-muted-foreground line-clamp-1">{(u.role === 'CTO' ? 'Super Admin' : u.role)} • {u.email}</span>
                                             </label>
                                         </div>
                                     ))}
@@ -1293,7 +1311,7 @@ function EntityDialog({ open, onOpenChange, tab, editItem, onSave, organizations
                                                 />
                                                 <label htmlFor={`user-${u.id}`} className="grid cursor-pointer flex-1">
                                                     <span className="text-sm font-medium leading-none">{u.fullName}</span>
-                                                    <span className="text-[10px] text-muted-foreground line-clamp-1">{u.jobRole || u.role} • {u.email}</span>
+                                                    <span className="text-[10px] text-muted-foreground line-clamp-1">{u.jobRole || (u.role === 'CTO' ? 'Super Admin' : u.role)} • {u.email}</span>
                                                 </label>
                                             </div>
                                         ));
@@ -1309,17 +1327,68 @@ function EntityDialog({ open, onOpenChange, tab, editItem, onSave, organizations
                             <div className="space-y-2"><Label>Full Name *</Label><Input className="rounded-xl" value={form.fullName || ''} onChange={e => set('fullName', e.target.value)} placeholder="e.g. John Doe" /></div>
                             <div className="space-y-2"><Label>Email *</Label><Input type="email" className="rounded-xl" value={form.email || ''} onChange={e => set('email', e.target.value)} placeholder="john@example.com" /></div>
                             <div className="space-y-2">
+                                <Label>{isEdit ? 'Reset Password' : 'Password *'}</Label>
+                                <div className="relative">
+                                    <Input
+                                        type={showPassword ? 'text' : 'password'}
+                                        className="rounded-xl pr-10"
+                                        value={form.password || ''}
+                                        onChange={e => set('password', e.target.value)}
+                                        placeholder={isEdit ? 'Leave blank to keep current' : '••••••••'}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPassword(v => !v)}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                                        tabIndex={-1}
+                                    >
+                                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                    </button>
+                                </div>
+                                {isEdit && (
+                                    <p className="text-[10px] text-muted-foreground">Leave blank to keep current password.</p>
+                                )}
+                            </div>
+                            <div className="space-y-2">
+                                <Label>{isEdit ? 'Confirm New Password' : 'Confirm Password *'}</Label>
+                                <div className="relative">
+                                    <Input
+                                        type={showConfirmPassword ? 'text' : 'password'}
+                                        className={`rounded-xl pr-10 ${form.password && form.passwordConfirmation && form.password !== form.passwordConfirmation ? 'border-red-400 focus-visible:ring-red-400' : ''}`}
+                                        value={form.passwordConfirmation || ''}
+                                        onChange={e => set('passwordConfirmation', e.target.value)}
+                                        placeholder={isEdit ? 'Confirm new password' : '••••••••'}
+                                        disabled={!form.password}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowConfirmPassword(v => !v)}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-40"
+                                        tabIndex={-1}
+                                        disabled={!form.password}
+                                    >
+                                        {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                    </button>
+                                </div>
+                                {form.password && form.passwordConfirmation && form.password !== form.passwordConfirmation && (
+                                    <p className="text-[10px] text-red-500 font-medium">Passwords do not match.</p>
+                                )}
+                                {form.password && form.passwordConfirmation && form.password === form.passwordConfirmation && (
+                                    <p className="text-[10px] text-emerald-500 font-medium">✓ Passwords match.</p>
+                                )}
+                            </div>
+                            <div className="space-y-2">
                                 <Label>Access Role *</Label>
                                 <Select value={form.role || 'TEAM'} onValueChange={v => { set('role', v); set('scopeOrgId', ''); set('scopeMarketId', ''); set('scopeAccountId', ''); set('scopeProjectId', ''); set('scopeTeamId', ''); }}>
                                     <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="SUPERADMIN">SUPERADMIN</SelectItem>
+                                       
                                         <SelectItem value="ORG">Organization</SelectItem>
                                         <SelectItem value="MARKET">Market</SelectItem>
                                         <SelectItem value="ACCOUNT">Account</SelectItem>
                                         <SelectItem value="PROJECT_MANAGER">Project Manager</SelectItem>
                                         <SelectItem value="TEAM_LEAD">Team Lead</SelectItem>
-                                        <SelectItem value="CTO">CTO</SelectItem>
+                                        <SelectItem value="CTO">Super Admin</SelectItem>
                                         <SelectItem value="TEAM">Team Member</SelectItem>
                                     </SelectContent>
                                 </Select>
@@ -1574,7 +1643,7 @@ function getDefaultForm(tab: TabKey): Record<string, any> {
         case 'ai-projects': return { name: '', startDate: '', enddate: '', status: 'PLANNED', teamSize: 0, progress: 0, jiraProjectKey: '', jiraBoardId: '', githubRepoId: '', githubToken: '', license: '', isDigitalTransformation: false, digitalTransformationStartDate: '', digitalTransformationEndDate: '', aiEnabled: true, aiToolLicenses: 0, aiToolsUsed: [] };
         case 'teams': return { teamId: '', name: '', description: '', teamLeadId: '', accountId: '', projectId: '', onboardDate: '', transformationStartDate: '', transformationEndDate: '', isTransformationMonitor: false };
         case 'members': return { teamId: '', userIds: [], roleInTeam: 'Member' };
-        case 'users': return { fullName: '', email: '', role: 'TEAM', jobRole: '', employeeId: '', auth0Id: '', jiraAccountId: '', githubEmail: '', scopeOrgId: '', scopeMarketId: '', scopeAccountId: '', scopeProjectId: '', scopeTeamId: '', badge: '' };
+        case 'users': return { fullName: '', email: '', role: 'TEAM', jobRole: '', employeeId: '', auth0Id: '', jiraAccountId: '', githubEmail: '', scopeOrgId: '', scopeMarketId: '', scopeAccountId: '', scopeProjectId: '', scopeTeamId: '', badge: '', password: '' };
         case 'report-schedules': return { name: '', recipients: '', frequency: 'WEEKLY', scheduleTime: '09:00', reportType: 'PERFORMANCE', projectIds: [], isActive: true };
     }
 }
@@ -1642,6 +1711,7 @@ function buildPayload(tab: TabKey, form: Record<string, any>, isEdit: boolean): 
             if (form.jiraAccountId) u.jiraAccountId = form.jiraAccountId.trim();
             if (form.githubEmail) u.githubEmail = form.githubEmail.trim();
             if (form.badge !== undefined) u.badge = form.badge ? form.badge : null;
+            if (form.password) u.password = form.password;
 
             // ── DATA FENCING: set scope IDs based on role ──────────────────
             const role = form.role || 'TEAM';
@@ -1712,6 +1782,7 @@ function BulkUploadDialog({ open, onOpenChange, type, onSuccess }: BulkUploadDia
                 worksheet.columns = [
                     { header: 'eName', key: 'eName', width: 25 },
                     { header: 'Email', key: 'email', width: 30 },
+                    { header: 'Password', key: 'password', width: 20 },
                     { header: 'Access Role', key: 'accessRole', width: 20 },
                     { header: 'Employee ID', key: 'employeeId', width: 20 },
                     { header: 'Job Role', key: 'jobRole', width: 25 }
@@ -1733,25 +1804,26 @@ function BulkUploadDialog({ open, onOpenChange, type, onSuccess }: BulkUploadDia
                         worksheet.addRow({
                             eName: u.fullName || '',
                             email: u.email || '',
+                            password: '',
                             accessRole: mappedRole,
                             employeeId: u.employeeId || '',
                             jobRole: u.jobRole || ''
                         });
                     });
                 } else {
-                    worksheet.addRow({ eName: 'John Doe', email: 'john.doe@example.com', accessRole: 'CTO', employeeId: 'EMP-1001', jobRole: 'Chief Technology Officer' });
-                    worksheet.addRow({ eName: 'Alice Smith', email: 'alice.smith@example.com', accessRole: 'Team Lead', employeeId: 'EMP-1002', jobRole: 'Senior Engineer' });
-                    worksheet.addRow({ eName: 'Bob Johnson', email: 'bob.johnson@example.com', accessRole: 'Project Manager', employeeId: 'EMP-1003', jobRole: 'Scrum Master' });
-                    worksheet.addRow({ eName: 'Charlie Brown', email: 'charlie.brown@example.com', accessRole: 'Account', employeeId: 'EMP-1004', jobRole: 'Account Director' });
-                    worksheet.addRow({ eName: 'Diana Prince', email: 'diana.prince@example.com', accessRole: 'Market', employeeId: 'EMP-1005', jobRole: 'Market Lead' });
-                    worksheet.addRow({ eName: 'Evan Wright', email: 'evan.wright@example.com', accessRole: 'Organization', employeeId: 'EMP-1006', jobRole: 'Org Admin' });
-                    worksheet.addRow({ eName: 'Fiona Gallagher', email: 'fiona.gallagher@example.com', accessRole: 'Team Member', employeeId: 'EMP-1007', jobRole: 'Developer' });
-                    worksheet.addRow({ eName: 'System Admin', email: 'admin@example.com', accessRole: 'SUPERADMIN', employeeId: 'EMP-1008', jobRole: 'System Administrator' });
+                    worksheet.addRow({ eName: 'John Doe', email: 'john.doe@example.com', password: '', accessRole: 'CTO', employeeId: 'EMP-1001', jobRole: 'Chief Technology Officer' });
+                    worksheet.addRow({ eName: 'Alice Smith', email: 'alice.smith@example.com', password: '', accessRole: 'Team Lead', employeeId: 'EMP-1002', jobRole: 'Senior Engineer' });
+                    worksheet.addRow({ eName: 'Bob Johnson', email: 'bob.johnson@example.com', password: '', accessRole: 'Project Manager', employeeId: 'EMP-1003', jobRole: 'Scrum Master' });
+                    worksheet.addRow({ eName: 'Charlie Brown', email: 'charlie.brown@example.com', password: '', accessRole: 'Account', employeeId: 'EMP-1004', jobRole: 'Account Director' });
+                    worksheet.addRow({ eName: 'Diana Prince', email: 'diana.prince@example.com', password: '', accessRole: 'Market', employeeId: 'EMP-1005', jobRole: 'Market Lead' });
+                    worksheet.addRow({ eName: 'Evan Wright', email: 'evan.wright@example.com', password: '', accessRole: 'Organization', employeeId: 'EMP-1006', jobRole: 'Org Admin' });
+                    worksheet.addRow({ eName: 'Fiona Gallagher', email: 'fiona.gallagher@example.com', password: '', accessRole: 'Team Member', employeeId: 'EMP-1007', jobRole: 'Developer' });
+                    worksheet.addRow({ eName: 'System Admin', email: 'admin@example.com', password: '', accessRole: 'SUPERADMIN', employeeId: 'EMP-1008', jobRole: 'System Administrator' });
                 }
 
                 // Add data validation
                 for (let i = 2; i <= (usersList.length > 0 ? usersList.length + 500 : 500); i++) {
-                    worksheet.getCell(`C${i}`).dataValidation = {
+                    worksheet.getCell(`D${i}`).dataValidation = {
                         type: 'list',
                         allowBlank: true,
                         showErrorMessage: true,
@@ -1859,7 +1931,7 @@ function BulkUploadDialog({ open, onOpenChange, type, onSuccess }: BulkUploadDia
                         </div>
                         <div className="flex flex-wrap gap-1.5">
                             {(isEmployees
-                                ? ['eName', 'Email', 'Access Role', 'Employee ID', 'Job Role']
+                                ? ['eName', 'Email', 'Password', 'Access Role', 'Employee ID', 'Job Role']
                                 : ['team', 'sprint_number', 'throughput_points', 'quality_score', 'velocity_points', 'project_ai_enabled']
                             ).map(col => (
                                 <span key={col} className={cn(

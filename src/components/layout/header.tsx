@@ -28,10 +28,13 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 const ROLES = [
+    { value: 'CTO' as UserRole, label: 'Super Admin', color: 'bg-violet-600', icon: Shield, description: 'Chief Technology Officer' },
     { value: 'ORG' as UserRole, label: 'Organization', color: 'bg-purple-500', icon: Shield, description: 'Organization-wide view' },
     { value: 'MARKET' as UserRole, label: 'Market', color: 'bg-cyan-500', icon: Globe, description: 'Market analytics & oversight' },
     { value: 'ACCOUNT' as UserRole, label: 'Account', color: 'bg-rose-500', icon: Landmark, description: 'Account performance' },
-    { value: 'PROJECT' as UserRole, label: 'Project', color: 'bg-blue-500', icon: Briefcase, description: 'Project management' },
+    { value: 'PROJECT_MANAGER' as UserRole, label: 'Project Manager', color: 'bg-blue-600', icon: Briefcase, description: 'Project management' },
+    { value: 'PROJECT' as UserRole, label: 'Project', color: 'bg-blue-500', icon: Briefcase, description: 'Project view' },
+    { value: 'TEAM_LEAD' as UserRole, label: 'Team Lead', color: 'bg-orange-500', icon: Users, description: 'Team leadership' },
     { value: 'TEAM' as UserRole, label: 'Team', color: 'bg-emerald-500', icon: Users, description: 'Team performance' },
 ];
 
@@ -178,15 +181,12 @@ export function Header() {
     const displayId = user?.id || '';
 
     return (
-        <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-border/30 bg-card/80 backdrop-blur-md supports-[backdrop-filter]:bg-card/60 px-6 transition-all shadow-sm shadow-black/5 dark:shadow-black/10">
-            <div className="flex flex-1 items-center gap-4">
-                <div className="relative w-full max-w-md">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                        type="search"
-                        placeholder="Search teams, metrics..."
-                        className="pl-10 rounded-xl border-border/50 transition-all focus:shadow-lg focus:shadow-primary/10 focus:border-primary/50"
-                    />
+        <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-border/30 bg-background px-6 transition-all shadow-sm shadow-black/5 dark:shadow-black/10">
+            <div className="flex flex-1 items-center justify-center">
+                <div className="flex items-center justify-center px-4 py-2 rounded-xl border border-primary bg-primary/10">
+                    <span className="text-lg font-bold text-primary">
+                        {currentRole.label}
+                    </span>
                 </div>
             </div>
 
@@ -324,8 +324,10 @@ export function Header() {
                                 <DropdownMenuSeparator className="my-1 opacity-50" />
                                 <DropdownMenuItem
                                     onClick={() => {
-                                        logout();
-                                        router.push('/login');
+                                        if (mounted) {
+                                            logout();
+                                            router.push('/login');
+                                        }
                                     }}
                                     className="flex items-center gap-2 p-2.5 rounded-xl cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10 transition-colors"
                                 >
