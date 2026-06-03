@@ -139,8 +139,8 @@ export default function IntegrationsPage() {
                                 <CheckCircle2 className="h-3 w-3 mr-1" /> Connected
                             </Badge>
                         ) : (
-                            <Badge variant="secondary" className="rounded-full px-3 py-1 bg-secondary/50">
-                                Available
+                            <Badge variant="outline" className="rounded-full bg-red-500/10 text-red-500 border-red-500/20 px-3 py-1">
+                                <XCircle className="h-3 w-3 mr-1" /> Not Available
                             </Badge>
                         )}
                     </CardHeader>
@@ -160,7 +160,12 @@ export default function IntegrationsPage() {
                         <Button
                             variant={isJiraConnected ? 'outline' : 'default'}
                             className="w-full rounded-xl gap-2 font-medium"
-                            onClick={() => setConnectOpen(true)}
+                            onClick={() => {
+                                if (isJiraConnected) {
+                                    setConnectOpen(true);
+                                }
+                            }}
+                            disabled={!isJiraConnected}
                         >
                             <Link2 className="h-4 w-4" />
                             {isJiraConnected ? 'Configure Mapping' : 'Connect Jira'}
@@ -194,8 +199,8 @@ export default function IntegrationsPage() {
                                 <CheckCircle2 className="h-3 w-3 mr-1" /> Active (SSO)
                             </Badge>
                         ) : (
-                            <Badge variant="secondary" className="rounded-full px-3 py-1 bg-secondary/50">
-                                Available
+                            <Badge variant="outline" className="rounded-full bg-red-500/10 text-red-500 border-red-500/20 px-3 py-1">
+                                <XCircle className="h-3 w-3 mr-1" /> Not Available
                             </Badge>
                         )}
                     </CardHeader>
@@ -213,7 +218,12 @@ export default function IntegrationsPage() {
                         <Button
                             variant={ssoConfig?.enabled ? 'outline' : 'default'}
                             className="w-full rounded-xl gap-2 font-medium"
-                            onClick={() => setSsoOpen(true)}
+                            onClick={() => {
+                                if (ssoConfig?.enabled) {
+                                    setSsoOpen(true);
+                                }
+                            }}
+                            disabled={!ssoConfig?.enabled}
                         >
                             <KeyRound className="h-4 w-4" />
                             {ssoConfig?.enabled ? 'Configure SSO' : 'Enable SSO'}

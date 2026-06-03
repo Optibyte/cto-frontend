@@ -64,31 +64,31 @@ const AI_MONITOR_PLOTS: PlotConfig[] = [
     {
         id: 'ai-1', title: 'Velocity (Transformation Phases)', subtitle: 'Average velocity comparison',
         dataSource: 'team_productivity', scopeOrgs: [], scopeMarkets: [], scopeAccounts: [], scopeProjects: [], scopeTeams: [],
-        aiFilter: 'all', sprintRange: [1, 10], xAxis: 'sprintNumber', legend: 'aiBaseline', chartType: 'AreaChart',
+        aiFilter: 'all', sprintRange: [1, 30], xAxis: 'sprintNumber', legend: 'aiBaseline', chartType: 'AreaChart',
         metrics: [{ key: 'velocityPoints', agg: 'avg', color: '#3b82f6', type: 'area' }], span: 1,
     },
     {
         id: 'ai-2', title: 'Throughput (Transformation Phases)', subtitle: 'Average throughput comparison',
         dataSource: 'team_productivity', scopeOrgs: [], scopeMarkets: [], scopeAccounts: [], scopeProjects: [], scopeTeams: [],
-        aiFilter: 'all', sprintRange: [1, 10], xAxis: 'sprintNumber', legend: 'aiBaseline', chartType: 'AreaChart',
+        aiFilter: 'all', sprintRange: [1, 30], xAxis: 'sprintNumber', legend: 'aiBaseline', chartType: 'AreaChart',
         metrics: [{ key: 'throughputPoints', agg: 'avg', color: '#3b82f6', type: 'area' }], span: 1,
     },
     {
         id: 'ai-3', title: 'Quality (Transformation Phases)', subtitle: 'Quality score comparison',
         dataSource: 'team_productivity', scopeOrgs: [], scopeMarkets: [], scopeAccounts: [], scopeProjects: [], scopeTeams: [],
-        aiFilter: 'all', sprintRange: [1, 10], xAxis: 'sprintNumber', legend: 'aiBaseline', chartType: 'AreaChart',
+        aiFilter: 'all', sprintRange: [1, 30], xAxis: 'sprintNumber', legend: 'aiBaseline', chartType: 'AreaChart',
         metrics: [{ key: 'qualityScore', agg: 'avg', color: '#3b82f6', type: 'area' }], span: 1,
     },
     {
         id: 'ai-4', title: 'Done-to-Said (Transformation Phases)', subtitle: 'Done-to-said ratio comparison',
         dataSource: 'team_productivity', scopeOrgs: [], scopeMarkets: [], scopeAccounts: [], scopeProjects: [], scopeTeams: [],
-        aiFilter: 'all', sprintRange: [1, 10], xAxis: 'sprintNumber', legend: 'aiBaseline', chartType: 'AreaChart',
+        aiFilter: 'all', sprintRange: [1, 30], xAxis: 'sprintNumber', legend: 'aiBaseline', chartType: 'AreaChart',
         metrics: [{ key: 'doneToSaidRatio', agg: 'avg', color: '#3b82f6', type: 'area' }], span: 1,
     },
     {
         id: 'ai-5', title: 'Tech Debt (Transformation Phases)', subtitle: 'Tech debt index comparison',
         dataSource: 'team_productivity', scopeOrgs: [], scopeMarkets: [], scopeAccounts: [], scopeProjects: [], scopeTeams: [],
-        aiFilter: 'all', sprintRange: [1, 10], xAxis: 'sprintNumber', legend: 'aiBaseline', chartType: 'AreaChart',
+        aiFilter: 'all', sprintRange: [1, 30], xAxis: 'sprintNumber', legend: 'aiBaseline', chartType: 'AreaChart',
         metrics: [{ key: 'technicalDebtIndex', agg: 'avg', color: '#3b82f6', type: 'area' }], span: 1,
     },
 ];
@@ -1198,20 +1198,21 @@ export function AnalyticsDashboard({ filters, onFilterChange }: { filters: any; 
                                 <p className="text-[10px] text-muted-foreground font-medium mt-0.5">Comparing before, during, and after transformation phases across teams</p>
                             </div>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                             <Button variant="outline" className="rounded-xl font-bold text-xs" onClick={openPdfDialog}>
                                 <FileText className="w-4 h-4 mr-1.5" /> Export PDF
                             </Button>
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                        {aiPlots.map(plot => {
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {aiPlots.map((plot, index) => {
                             const chartData = pivotData(plot.dataSource === 'manual_metrics' ? manualData : rawData, plot);
                             const xLabel = X_AXIS_OPTIONS.find(o => o.id === plot.xAxis)?.label || plot.xAxis;
+                            const isLastOdd = index === aiPlots.length - 1 && aiPlots.length % 2 !== 0;
 
                             return (
-                                <div key={plot.id} id={`plot-card-${plot.id}`} className={cn("relative group transition-all duration-300", plot.span === 2 ? 'lg:col-span-2' : plot.span === 3 ? 'lg:col-span-3' : '')}>
+                                <div key={plot.id} id={`plot-card-${plot.id}`} className={cn("relative group transition-all duration-300", isLastOdd ? 'lg:col-span-2' : '')}>
                                     <div className="absolute top-3 right-3 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
                                         <Button size="icon" variant="secondary" className="h-7 w-7 rounded-lg shadow-md bg-background/80 backdrop-blur-sm" onClick={() => { setExpandingPlot(plot); setIsExpandOpen(true); }}><Maximize2 className="w-3.5 h-3.5" /></Button>
                                     </div>
@@ -1221,7 +1222,7 @@ export function AnalyticsDashboard({ filters, onFilterChange }: { filters: any; 
                                                 <div className="space-y-0.5 min-w-0">
                                                     <CardTitle className="text-lg font-black tracking-tight truncate flex items-center gap-2 min-w-0 w-full text-left">
                                                         <Globe className="h-4 w-4 text-violet-500" />
-                                                        {plot.title}
+                                                        {plot.title.replace(' (Transformation Phases)', '')}
                                                     </CardTitle>
                                                     <CardDescription className="text-[10px] font-medium truncate">{plot.subtitle}</CardDescription>
                                                 </div>
