@@ -10,6 +10,7 @@ import { useRole } from '@/contexts/role-context';
 import { UserRole } from '@/lib/types';
 import { useTeams } from '@/hooks/use-teams';
 import { useSprintMetrics } from '@/hooks/use-metrics';
+import { toast } from 'sonner';
 import {
     Dialog,
     DialogContent,
@@ -84,8 +85,9 @@ export function Header() {
             metricType: string;
             metricName: string;
             value: number;
-            lcl: number;
+            baseline: number;
             phase: 'before' | 'during' | 'after';
+            higherIsBetter: boolean;
         }> = [];
 
         // Only teams with digital transformation dates configured
@@ -139,18 +141,9 @@ export function Header() {
                     .map(p => p.value);
                 const baseline = beforeValues.length > 0 ? avg(beforeValues) : 0;
 
-                let std = 0;
-                if (beforeValues.length > 1) {
-                    const variance =
-                        beforeValues.reduce((sum, v) => sum + Math.pow(v - baseline, 2), 0) /
-                        (beforeValues.length - 1);
-                    std = Math.sqrt(variance);
-                }
-                const lcl = Math.max(0, baseline - 2 * std);
-
-                if (lcl > 0) {
+                if (baseline > 0) {
                     phaseData.forEach(p => {
-                        if (p.value !== null && p.value < lcl) {
+                        if (p.value !== null && p.value > baseline) {
                             list.push({
                                 teamId: team.id,
                                 teamName: team.name,
@@ -159,8 +152,9 @@ export function Header() {
                                 metricType: field.key,
                                 metricName: field.name,
                                 value: p.value,
-                                lcl,
+                                baseline,
                                 phase: p.phase,
+                                higherIsBetter: field.higherIsBetter,
                             });
                         }
                     });
@@ -173,6 +167,15 @@ export function Header() {
             return b.sprintNumber - a.sprintNumber;
         });
     }, [allTeams, sprintMetrics]);
+
+    useEffect(() => {
+        if (mounted && anomalies.length > 0) {
+            toast.success(`Active Performance Alerts: ${anomalies.length} sprint metrics have exceeded baseline!`, {
+                description: 'Click the notification bell icon to view detailed team logs.',
+                duration: 6000,
+            });
+        }
+    }, [mounted, anomalies.length]);
 
     const currentRole = ROLES.find((r) => r.value === role) || ROLES[0];
 
@@ -208,8 +211,8 @@ export function Header() {
                                 <Button variant="ghost" size="icon" className="relative hover:bg-primary/10 transition-colors rounded-xl">
                                     <Bell className="h-5 w-5" />
                                     {anomalies.length > 0 && (
-                                        <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] font-bold text-white ring-2 ring-background animate-pulse shadow-lg shadow-rose-500/50">
-                                            {anomalies.length}
+                                        <span className="absolute -top-1 -right-1 flex h-4 min-w-[1rem] px-1 items-center justify-center rounded-full bg-rose-500 text-[8px] font-bold text-white ring-2 ring-background animate-pulse shadow-lg shadow-rose-500/50">
+                                            {anomalies.length > 99 ? '99+' : anomalies.length}
                                         </span>
                                     )}
                                 </Button>
@@ -217,11 +220,11 @@ export function Header() {
                             <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col p-6 rounded-[2rem] border-border/50 bg-background/95 backdrop-blur-xl shadow-2xl overflow-hidden">
                                 <DialogHeader className="pb-4 border-b border-border/20">
                                     <DialogTitle className="text-xl font-black tracking-tight flex items-center gap-2">
-                                        <Bell className="h-5 w-5 text-rose-500" />
-                                        Team Sprint LCL Alerts
+                                        <Bell className="h-5 w-5 text-primary" />
+                                        Team Sprint Baseline Alerts
                                     </DialogTitle>
                                     <DialogDescription className="text-xs font-medium text-muted-foreground mt-1">
-                                        Active deviations where a team's sprint metric fell below the calculated Lower Control Limit (LCL) of their pre-transformation baseline.
+                                        Active events where a team's sprint metric exceeded their pre-transformation baseline.
                                     </DialogDescription>
                                 </DialogHeader>
                                 
@@ -232,62 +235,80 @@ export function Header() {
                                                 <CheckCircle2 className="h-8 w-8" />
                                             </div>
                                             <div className="space-y-1">
-                                                <p className="font-bold text-sm">All Sprints Operating Within Limits</p>
-                                                <p className="text-xs text-muted-foreground">No metrics are currently below their Lower Control Limit baseline.</p>
+                                                <p className="font-bold text-sm">All Sprints Operating Within Baseline</p>
+                                                <p className="text-xs text-muted-foreground">No metrics are currently exceeding their pre-transformation baseline.</p>
                                             </div>
                                         </div>
                                     ) : (
                                         <div className="space-y-3">
-                                            {anomalies.map((anomaly, idx) => (
-                                                <div 
-                                                    key={`${anomaly.teamId}-${anomaly.sprintNumber}-${anomaly.metricType}-${idx}`}
-                                                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl border border-rose-500/20 bg-rose-500/[0.03] hover:bg-rose-500/[0.05] transition-colors"
-                                                >
-                                                    <div className="flex items-start gap-3">
-                                                        <div className="p-2 rounded-xl bg-rose-500/10 text-rose-500 mt-0.5">
-                                                            <AlertTriangle className="h-4 w-4" />
-                                                        </div>
-                                                        <div>
-                                                            <div className="flex items-center gap-2 flex-wrap">
-                                                                <span className="font-extrabold text-sm text-foreground">{anomaly.teamName}</span>
-                                                                <span className="text-[10px] font-medium text-muted-foreground">/</span>
-                                                                <span className="text-[10px] font-bold text-muted-foreground bg-secondary/50 px-2 py-0.5 rounded-md">
-                                                                    {anomaly.sprintName}
-                                                                </span>
-                                                                <span className={`text-[8px] font-black border px-1.5 py-0.5 rounded-md uppercase ${
-                                                                    anomaly.phase === 'before' ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' :
-                                                                    anomaly.phase === 'during' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
-                                                                    'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                            {anomalies.map((anomaly, idx) => {
+                                                const isFavorable = anomaly.higherIsBetter;
+                                                return (
+                                                    <div 
+                                                        key={`${anomaly.teamId}-${anomaly.sprintNumber}-${anomaly.metricType}-${idx}`}
+                                                        className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl border transition-colors ${
+                                                            isFavorable 
+                                                                ? "border-emerald-500/25 bg-emerald-500/[0.02] hover:bg-emerald-500/[0.04]"
+                                                                : "border-rose-500/25 bg-rose-500/[0.02] hover:bg-rose-500/[0.04]"
+                                                        }`}
+                                                    >
+                                                        <div className="flex items-start gap-3">
+                                                            <div className={`p-2 rounded-xl mt-0.5 ${
+                                                                isFavorable ? "bg-emerald-500/10 text-emerald-500" : "bg-rose-500/10 text-rose-500"
+                                                            }`}>
+                                                                {isFavorable ? <CheckCircle2 className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
+                                                            </div>
+                                                            <div>
+                                                                <div className="flex items-center gap-2 flex-wrap">
+                                                                    <span className="font-extrabold text-sm text-foreground">{anomaly.teamName}</span>
+                                                                    <span className="text-[10px] font-medium text-muted-foreground">/</span>
+                                                                    <span className="text-[10px] font-bold text-muted-foreground bg-secondary/50 px-2 py-0.5 rounded-md">
+                                                                        {anomaly.sprintName}
+                                                                    </span>
+                                                                    <span className={`text-[8px] font-black border px-1.5 py-0.5 rounded-md uppercase ${
+                                                                        anomaly.phase === 'before' ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' :
+                                                                        anomaly.phase === 'during' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
+                                                                        'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                                                    }`}>
+                                                                        {anomaly.phase}
+                                                                    </span>
+                                                                </div>
+                                                                <p className={`text-xs font-bold mt-1 ${
+                                                                    isFavorable ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
                                                                 }`}>
-                                                                    {anomaly.phase}
+                                                                    {anomaly.metricName}
+                                                                </p>
+                                                                <p className="text-[11px] text-muted-foreground/80 mt-0.5 leading-normal">
+                                                                    {isFavorable 
+                                                                        ? `Increased above the pre-transformation baseline of ${anomaly.baseline.toFixed(2)}.`
+                                                                        : `Increased above the pre-transformation baseline of ${anomaly.baseline.toFixed(2)} (unfavorable increase).`
+                                                                    }
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex items-center gap-6 self-end sm:self-center">
+                                                            <div className="text-right">
+                                                                <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Actual</span>
+                                                                <span className={`text-sm font-black ${isFavorable ? "text-emerald-500" : "text-rose-500"}`}>
+                                                                    {anomaly.value.toFixed(2)}
                                                                 </span>
                                                             </div>
-                                                            <p className="text-xs font-bold text-rose-500/90 mt-1">
-                                                                {anomaly.metricName}
-                                                            </p>
-                                                            <p className="text-[11px] text-muted-foreground/80 mt-0.5 leading-normal">
-                                                                Fell below the Lower Control Limit (LCL) of {anomaly.lcl.toFixed(2)}.
-                                                            </p>
+                                                            <div className="text-right">
+                                                                <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Baseline</span>
+                                                                <span className="text-sm font-bold text-muted-foreground">{anomaly.baseline.toFixed(2)}</span>
+                                                            </div>
+                                                            <div className="text-right min-w-[70px]">
+                                                                <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Gain</span>
+                                                                <span className={`text-xs font-extrabold px-2 py-0.5 rounded-md ${
+                                                                    isFavorable ? "text-emerald-500 bg-emerald-500/10" : "text-rose-500 bg-rose-500/10"
+                                                                }`}>
+                                                                    {(isFavorable ? '+' : '') + (anomaly.value - anomaly.baseline).toFixed(2)}
+                                                                </span>
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                    <div className="flex items-center gap-6 self-end sm:self-center">
-                                                        <div className="text-right">
-                                                            <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Actual</span>
-                                                            <span className="text-sm font-black text-rose-500">{anomaly.value.toFixed(2)}</span>
-                                                        </div>
-                                                        <div className="text-right">
-                                                            <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">LCL Limit</span>
-                                                            <span className="text-sm font-bold text-muted-foreground">{anomaly.lcl.toFixed(2)}</span>
-                                                        </div>
-                                                        <div className="text-right min-w-[70px]">
-                                                            <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Variance</span>
-                                                            <span className="text-xs font-extrabold text-rose-500 bg-rose-500/10 px-2 py-0.5 rounded-md">
-                                                                {(anomaly.value - anomaly.lcl).toFixed(2)}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
                                     )}
                                 </div>

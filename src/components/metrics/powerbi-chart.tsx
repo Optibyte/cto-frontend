@@ -51,8 +51,10 @@ export function PowerBIChart({
     );
 
   const hasLegend = config.legend && config.legend !== 'none';
+  
+  // 1. Gather all series keys across all data points to avoid missing keys that start in later sprints
   let seriesKeys = hasLegend
-    ? Object.keys(data[0]).filter((k) => k !== 'group')
+    ? Array.from(new Set(data.flatMap((d) => Object.keys(d)))).filter((k) => k !== 'group')
     : config.metrics.map((m) => m.key);
 
   let baselineAvg: number | null = null;
@@ -64,8 +66,61 @@ export function PowerBIChart({
       baselineAvg =
         traditionalValues.reduce((a, b) => a + b, 0) / traditionalValues.length;
     }
-    seriesKeys = seriesKeys.filter((k) => k !== 'Traditional');
+    // Filter out control group keys that shouldn't render as separate lines
+    seriesKeys = seriesKeys.filter(
+      (k) => k !== 'Traditional' && k !== 'Non-Transformed' && k !== 'Unknown'
+    );
+
+    // Sort series keys to match the chronological timeline: Before -> During -> After
+    const order = [
+      'Before Transformation',
+      'During Transformation',
+      'After Transformation',
+    ];
+    seriesKeys.sort((a, b) => {
+      const idxA = order.indexOf(a);
+      const idxB = order.indexOf(b);
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      if (idxA !== -1) return -1;
+      if (idxB !== -1) return 1;
+      return a.localeCompare(b);
+    });
   }
+
+  // 2. Connect the phase lines at boundaries to avoid visual gaps in the line chart
+  let processedData = data;
+  if (config.legend === 'aiBaseline') {
+    processedData = data.map((d, index) => {
+      const current = { ...d };
+      if (current['Before Transformation'] !== undefined && index < data.length - 1) {
+        const next = data[index + 1];
+        if (next['During Transformation'] !== undefined) {
+          current['During Transformation'] = current['Before Transformation'];
+        }
+      }
+      if (current['During Transformation'] !== undefined && index < data.length - 1) {
+        const next = data[index + 1];
+        if (next['After Transformation'] !== undefined) {
+          current['After Transformation'] = current['During Transformation'];
+        }
+      }
+      return current;
+    });
+  }
+
+  // Define semantic colors for transformation phases to match the premium aesthetics
+  const getSeriesColor = (key: string, index: number) => {
+    if (config.legend === 'aiBaseline') {
+      if (key === 'Before Transformation') return '#8b5cf6'; // Purple
+      if (key === 'During Transformation') return '#f59e0b'; // Amber
+      if (key === 'After Transformation') return '#10b981'; // Emerald
+      if (key === 'Non-Transformed') return '#3b82f6'; // Blue
+      if (key === 'Traditional') return '#64748b';
+    }
+    return hasLegend
+      ? COLORS[index % COLORS.length]
+      : config.metrics[index]?.color || COLORS[index % COLORS.length];
+  };
 
   const getLabel = (key: string) =>
     METRICS_FIELDS.find((f) => f.id === key)?.label || key;
@@ -75,7 +130,7 @@ export function PowerBIChart({
   let spcStats: { avg: number; std: number; ucl: number; lcl: number } | null = null;
   const targetKey = seriesKeys[0];
   if (targetKey && (ct === 'LineChart' || ct === 'AreaChart' || ct === 'ComposedChart')) {
-    const values = data.map((d) => Number(d[targetKey])).filter((v) => !isNaN(v));
+    const values = processedData.map((d) => Number(d[targetKey])).filter((v) => !isNaN(v));
     if (values.length > 1) {
       const avg = values.reduce((a, b) => a + b, 0) / values.length;
       const variance =
@@ -89,9 +144,7 @@ export function PowerBIChart({
 
   const renderSeries = () =>
     seriesKeys.map((key, i) => {
-      const color = hasLegend
-        ? COLORS[i % COLORS.length]
-        : config.metrics[i]?.color || COLORS[i % COLORS.length];
+      const color = getSeriesColor(key, i);
       const label = hasLegend ? key : getLabel(key);
       const type = hasLegend
         ? ct.includes('Bar')
@@ -123,8 +176,9 @@ export function PowerBIChart({
           dataKey={key}
           name={label}
           stroke={color}
-          strokeWidth={2.5}
-          dot={{ r: 3 }}
+          strokeWidth={3}
+          activeDot={{ r: 6, strokeWidth: 0 }}
+          dot={{ r: 4, stroke: '#fff', strokeWidth: 1.5, fill: color }}
         />
       );
     });
@@ -149,63 +203,21 @@ export function PowerBIChart({
         }}
       />
       
-      {baselineAvg !== null && (
+      {/* SPC Control Lines */}
+      {spcStats !== null && (
         <ReferenceLine
-          y={baselineAvg}
+          y={spcStats.avg}
           stroke="#3b82f6"
-          strokeDasharray="5 5"
+          strokeDasharray="4 4"
+          strokeWidth={1.5}
           label={{
-            value: `Baseline (${baselineAvg.toFixed(2)})`,
+            value: `Baseline: ${spcStats.avg.toFixed(1)}`,
             position: 'insideTopLeft',
             fill: '#3b82f6',
-            fontSize: 12,
+            fontSize: 9,
             fontWeight: 'bold',
           }}
         />
-      )}
-      {/* SPC Control Lines */}
-      {spcStats !== null && (
-        <>
-          <ReferenceLine
-            y={spcStats.avg}
-            stroke="#10b981"
-            strokeDasharray="4 4"
-            strokeWidth={1.5}
-            label={{
-              value: `CL: ${spcStats.avg.toFixed(1)}`,
-              position: 'insideTopLeft',
-              fill: '#10b981',
-              fontSize: 9,
-              fontWeight: 'bold',
-            }}
-          />
-          <ReferenceLine
-            y={spcStats.ucl}
-            stroke="#ef4444"
-            strokeDasharray="2 3"
-            strokeWidth={1.5}
-            label={{
-              value: `UCL (+2σ): ${spcStats.ucl.toFixed(1)}`,
-              position: 'insideTopRight',
-              fill: '#ef4444',
-              fontSize: 9,
-              fontWeight: 'bold',
-            }}
-          />
-          <ReferenceLine
-            y={spcStats.lcl}
-            stroke="#ef4444"
-            strokeDasharray="2 3"
-            strokeWidth={1.5}
-            label={{
-              value: `LCL (-2σ): ${spcStats.lcl.toFixed(1)}`,
-              position: 'insideBottomRight',
-              fill: '#ef4444',
-              fontSize: 9,
-              fontWeight: 'bold',
-            }}
-          />
-        </>
       )}
     </>
   );
@@ -214,12 +226,12 @@ export function PowerBIChart({
   // Only rendered for LineChart with aiBaseline legend when transformation sprint
   // labels are supplied.
   const showTransformationZones =
-    ct === 'LineChart' &&
+    (ct === 'LineChart' || ct === 'AreaChart' || ct === 'ComposedChart') &&
     config.legend === 'aiBaseline' &&
     !!transformationSprints?.startLabel;
 
-  const firstSprintLabel = data[0]?.group ?? null;
-  const lastSprintLabel = data[data.length - 1]?.group ?? null;
+  const firstSprintLabel = processedData[0]?.group ?? null;
+  const lastSprintLabel = processedData[processedData.length - 1]?.group ?? null;
   const tStart = transformationSprints?.startLabel ?? null;
   const tEnd = transformationSprints?.endLabel ?? null;
 
@@ -316,7 +328,7 @@ export function PowerBIChart({
       {ct === 'PieChart' ? (
         <PieChart>
           <Pie
-            data={data}
+            data={processedData}
             cx="50%"
             cy="50%"
             innerRadius="50%"
@@ -325,7 +337,7 @@ export function PowerBIChart({
             dataKey={seriesKeys[0]}
             nameKey="group"
           >
-            {data.map((_, i) => (
+            {processedData.map((_, i) => (
               <Cell key={i} fill={COLORS[i % COLORS.length]} />
             ))}
           </Pie>
@@ -333,7 +345,7 @@ export function PowerBIChart({
           <Legend />
         </PieChart>
       ) : ct === 'RadarChart' ? (
-        <RadarChart cx="50%" cy="50%" outerRadius="70%" data={data}>
+        <RadarChart cx="50%" cy="50%" outerRadius="70%" data={processedData}>
           <PolarGrid />
           <PolarAngleAxis dataKey="group" tick={{ fontSize: 10, fontWeight: 600 }} />
           <PolarRadiusAxis angle={30} domain={[0, 'auto']} />
@@ -342,8 +354,8 @@ export function PowerBIChart({
               key={key}
               name={hasLegend ? key : getLabel(key)}
               dataKey={key}
-              stroke={COLORS[i % COLORS.length]}
-              fill={COLORS[i % COLORS.length]}
+              stroke={getSeriesColor(key, i)}
+              fill={getSeriesColor(key, i)}
               fillOpacity={0.3}
             />
           ))}
@@ -351,18 +363,17 @@ export function PowerBIChart({
           <Tooltip />
         </RadarChart>
       ) : ct === 'LineChart' ? (
-        <LineChart data={data} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>{hasLegend && <Legend verticalAlign="top" align="right" height={28} />}
+        <LineChart data={processedData} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>{hasLegend && config.legend !== 'aiBaseline' && <Legend verticalAlign="top" align="right" height={28} />}
           {transformationOverlays}
           {axes}
           {renderSeries()}
         </LineChart>
       ) : ct === 'AreaChart' ? (
-        <AreaChart data={data} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>{hasLegend && <Legend verticalAlign="top" align="right" height={28} />} 
+        <AreaChart data={processedData} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>{hasLegend && config.legend !== 'aiBaseline' && <Legend verticalAlign="top" align="right" height={28} />} 
+          {transformationOverlays}
           {axes}
           {seriesKeys.map((key, i) => {
-            const color = hasLegend
-              ? COLORS[i % COLORS.length]
-              : config.metrics[i]?.color || COLORS[i % COLORS.length];
+            const color = getSeriesColor(key, i);
             return (
               <Area
                 key={key}
@@ -378,12 +389,10 @@ export function PowerBIChart({
           })}
         </AreaChart>
       ) : ct === 'BarChart' ? (
-        <BarChart data={data} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>{hasLegend && <Legend verticalAlign="top" align="right" height={28} />} 
+        <BarChart data={processedData} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>{hasLegend && config.legend !== 'aiBaseline' && <Legend verticalAlign="top" align="right" height={28} />} 
           {axes}
           {seriesKeys.map((key, i) => {
-            const color = hasLegend
-              ? COLORS[i % COLORS.length]
-              : config.metrics[i]?.color || COLORS[i % COLORS.length];
+            const color = getSeriesColor(key, i);
             return (
               <Bar
                 key={key}
@@ -396,7 +405,8 @@ export function PowerBIChart({
           })}
         </BarChart>
       ) : (
-        <ComposedChart data={data} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>{hasLegend && <Legend verticalAlign="top" align="right" height={28} />} 
+        <ComposedChart data={processedData} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>{hasLegend && config.legend !== 'aiBaseline' && <Legend verticalAlign="top" align="right" height={28} />} 
+          {transformationOverlays}
           {axes}
           {renderSeries()}
         </ComposedChart>

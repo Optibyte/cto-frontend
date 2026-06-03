@@ -75,11 +75,11 @@ const navigationItems: NavItem[] = [
         icon: ShieldCheck,
         href: '/role-features',
     },
-    {
-        title: 'GitHub Metrics',
-        icon: Activity,
-        href: '/github-metrics',
-    },
+    // {
+    //     title: 'GitHub Metrics',
+    //     icon: Activity,
+    //     href: '/github-metrics',
+    // },
     {
         title: 'Audit Logs',
         icon: FileSearch,
