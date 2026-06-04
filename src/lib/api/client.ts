@@ -899,4 +899,79 @@ export const sprintParametersAPI = {
     }
 };
 
+// ─── Sprint Alerts API ────────────────────────────────────────────────────────
+const SPRINT_ALERTS_API_URL = `${API_BASE_URL}/api/v1/sprint-alerts`;
+
+export const sprintAlertsAPI = {
+    getAll: async (filters?: { teamId?: string; projectId?: string; alertType?: string; isRead?: boolean }) => {
+        try {
+            const params = new URLSearchParams();
+            if (filters?.teamId)    params.set('teamId',    filters.teamId);
+            if (filters?.projectId) params.set('projectId', filters.projectId);
+            if (filters?.alertType) params.set('alertType', filters.alertType);
+            if (filters?.isRead !== undefined) params.set('isRead', String(filters.isRead));
+            const qs = params.toString();
+            const response = await fetch(`${SPRINT_ALERTS_API_URL}${qs ? `?${qs}` : ''}`, {
+                headers: getHeaders(),
+            });
+            if (!response.ok) return { data: [] };
+            const data = await response.json();
+            return { data: Array.isArray(data) ? data : [] };
+        } catch {
+            return { data: [] };
+        }
+    },
+
+    getUnreadCount: async (): Promise<number> => {
+        try {
+            const response = await fetch(`${SPRINT_ALERTS_API_URL}/unread-count`, {
+                headers: getHeaders(),
+            });
+            if (!response.ok) return 0;
+            const data = await response.json();
+            return data.count ?? 0;
+        } catch {
+            return 0;
+        }
+    },
+
+    recompute: async () => {
+        try {
+            const response = await fetch(`${SPRINT_ALERTS_API_URL}/recompute`, {
+                method: 'POST',
+                headers: getHeaders(),
+            });
+            if (!response.ok) return { created: 0, deleted: 0 };
+            return response.json();
+        } catch {
+            return { created: 0, deleted: 0 };
+        }
+    },
+
+    markRead: async (id: string) => {
+        try {
+            const response = await fetch(`${SPRINT_ALERTS_API_URL}/${id}/read`, {
+                method: 'PATCH',
+                headers: getHeaders(),
+            });
+            if (!response.ok) return null;
+            return response.json();
+        } catch {
+            return null;
+        }
+    },
+
+    markAllRead: async () => {
+        try {
+            const response = await fetch(`${SPRINT_ALERTS_API_URL}/read-all`, {
+                method: 'PATCH',
+                headers: getHeaders(),
+            });
+            if (!response.ok) return { updated: 0 };
+            return response.json();
+        } catch {
+            return { updated: 0 };
+        }
+    },
+};
 

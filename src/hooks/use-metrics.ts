@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { metricsAPI, sprintMetricsAPI, sprintParametersAPI } from '@/lib/api/client';
+import { metricsAPI, sprintMetricsAPI, sprintParametersAPI, sprintAlertsAPI } from '@/lib/api/client';
 
 export function useMetrics(filters?: any) {
     return useQuery({
@@ -170,3 +170,92 @@ export function useUpdateSprintParameter() {
     });
 }
 
+// ─── Sprint Alert Shared Type ────────────────────────────────────────────────
+export interface SprintAlert {
+    id: string;
+    teamId: string;
+    projectId: string | null;
+    sprintNumber: number;
+    sprintName: string | null;
+    sprintDate: string | null;
+    metricType: string;
+    metricName: string;
+    alertType: 'UCL' | 'LCL' | 'BASELINE';
+    phase: 'before' | 'during' | 'after';
+    value: number;
+    baseline: number;
+    ucl: number;
+    lcl: number;
+    stdDev: number;
+    higherIsBetter: boolean;
+    isRead: boolean;
+    createdAt: string;
+    team?: { id: string; name: string; transformationStartDate?: string; transformationEndDate?: string };
+    project?: { id: string; name: string } | null;
+}
+
+// ─── Sprint Alerts Hooks ─────────────────────────────────────────────────────
+
+/** Fetch all stored sprint alerts from DB, optionally filtered */
+export function useSprintAlerts(filters?: {
+    teamId?: string;
+    projectId?: string;
+    alertType?: string;
+    isRead?: boolean;
+}) {
+    return useQuery({
+        queryKey: ['sprint-alerts', filters],
+        queryFn: async () => {
+            const { data } = await sprintAlertsAPI.getAll(filters);
+            return data as SprintAlert[];
+        },
+        retry: 1,
+        staleTime: 60_000,
+    });
+}
+
+/** Lightweight poll for unread count only */
+export function useSprintAlertsUnreadCount() {
+    return useQuery({
+        queryKey: ['sprint-alerts-count'],
+        queryFn: () => sprintAlertsAPI.getUnreadCount(),
+        refetchInterval: 5 * 60 * 1000,
+        retry: 1,
+    });
+}
+
+/** Trigger SPC recomputation on the backend */
+export function useRecomputeAlerts() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: () => sprintAlertsAPI.recompute(),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['sprint-alerts'] });
+            queryClient.invalidateQueries({ queryKey: ['sprint-alerts-count'] });
+        },
+    });
+}
+
+/** Mark a single alert as read */
+export function useMarkAlertRead() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (id: string) => sprintAlertsAPI.markRead(id),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['sprint-alerts'] });
+            queryClient.invalidateQueries({ queryKey: ['sprint-alerts-count'] });
+        },
+    });
+}
+
+/** Mark ALL alerts as read */
+export function useMarkAllAlertsRead() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: () => sprintAlertsAPI.markAllRead(),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['sprint-alerts'] });
+            queryClient.invalidateQueries({ queryKey: ['sprint-alerts-count'] });
+        },
+    });
+}
