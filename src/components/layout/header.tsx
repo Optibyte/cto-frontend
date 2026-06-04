@@ -1,15 +1,15 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Bell, Search, User, ChevronDown, Shield, Briefcase, Users, Check, Globe, Landmark, Lock, ShieldCheck, RefreshCw, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import {
+    Bell, User, ChevronDown, Shield, Briefcase, Users, Check, Globe, Landmark,
+    Lock, ShieldCheck, RefreshCw, AlertTriangle, CheckCircle2, TrendingUp, TrendingDown, Activity,
+} from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { useRole } from '@/contexts/role-context';
 import { UserRole } from '@/lib/types';
-import { useTeams } from '@/hooks/use-teams';
-import { useSprintMetrics } from '@/hooks/use-metrics';
 import { toast } from 'sonner';
 import {
     Dialog,
@@ -27,6 +27,12 @@ import {
     DropdownMenuLabel,
     DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
+import {
+    useSprintAlerts,
+    useRecomputeAlerts,
+    useMarkAllAlertsRead,
+    type SprintAlert,
+} from '@/hooks/use-metrics';
 
 const ROLES = [
     { value: 'CTO' as UserRole, label: 'Super Admin', color: 'bg-violet-600', icon: Shield, description: 'Chief Technology Officer' },
@@ -39,149 +45,158 @@ const ROLES = [
     { value: 'TEAM' as UserRole, label: 'Team', color: 'bg-emerald-500', icon: Users, description: 'Team performance' },
 ];
 
-function getPhaseForMetric(m: any, selectedTeam: any): 'before' | 'during' | 'after' {
-    const sDate = m.sprintDate ? new Date(m.sprintDate) : (m.time ? new Date(m.time) : null);
-    
-    const tStart = selectedTeam?.transformationStartDate ? new Date(selectedTeam.transformationStartDate) : null;
-    const tEnd = selectedTeam?.transformationEndDate ? new Date(selectedTeam.transformationEndDate) : null;
+// ─── Alert tab config ─────────────────────────────────────────────────────────
+type AlertTab = 'UCL' | 'LCL' | 'BASELINE';
+const TABS: { key: AlertTab; label: string; icon: string; desc: string; color: string; borderColor: string; badgeColor: string }[] = [
+    {
+        key: 'UCL',
+        label: 'UCL Anomaly',
+        icon: '🔺',
+        desc: 'Sprint value exceeded Upper Control Limit (mean + 2σ)',
+        color: 'text-orange-500',
+        borderColor: 'border-orange-500/30',
+        badgeColor: 'bg-orange-500',
+    },
+    {
+        key: 'LCL',
+        label: 'LCL Anomaly',
+        icon: '🔻',
+        desc: 'Sprint value dropped below Lower Control Limit (mean − 2σ)',
+        color: 'text-rose-500',
+        borderColor: 'border-rose-500/30',
+        badgeColor: 'bg-rose-500',
+    },
+    {
+        key: 'BASELINE',
+        label: 'Below Baseline',
+        icon: '⚠️',
+        desc: 'Post-transformation sprint regressed below pre-transformation baseline',
+        color: 'text-amber-500',
+        borderColor: 'border-amber-500/30',
+        badgeColor: 'bg-amber-500',
+    },
+];
 
-    if (!sDate || !tStart) {
-        const sprint = Number(m.sprintNumber || 1);
-        if (sprint <= 3) return 'before';
-        if (sprint <= 7) return 'during';
-        return 'after';
-    }
+// ─── Single alert card ────────────────────────────────────────────────────────
+function AlertCard({ alert, tab }: { alert: SprintAlert; tab: typeof TABS[0] }) {
+    const deviation = alert.value - alert.baseline;
+    const deviationPct = alert.baseline !== 0 ? (deviation / alert.baseline) * 100 : 0;
+    const isBad =
+        (tab.key === 'LCL') ||
+        (tab.key === 'BASELINE' && !alert.higherIsBetter ? alert.value > alert.baseline : alert.value < alert.baseline) ||
+        (tab.key === 'UCL' && !alert.higherIsBetter);
 
-    if (sDate < tStart) return 'before';
-    if (tEnd && sDate > tEnd) return 'after';
-    return 'during';
+    return (
+        <div className={`flex flex-col gap-4 p-6 rounded-[1.8rem] border-2 ${tab.borderColor} bg-card/60 hover:bg-card hover:shadow-xl hover:shadow-black/5 dark:hover:shadow-black/30 transition-all duration-300`}>
+            {/* Header row */}
+            <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 flex-wrap">
+                    <span className="font-black text-base md:text-lg text-foreground tracking-tight">
+                        {alert.team?.name ?? alert.teamId}
+                    </span>
+                    <span className="text-xs text-muted-foreground/60">·</span>
+                    <span className="text-xs font-extrabold text-muted-foreground bg-secondary/80 px-2.5 py-1 rounded-lg">
+                        {alert.sprintName ?? `Sprint-${alert.sprintNumber}`}
+                    </span>
+                    {/* Phase badge */}
+                    <span className={`text-[10px] font-black border px-2.5 py-0.5 rounded-lg uppercase tracking-wide ${alert.phase === 'before' ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' :
+                            alert.phase === 'during' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
+                                'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                        }`}>
+                        {alert.phase}
+                    </span>
+                </div>
+                {/* Alert type badge */}
+                <span className={`text-xs font-black px-3 py-1 rounded-full text-white shrink-0 shadow-sm ${tab.badgeColor}`}>
+                    {tab.key}
+                </span>
+            </div>
+
+            {/* Metric name */}
+            <p className={`text-[15px] font-black tracking-wide ${tab.color}`}>{alert.metricName}</p>
+
+            {/* Stats row */}
+            <div className="grid grid-cols-4 gap-3 bg-secondary/20 p-3 rounded-2xl border border-border/10">
+                <div className="text-center">
+                    <span className="text-[10px] uppercase tracking-wider font-extrabold text-muted-foreground/80 block mb-1">Value</span>
+                    <span className={`text-base md:text-lg font-black ${isBad ? 'text-rose-500' : 'text-emerald-500'}`}>
+                        {alert.value.toFixed(2)}
+                    </span>
+                </div>
+                <div className="text-center border-l border-border/10">
+                    <span className="text-[10px] uppercase tracking-wider font-extrabold text-muted-foreground/80 block mb-1">Baseline</span>
+                    <span className="text-base md:text-lg font-bold text-muted-foreground">{alert.baseline.toFixed(2)}</span>
+                </div>
+                <div className="text-center border-l border-border/10">
+                    <span className="text-[10px] uppercase tracking-wider font-extrabold text-muted-foreground/80 block mb-1">UCL</span>
+                    <span className="text-base md:text-lg font-bold text-orange-400">{alert.ucl.toFixed(2)}</span>
+                </div>
+                <div className="text-center border-l border-border/10">
+                    <span className="text-[10px] uppercase tracking-wider font-extrabold text-muted-foreground/80 block mb-1">LCL</span>
+                    <span className="text-base md:text-lg font-bold text-rose-400">{alert.lcl.toFixed(2)}</span>
+                </div>
+            </div>
+
+            {/* σ info + deviation */}
+            <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground/80 pt-2 border-t border-border/20">
+                <span>σ = {alert.stdDev.toFixed(2)}</span>
+                <span className={`font-black flex items-center gap-1.5 ${isBad ? 'text-rose-400' : 'text-emerald-400'}`}>
+                    {deviation > 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                    {deviation > 0 ? '+' : ''}{deviation.toFixed(2)} ({deviationPct > 0 ? '+' : ''}{deviationPct.toFixed(1)}%)
+                </span>
+            </div>
+        </div>
+    );
 }
 
-function avg(arr: number[]): number {
-    if (!arr.length) return 0;
-    return arr.reduce((a, b) => a + b, 0) / arr.length;
-}
-
+// ─── Main Header Component ────────────────────────────────────────────────────
 export function Header() {
     const { role, setRole, setIsAuthenticated, user, logout } = useRole();
     const router = useRouter();
     const [mounted, setMounted] = useState(false);
+    const [activeTab, setActiveTab] = useState<AlertTab>('UCL');
 
-    const { data: allTeams = [] } = useTeams();
-    const { data: sprintMetrics = [] } = useSprintMetrics();
+    // ── API-backed alerts ──────────────────────────────────────────────────
+    const { data: allAlerts = [] } = useSprintAlerts();
+    const recompute = useRecomputeAlerts();
+    const markAllRead = useMarkAllAlertsRead();
 
+    useEffect(() => { setMounted(true); }, []);
+
+    // ── Auto-recompute on mount (once per session) ─────────────────────────
     useEffect(() => {
-        setMounted(true);
-    }, []);
-
-    const anomalies = useMemo(() => {
-        if (!allTeams.length || !sprintMetrics.length) return [];
-
-        const list: Array<{
-            teamId: string;
-            teamName: string;
-            sprintNumber: number;
-            sprintName: string;
-            metricType: string;
-            metricName: string;
-            value: number;
-            baseline: number;
-            phase: 'before' | 'during' | 'after';
-            higherIsBetter: boolean;
-        }> = [];
-
-        // Only teams with digital transformation dates configured
-        const transformationTeams = (allTeams as any[]).filter(
-            (t: any) => t.transformationStartDate || t.transformationEndDate
-        );
-
-        const sprintFields = [
-            { key: 'velocityPoints', name: 'Sprint Velocity', higherIsBetter: true },
-            { key: 'throughputPoints', name: 'Throughput Points', higherIsBetter: true },
-            { key: 'qualityScore', name: 'Quality Score (%)', higherIsBetter: true },
-            { key: 'doneToSaidRatio', name: 'Done to Said Ratio (%)', higherIsBetter: true },
-            { key: 'technicalDebtIndex', name: 'Technical Debt Index', higherIsBetter: false },
-        ];
-
-        transformationTeams.forEach((team: any) => {
-            const teamMetrics = (sprintMetrics as any[]).filter(
-                (m: any) => m.teamId === team.id
-            );
-            if (teamMetrics.length === 0) return;
-
-            sprintFields.forEach(field => {
-                const mList = teamMetrics
-                    .map((m: any) => ({
-                        value: Number(m[field.key] || 0),
-                        sprintNumber: Number(m.sprintNumber || 1),
-                        sprintName: m.sprintName || `Sprint ${m.sprintNumber}`,
-                        sprintDate: m.sprintDate || m.time || null,
-                    }))
-                    .sort((a, b) => a.sprintNumber - b.sprintNumber);
-
-                const bySprint: Record<number, { values: number[]; phase: 'before' | 'during' | 'after'; sprintNumber: number; sprintName: string }> = {};
-                mList.forEach((m: any) => {
-                    const sprint = m.sprintNumber;
-                    const phase = getPhaseForMetric(m, team);
-                    if (!bySprint[sprint]) {
-                        bySprint[sprint] = { values: [], phase, sprintNumber: sprint, sprintName: m.sprintName };
+        if (!mounted) return;
+        const lastKey = 'sprint_alerts_last_recompute';
+        const last = Number(localStorage.getItem(lastKey) || 0);
+        const now = Date.now();
+        if (now - last > 5 * 60 * 1000) {
+            recompute.mutate(undefined, {
+                onSuccess: (res: any) => {
+                    localStorage.setItem(lastKey, String(now));
+                    if (res?.created > 0) {
+                        toast.info(`Sprint alerts updated: ${res.created} active alerts detected`, {
+                            description: 'Click the bell icon to view UCL/LCL and baseline alerts.',
+                            duration: 5000,
+                        });
                     }
-                    bySprint[sprint].values.push(m.value);
-                });
-
-                const phaseData = Object.values(bySprint).map(({ values, phase, sprintNumber, sprintName }) => ({
-                    sprintName,
-                    value: avg(values),
-                    phase,
-                    sprintNumber,
-                })).sort((a, b) => a.sprintNumber - b.sprintNumber);
-
-                const beforeValues = phaseData
-                    .filter(p => p.phase === 'before')
-                    .map(p => p.value);
-                const baseline = beforeValues.length > 0 ? avg(beforeValues) : 0;
-
-                if (baseline > 0) {
-                    phaseData.forEach(p => {
-                        if (p.value !== null && p.value > baseline) {
-                            list.push({
-                                teamId: team.id,
-                                teamName: team.name,
-                                sprintNumber: p.sprintNumber,
-                                sprintName: p.sprintName,
-                                metricType: field.key,
-                                metricName: field.name,
-                                value: p.value,
-                                baseline,
-                                phase: p.phase,
-                                higherIsBetter: field.higherIsBetter,
-                            });
-                        }
-                    });
-                }
-            });
-        });
-
-        return list.sort((a, b) => {
-            if (a.teamName !== b.teamName) return a.teamName.localeCompare(b.teamName);
-            return b.sprintNumber - a.sprintNumber;
-        });
-    }, [allTeams, sprintMetrics]);
-
-    useEffect(() => {
-        if (mounted && anomalies.length > 0) {
-            toast.success(`Active Performance Alerts: ${anomalies.length} sprint metrics have exceeded baseline!`, {
-                description: 'Click the notification bell icon to view detailed team logs.',
-                duration: 6000,
+                },
             });
         }
-    }, [mounted, anomalies.length]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [mounted]);
 
-    const currentRole = ROLES.find((r) => r.value === role) || ROLES[0];
+    // ── Grouped alerts by tab ──────────────────────────────────────────────
+    const grouped = useMemo(() => ({
+        UCL: allAlerts.filter(a => a.alertType === 'UCL'),
+        LCL: allAlerts.filter(a => a.alertType === 'LCL'),
+        BASELINE: allAlerts.filter(a => a.alertType === 'BASELINE'),
+    }), [allAlerts]);
 
-    // Get display email and ID
+    const unreadCount = allAlerts.filter(a => !a.isRead).length;
+    const totalCount = allAlerts.length;
+
+    const currentRole = ROLES.find(r => r.value === role) || ROLES[0];
     const displayEmail = user?.email || user?.user?.email || 'user@skillvector.com';
-    const displayId = user?.id || '';
 
     return (
         <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-border/30 bg-background px-6 transition-all shadow-sm shadow-black/5 dark:shadow-black/10">
@@ -206,114 +221,132 @@ export function Header() {
                             Reset All
                         </Button>
                         <ThemeToggle />
+
+                        {/* ── Bell Notifications Dialog ─────────────────────── */}
                         <Dialog>
                             <DialogTrigger asChild>
                                 <Button variant="ghost" size="icon" className="relative hover:bg-primary/10 transition-colors rounded-xl">
                                     <Bell className="h-5 w-5" />
-                                    {anomalies.length > 0 && (
+                                    {unreadCount > 0 && (
                                         <span className="absolute -top-1 -right-1 flex h-4 min-w-[1rem] px-1 items-center justify-center rounded-full bg-rose-500 text-[8px] font-bold text-white ring-2 ring-background animate-pulse shadow-lg shadow-rose-500/50">
-                                            {anomalies.length > 99 ? '99+' : anomalies.length}
+                                            {unreadCount > 99 ? '99+' : unreadCount}
                                         </span>
                                     )}
                                 </Button>
                             </DialogTrigger>
-                            <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col p-6 rounded-[2rem] border-border/50 bg-background/95 backdrop-blur-xl shadow-2xl overflow-hidden">
-                                <DialogHeader className="pb-4 border-b border-border/20">
-                                    <DialogTitle className="text-xl font-black tracking-tight flex items-center gap-2">
-                                        <Bell className="h-5 w-5 text-primary" />
-                                        Team Sprint Baseline Alerts
-                                    </DialogTitle>
+
+                            <DialogContent className="max-w-[98vw] w-[98vw] max-h-[90vh] flex flex-col p-6 rounded-[2rem] border-border/50 bg-background/95 backdrop-blur-xl shadow-2xl overflow-hidden">
+                                {/* Header */}
+                                <DialogHeader className="pb-3 border-b border-border/20 shrink-0">
+                                    <div className="flex items-center justify-between gap-2">
+                                        <DialogTitle className="text-xl font-black tracking-tight flex items-center gap-2">
+                                            <Bell className="h-5 w-5 text-primary" />
+                                            Team Sprint Alerts
+                                            {totalCount > 0 && (
+                                                <span className="text-xs font-bold bg-rose-500 text-white px-2 py-0.5 rounded-full ml-1">
+                                                    {totalCount}
+                                                </span>
+                                            )}
+                                        </DialogTitle>
+                                        <div className="flex items-center gap-2">
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => recompute.mutate(undefined, {
+                                                    onSuccess: () => {
+                                                        localStorage.setItem('sprint_alerts_last_recompute', String(Date.now()));
+                                                        toast.success('Sprint alerts recomputed');
+                                                    }
+                                                })}
+                                                disabled={recompute.isPending}
+                                                className="h-7 text-[10px] px-2 rounded-lg"
+                                            >
+                                                <Activity className="h-3 w-3 mr-1" />
+                                                {recompute.isPending ? 'Computing…' : 'Recompute'}
+                                            </Button>
+                                            {unreadCount > 0 && (
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => markAllRead.mutate()}
+                                                    className="h-7 text-[10px] px-2 rounded-lg text-muted-foreground"
+                                                >
+                                                    <Check className="h-3 w-3 mr-1" />
+                                                    Mark all read
+                                                </Button>
+                                            )}
+                                        </div>
+                                    </div>
                                     <DialogDescription className="text-xs font-medium text-muted-foreground mt-1">
-                                        Active events where a team's sprint metric exceeded their pre-transformation baseline.
+                                        SPC-based anomalies (UCL/LCL) and post-transformation baseline regressions across all teams.
                                     </DialogDescription>
                                 </DialogHeader>
-                                
-                                <div className="flex-1 overflow-y-auto py-4 pr-1 space-y-4">
-                                    {anomalies.length === 0 ? (
+
+                                {/* Tabs */}
+                                <div className="flex gap-2 mt-3 shrink-0 bg-secondary/40 p-1.5 rounded-2xl">
+                                    {TABS.map(tab => {
+                                        const cnt = grouped[tab.key].length;
+                                        return (
+                                            <button
+                                                key={tab.key}
+                                                onClick={() => setActiveTab(tab.key)}
+                                                className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs md:text-sm font-black transition-all ${activeTab === tab.key
+                                                        ? 'bg-background shadow-md text-foreground'
+                                                        : 'text-muted-foreground hover:text-foreground'
+                                                    }`}
+                                            >
+                                                <span>{tab.icon}</span>
+                                                <span>{tab.label}</span>
+                                                {cnt > 0 && (
+                                                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full text-white ${tab.badgeColor}`}>
+                                                        {cnt}
+                                                    </span>
+                                                )}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+
+                                {/* Tab description */}
+                                {(() => {
+                                    const tab = TABS.find(t => t.key === activeTab)!;
+                                    return (
+                                        <p className="text-[10px] text-muted-foreground/70 mt-1 shrink-0">{tab.desc}</p>
+                                    );
+                                })()}
+
+                                {/* Alert list */}
+                                <div className="flex-1 overflow-y-auto py-3 pr-1 space-y-3 mt-1">
+                                    {grouped[activeTab].length === 0 ? (
                                         <div className="flex flex-col items-center justify-center py-12 text-center space-y-3">
                                             <div className="p-3 rounded-full bg-emerald-500/10 text-emerald-500">
                                                 <CheckCircle2 className="h-8 w-8" />
                                             </div>
                                             <div className="space-y-1">
-                                                <p className="font-bold text-sm">All Sprints Operating Within Baseline</p>
-                                                <p className="text-xs text-muted-foreground">No metrics are currently exceeding their pre-transformation baseline.</p>
+                                                <p className="font-bold text-sm">No {activeTab} Alerts</p>
+                                                <p className="text-xs text-muted-foreground">
+                                                    {activeTab === 'UCL' && 'No sprint metrics have exceeded the Upper Control Limit (mean + 2σ).'}
+                                                    {activeTab === 'LCL' && 'No sprint metrics have dropped below the Lower Control Limit (mean − 2σ).'}
+                                                    {activeTab === 'BASELINE' && 'No post-transformation sprints have regressed below their pre-transformation baseline.'}
+                                                </p>
                                             </div>
                                         </div>
                                     ) : (
                                         <div className="space-y-3">
-                                            {anomalies.map((anomaly, idx) => {
-                                                const isFavorable = anomaly.higherIsBetter;
-                                                return (
-                                                    <div 
-                                                        key={`${anomaly.teamId}-${anomaly.sprintNumber}-${anomaly.metricType}-${idx}`}
-                                                        className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl border transition-colors ${
-                                                            isFavorable 
-                                                                ? "border-emerald-500/25 bg-emerald-500/[0.02] hover:bg-emerald-500/[0.04]"
-                                                                : "border-rose-500/25 bg-rose-500/[0.02] hover:bg-rose-500/[0.04]"
-                                                        }`}
-                                                    >
-                                                        <div className="flex items-start gap-3">
-                                                            <div className={`p-2 rounded-xl mt-0.5 ${
-                                                                isFavorable ? "bg-emerald-500/10 text-emerald-500" : "bg-rose-500/10 text-rose-500"
-                                                            }`}>
-                                                                {isFavorable ? <CheckCircle2 className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
-                                                            </div>
-                                                            <div>
-                                                                <div className="flex items-center gap-2 flex-wrap">
-                                                                    <span className="font-extrabold text-sm text-foreground">{anomaly.teamName}</span>
-                                                                    <span className="text-[10px] font-medium text-muted-foreground">/</span>
-                                                                    <span className="text-[10px] font-bold text-muted-foreground bg-secondary/50 px-2 py-0.5 rounded-md">
-                                                                        {anomaly.sprintName}
-                                                                    </span>
-                                                                    <span className={`text-[8px] font-black border px-1.5 py-0.5 rounded-md uppercase ${
-                                                                        anomaly.phase === 'before' ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' :
-                                                                        anomaly.phase === 'during' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
-                                                                        'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                                                                    }`}>
-                                                                        {anomaly.phase}
-                                                                    </span>
-                                                                </div>
-                                                                <p className={`text-xs font-bold mt-1 ${
-                                                                    isFavorable ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
-                                                                }`}>
-                                                                    {anomaly.metricName}
-                                                                </p>
-                                                                <p className="text-[11px] text-muted-foreground/80 mt-0.5 leading-normal">
-                                                                    {isFavorable 
-                                                                        ? `Increased above the pre-transformation baseline of ${anomaly.baseline.toFixed(2)}.`
-                                                                        : `Increased above the pre-transformation baseline of ${anomaly.baseline.toFixed(2)} (unfavorable increase).`
-                                                                    }
-                                                                </p>
-                                                            </div>
-                                                        </div>
-                                                        <div className="flex items-center gap-6 self-end sm:self-center">
-                                                            <div className="text-right">
-                                                                <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Actual</span>
-                                                                <span className={`text-sm font-black ${isFavorable ? "text-emerald-500" : "text-rose-500"}`}>
-                                                                    {anomaly.value.toFixed(2)}
-                                                                </span>
-                                                            </div>
-                                                            <div className="text-right">
-                                                                <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Baseline</span>
-                                                                <span className="text-sm font-bold text-muted-foreground">{anomaly.baseline.toFixed(2)}</span>
-                                                            </div>
-                                                            <div className="text-right min-w-[70px]">
-                                                                <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Gain</span>
-                                                                <span className={`text-xs font-extrabold px-2 py-0.5 rounded-md ${
-                                                                    isFavorable ? "text-emerald-500 bg-emerald-500/10" : "text-rose-500 bg-rose-500/10"
-                                                                }`}>
-                                                                    {(isFavorable ? '+' : '') + (anomaly.value - anomaly.baseline).toFixed(2)}
-                                                                </span>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
+                                            {grouped[activeTab].map(alert => (
+                                                <AlertCard
+                                                    key={alert.id}
+                                                    alert={alert}
+                                                    tab={TABS.find(t => t.key === activeTab)!}
+                                                />
+                                            ))}
                                         </div>
                                     )}
                                 </div>
                             </DialogContent>
                         </Dialog>
+
+                        {/* ── User Menu ─────────────────────────────────────── */}
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" size="icon" className="hover:bg-primary/10 transition-colors rounded-xl overflow-hidden border border-border/40 p-0 h-9 w-9">
@@ -367,4 +400,3 @@ export function Header() {
         </header>
     );
 }
-
