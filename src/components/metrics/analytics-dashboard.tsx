@@ -321,6 +321,14 @@ export function AnalyticsDashboard({ filters, onFilterChange }: { filters: any; 
 
         const withinLimitsCount = sprintsList.filter(s => s.value >= lcl && s.value <= ucl).length;
         const stability = (withinLimitsCount / totalCount) * 100;
+        const controlValues = [...values, ucl, mean, lcl];
+        const controlMin = Math.min(...controlValues);
+        const controlMax = Math.max(...controlValues);
+        const controlRange = Math.max(controlMax - controlMin, Math.abs(controlMax) * 0.1, 1);
+        const controlDomain: [number, number] = [
+            Math.max(0, controlMin - controlRange * 0.12),
+            controlMax + controlRange * 0.18,
+        ];
 
         let totalVal = 0;
         if (aggType === 'sum') {
@@ -394,6 +402,7 @@ export function AnalyticsDashboard({ filters, onFilterChange }: { filters: any; 
             ucl,
             lcl,
             mean,
+            controlDomain,
             distributionData,
             donutData,
             totalCount
@@ -845,7 +854,7 @@ export function AnalyticsDashboard({ filters, onFilterChange }: { filters: any; 
                                                     </defs>
                                                     <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.08} />
                                                     <XAxis dataKey="sprintLabel" tickLine={false} axisLine={false} tick={{ fontSize: 9, fontWeight: 700 }} dy={5} />
-                                                    <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 9, fontWeight: 700 }} />
+                                                    <YAxis domain={starterStats.controlDomain} tickLine={false} axisLine={false} tick={{ fontSize: 9, fontWeight: 700 }} />
                                                     <Tooltip contentStyle={{ borderRadius: 16, border: '1px solid rgba(0,0,0,0.05)', boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }} />
                                                     <Bar
                                                         dataKey="value"
@@ -1389,7 +1398,7 @@ export function AnalyticsDashboard({ filters, onFilterChange }: { filters: any; 
                                             </defs>
                                             <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.08} />
                                             <XAxis dataKey="sprintLabel" tickLine={false} axisLine={false} tick={{ fontSize: 11, fontWeight: 700 }} dy={5} />
-                                            <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 11, fontWeight: 700 }} />
+                                            <YAxis domain={starterStats.controlDomain} tickLine={false} axisLine={false} tick={{ fontSize: 11, fontWeight: 700 }} />
                                             <Tooltip contentStyle={{ borderRadius: 16, border: '1px solid rgba(0,0,0,0.05)', boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }} />
                                             <Bar
                                                 dataKey="value"

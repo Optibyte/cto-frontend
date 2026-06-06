@@ -3866,9 +3866,28 @@ function BulkUploadDialog({ open, onOpenChange, type, onSuccess }: BulkUploadDia
 
                 } catch { }
 
-                const uniqueProjectNames = Array.from(new Set(projectList.map((p: any) => p.name).filter(Boolean))).sort();
+                const projectNameById = new Map(
+                    projectList
+                        .filter((p: any) => p.id && p.name)
+                        .map((p: any) => [p.id, p.name])
+                );
 
-                const uniqueTeamNames = Array.from(new Set(teamList.map((t: any) => t.name).filter(Boolean))).sort();
+                const projectTeamPairs = teamList
+                    .map((team: any) => {
+                        const projectId = team.projectId || team.project?.id;
+                        const projectName = team.project?.name || projectNameById.get(projectId);
+                        return {
+                            project: projectName,
+                            team: team.name,
+                        };
+                    })
+                    .filter((item: any) => item.project && item.team)
+                    .sort((a: any, b: any) => a.project.localeCompare(b.project) || a.team.localeCompare(b.team));
+
+                const uniqueProjectNames = Array.from(new Set(projectTeamPairs.map((item: any) => item.project))).sort();
+
+                const firstProjectName = uniqueProjectNames[0] || 'E-commerce Platform';
+                const firstTeamName = projectTeamPairs.find((item: any) => item.project === firstProjectName)?.team || 'Alpha Team';
 
                 const lookupSheet = workbook.addWorksheet('Template Lists');
 
@@ -3880,9 +3899,13 @@ function BulkUploadDialog({ open, onOpenChange, type, onSuccess }: BulkUploadDia
 
                     { header: 'Teams', key: 'team', width: 35 },
 
+                    { header: 'Mapped Project', key: 'mappedProject', width: 35 },
+
+                    { header: 'Mapped Team', key: 'mappedTeam', width: 35 },
+
                 ];
 
-                const maxLookupRows = Math.max(uniqueProjectNames.length, uniqueTeamNames.length, 1);
+                const maxLookupRows = Math.max(uniqueProjectNames.length, projectTeamPairs.length, 1);
 
                 for (let i = 0; i < maxLookupRows; i++) {
 
@@ -3890,7 +3913,11 @@ function BulkUploadDialog({ open, onOpenChange, type, onSuccess }: BulkUploadDia
 
                         project: uniqueProjectNames[i] || '',
 
-                        team: uniqueTeamNames[i] || '',
+                        team: '',
+
+                        mappedProject: projectTeamPairs[i]?.project || '',
+
+                        mappedTeam: projectTeamPairs[i]?.team || '',
 
                     });
 
@@ -3930,9 +3957,9 @@ function BulkUploadDialog({ open, onOpenChange, type, onSuccess }: BulkUploadDia
 
                     role: 'developer',
 
-                    project: uniqueProjectNames[0] || 'E-commerce Platform',
+                    project: firstProjectName,
 
-                    team: uniqueTeamNames[0] || 'Alpha Team'
+                    team: firstTeamName
 
                 });
 
@@ -3980,7 +4007,7 @@ function BulkUploadDialog({ open, onOpenChange, type, onSuccess }: BulkUploadDia
 
                     }
 
-                    if (uniqueTeamNames.length > 0) {
+                    if (projectTeamPairs.length > 0) {
 
                         worksheet.getCell(`G${i}`).dataValidation = {
 
@@ -3994,9 +4021,9 @@ function BulkUploadDialog({ open, onOpenChange, type, onSuccess }: BulkUploadDia
 
                             errorTitle: 'Invalid Team',
 
-                            error: 'Please select a team from the dropdown list.',
+                            error: 'Please select a team mapped to the selected project.',
 
-                            formulae: [`'Template Lists'!$B$2:$B$${uniqueTeamNames.length + 1}`]
+                            formulae: [`OFFSET('Template Lists'!$D$2,MATCH($F${i},'Template Lists'!$C$2:$C$${projectTeamPairs.length + 1},0)-1,0,COUNTIF('Template Lists'!$C$2:$C$${projectTeamPairs.length + 1},$F${i}),1)`]
 
                         };
 
