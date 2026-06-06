@@ -1,6 +1,6 @@
 'use client';
 
-import { Sidebar } from '@/components/layout/sidebar';
+import { Sidebar, SidebarProvider } from '@/components/layout/sidebar';
 import { Header } from '@/components/layout/header';
 import { Providers } from './providers';
 import './globals.css';
@@ -25,21 +25,23 @@ export default function RootLayout({
       <body className={inter.className} suppressHydrationWarning>
         <Providers>
           <RouteGuard>
-            <div className="flex h-screen">
-              {!isAuthPage && <Sidebar />}
-              <div className={cn(
-                "flex flex-1 flex-col overflow-x-hidden",
-                !isAuthPage && "pl-64"
-              )}>
-                {!isAuthPage && <Header />}
-                <main className={cn(
-                  "flex-1 overflow-y-auto bg-background",
-                  !isAuthPage ? "p-6" : "p-0"
+            <SidebarProvider>
+              <div className="flex h-screen">
+                {!isAuthPage && <Sidebar />}
+                <div className={cn(
+                  "flex flex-1 flex-col overflow-x-hidden",
+                  !isAuthPage && "md:pl-64"
                 )}>
-                  {children}
-                </main>
+                  {!isAuthPage && <Header />}
+                  <main className={cn(
+                    "flex-1 overflow-y-auto bg-background",
+                    !isAuthPage ? "p-4 md:p-6" : "p-0"
+                  )}>
+                    {children}
+                  </main>
+                </div>
               </div>
-            </div>
+            </SidebarProvider>
           </RouteGuard>
           <Toaster />
         </Providers>

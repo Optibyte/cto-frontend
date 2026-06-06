@@ -373,9 +373,9 @@ export default function RoleFeaturesPage() {
                 </div>
             </div>
 
-            <div className="flex h-[calc(100vh-73px)]">
+            <div className="flex flex-col md:flex-row h-auto md:h-[calc(100vh-73px)]">
                 {/* ── Left: Sidebar ── */}
-                <aside className="w-72 border-r border-border/30 bg-card/60 flex flex-col flex-shrink-0 overflow-hidden">
+                <aside className="w-full md:w-72 border-r border-border/30 bg-card/60 flex flex-col flex-shrink-0 overflow-hidden">
                     {/* Mode toggle */}
                     <div className="p-3 border-b border-border/20 space-y-2">
                         <div className="flex rounded-xl border border-border/30 overflow-hidden">

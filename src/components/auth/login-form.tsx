@@ -119,17 +119,17 @@ export function LoginForm() {
     };
 
     return (
-        <div className="w-full max-w-[900px] flex flex-col md:flex-row overflow-hidden rounded-3xl border border-white/5 bg-[#0a0a0b] text-white my-8 mx-4">
+        <div className="w-full max-w-[900px] flex flex-col md:flex-row overflow-hidden rounded-3xl border border-white/5 bg-[#0a0a0b] text-white my-4 md:my-8 mx-4">
             
             {/* Logo / Branding Card (Left Pane) */}
-            <div className="w-full md:w-1/2 flex flex-col items-center justify-center p-12 md:p-16 bg-gradient-to-b from-[#161225] to-[#0a0a0b] relative border-r border-white/5">
-                <div className="relative z-10 flex flex-col items-center justify-center h-full space-y-6">
+            <div className="w-full md:w-1/2 flex flex-col items-center justify-center p-8 md:p-16 bg-gradient-to-b from-[#161225] to-[#0a0a0b] relative md:border-r border-b md:border-b-0 border-white/5">
+                <div className="relative z-10 flex flex-col items-center justify-center h-full space-y-4 md:space-y-6">
                     <div className="flex items-center gap-3">
-                        <img src="/ct-icon.png" alt="Icon" className="h-10 w-auto object-contain shrink-0" />
-                        <h1 className="text-[36px] font-black tracking-tight text-[#f8fafc] leading-none">SkillVector</h1>
+                        <img src="/ct-icon.png" alt="Icon" className="h-8 md:h-10 w-auto object-contain shrink-0" />
+                        <h1 className="text-[28px] md:text-[36px] font-black tracking-tight text-[#f8fafc] leading-none">SkillVector</h1>
                     </div>
-                    <img src="/logo.png" alt="CitiusTech Logo" className="h-[40px] w-auto object-contain shrink-0 opacity-90" />
-                    <p className="text-[14px] text-[#94a3b8] font-medium uppercase tracking-[0.15em]">Performance Intelligence</p>
+                    <img src="/logo.png" alt="CitiusTech Logo" className="h-[32px] md:h-[40px] w-auto object-contain shrink-0 opacity-90" />
+                    <p className="text-[12px] md:text-[14px] text-[#94a3b8] font-medium uppercase tracking-[0.15em]">Performance Intelligence</p>
                 </div>
             </div>
 

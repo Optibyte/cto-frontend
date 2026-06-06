@@ -26,12 +26,12 @@ export default function MetricsPage() {
             {/* Page Header */}
             <div className="flex flex-col gap-1 pb-4 border-b border-border/10">
                 <div className="flex items-center justify-between">
-                    <h1 className="text-4xl font-extrabold tracking-tight text-gradient">
+                    <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-gradient">
                         Metrics Explorer
                     </h1>
 
                 </div>
-                <p className="text-muted-foreground text-lg">
+                <p className="text-muted-foreground text-base md:text-lg">
                     View, manage, and analyze team performance metrics across all sources
                 </p>
             </div>

@@ -631,6 +631,21 @@ export default function AdminPage() {
 
     const tabConfig = TABS.find(t => t.key === activeTab)!;
 
+    const primaryActionLabel: Record<TabKey, string> = {
+        organizations: 'Add Organization',
+        markets: 'Add Market',
+        accounts: 'Add Account',
+        projects: 'Add Project',
+        'ai-projects': 'Add AI Project',
+        teams: 'Add Team',
+        members: 'Add Team Members',
+        users: 'Add User',
+        'onboard-employee': 'Add Employee',
+        'report-schedules': 'Schedule Report',
+    };
+
+    const bulkUploadLabel = activeTab === 'onboard-employee' ? 'Upload Employees' : 'Upload Users';
+
 
 
     return (
@@ -639,25 +654,25 @@ export default function AdminPage() {
 
             {/* Header */}
 
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
 
                 <div>
 
-                    <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
+                    <h1 className="text-2xl md:text-3xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
 
-                        <Building2 className="inline h-8 w-8 mr-2 text-primary" />
+                        <Building2 className="inline h-7 w-7 md:h-8 md:w-8 mr-2 text-primary" />
 
                         Admin Console
 
                     </h1>
 
-                    <p className="text-muted-foreground mt-1">Manage your organization hierarchy — Markets, Accounts, Projects, Teams, Members & Users</p>
+                    <p className="text-muted-foreground mt-1 text-sm md:text-base">Manage your organization hierarchy — Markets, Accounts, Projects, Teams, Members &amp; Users</p>
 
                 </div>
 
                 {!(role === 'TEAM_LEAD' && activeTab !== 'members' && activeTab !== 'users' && activeTab !== 'onboard-employee') && (
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
 
                         {(activeTab === 'users' || activeTab === 'onboard-employee') && (
 
@@ -673,19 +688,19 @@ export default function AdminPage() {
 
                                 }}
 
-                                className="rounded-xl gap-2 border-violet-500/40 text-violet-500 hover:bg-violet-500/10"
+                                className="w-full justify-center rounded-xl gap-2 border-violet-500/40 text-violet-500 hover:bg-violet-500/10 sm:w-auto whitespace-nowrap"
 
                             >
 
-                                <Upload className="h-4 w-4" /> Bulk Upload 
+                                <Upload className="h-4 w-4" /> {bulkUploadLabel}
 
                             </Button>
 
                         )}
 
-                        <Button onClick={() => handleCreate()} className="rounded-xl gap-2 shadow-lg shadow-primary/20">
+                        <Button onClick={() => handleCreate()} className="w-full justify-center rounded-xl gap-2 shadow-lg shadow-primary/20 sm:w-auto whitespace-nowrap">
 
-                            <Plus className="h-4 w-4" /> Add {tabConfig.label.slice(0, -1)}
+                            <Plus className="h-4 w-4" /> {primaryActionLabel[activeTab]}
 
                         </Button>
 

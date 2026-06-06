@@ -68,11 +68,11 @@ export default function AuditPage() {
     );
 
     return (
-        <div className="space-y-6 fade-in p-6">
-            <div className="flex items-center justify-between">
+        <div className="space-y-6 fade-in">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Audit Logs</h1>
-                    <p className="text-muted-foreground">
+                    <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Audit Logs</h1>
+                    <p className="text-muted-foreground text-sm md:text-base">
                         Track all system activities, creations, updates and deletions
                     </p>
                 </div>
@@ -80,7 +80,7 @@ export default function AuditPage() {
                     onClick={fetchLogs}
                     disabled={isLoading}
                     variant="outline"
-                    className="rounded-xl gap-2"
+                    className="rounded-xl gap-2 w-fit"
                 >
                     <RefreshCcw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
                     Refresh

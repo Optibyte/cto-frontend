@@ -109,13 +109,11 @@ export default function ReportsPage() {
 
     return (
         <div className="space-y-6 fade-in">
-            <div className="flex items-center justify-between mt-2">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Reports Center</h1>
-                    <p className="text-muted-foreground mt-1">
-                        Select scope below and extract Excel reports.
-                    </p>
-                </div>
+            <div className="flex flex-col gap-1 mt-2">
+                <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Reports Center</h1>
+                <p className="text-muted-foreground mt-1 text-sm md:text-base">
+                    Select scope below and extract Excel reports.
+                </p>
             </div>
 
             {/* ── Filters & Download Bar ──────────────────────────────────── */}

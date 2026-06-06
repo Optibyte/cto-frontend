@@ -27,9 +27,10 @@ import {
     Activity,
     Settings2,
     Search,
+    X,
+    Menu,
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
-import { Input } from '@/components/ui/input';
+import { useState, useEffect, createContext, useContext } from 'react';
 
 interface NavItem {
     title: string;
@@ -75,11 +76,6 @@ const navigationItems: NavItem[] = [
         icon: ShieldCheck,
         href: '/role-features',
     },
-    // {
-    //     title: 'GitHub Metrics',
-    //     icon: Activity,
-    //     href: '/github-metrics',
-    // },
     {
         title: 'Audit Logs',
         icon: FileSearch,
@@ -98,9 +94,56 @@ const ROLE_LABELS: Record<string, string> = {
     CTO: 'Super Admin',
 };
 
+// ── Mobile sidebar context ──────────────────────────────────────
+interface SidebarContextType {
+    isOpen: boolean;
+    setIsOpen: (open: boolean) => void;
+    toggle: () => void;
+}
+const SidebarContext = createContext<SidebarContextType>({
+    isOpen: false,
+    setIsOpen: () => {},
+    toggle: () => {},
+});
+
+export function useSidebar() {
+    return useContext(SidebarContext);
+}
+
+export function SidebarProvider({ children }: { children: React.ReactNode }) {
+    const [isOpen, setIsOpen] = useState(false);
+    const toggle = () => setIsOpen(prev => !prev);
+
+    // Close sidebar on route changes (mobile)
+    const pathname = usePathname();
+    useEffect(() => {
+        setIsOpen(false);
+    }, [pathname]);
+
+    return (
+        <SidebarContext.Provider value={{ isOpen, setIsOpen, toggle }}>
+            {children}
+        </SidebarContext.Provider>
+    );
+}
+
+export function MobileMenuButton() {
+    const { toggle } = useSidebar();
+    return (
+        <button
+            onClick={toggle}
+            className="md:hidden flex items-center justify-center h-9 w-9 rounded-xl hover:bg-accent transition-colors"
+            aria-label="Toggle navigation menu"
+        >
+            <Menu className="h-5 w-5 text-foreground" />
+        </button>
+    );
+}
+
 export function Sidebar() {
     const pathname = usePathname();
     const { role } = useRole();
+    const { isOpen, setIsOpen } = useSidebar();
 
     // Defer permission filtering to client to avoid SSR hydration mismatch.
     // localStorage is only available client-side, so we must not filter during SSR.
@@ -117,21 +160,29 @@ export function Sidebar() {
         })
         : navigationItems;
 
-    return (
-        <aside className="fixed left-0 top-0 z-40 h-screen w-64 border-r border-border/30 bg-card/95 backdrop-blur-sm shadow-xl shadow-black/5 dark:shadow-black/20">
+    const sidebarContent = (
+        <div className="flex flex-col h-full">
             {/* Logo */}
-            <div className="flex h-24 items-center justify-center border-b border-border/10 bg-gradient-to-b from-primary/5 to-transparent px-4">
-                <Link href="/" className="flex flex-col items-center gap-2 transition-transform hover:translate-y-[-1px] duration-300">
+            <div className="flex h-24 items-center justify-between border-b border-border/10 bg-gradient-to-b from-primary/5 to-transparent px-4 shrink-0">
+                <Link href="/" className="flex flex-col items-center gap-2 transition-transform hover:translate-y-[-1px] duration-300 flex-1 justify-center">
                     <div className="flex items-center gap-2">
                         <img src="/ct-icon.png" alt="Icon" className="h-[22px] w-auto object-contain shrink-0" />
                         <span className="text-[22px] font-black text-foreground tracking-tight leading-none whitespace-nowrap">SkillVector</span>
                     </div>
                     <img src="/logo.png" alt="CitiusTech Logo" className="h-[36px] w-auto object-contain shrink-0" />
                 </Link>
+                {/* Close button on mobile */}
+                <button
+                    onClick={() => setIsOpen(false)}
+                    className="md:hidden flex items-center justify-center h-8 w-8 rounded-lg hover:bg-accent transition-colors shrink-0 ml-2"
+                    aria-label="Close menu"
+                >
+                    <X className="h-4 w-4" />
+                </button>
             </div>
 
             {/* Navigation */}
-            <nav className="flex-1 space-y-1 p-4">
+            <nav className="flex-1 space-y-1 p-4 overflow-y-auto">
                 {permittedItems.map((item) => (
                     <Link
                         key={item.href}
@@ -143,7 +194,7 @@ export function Sidebar() {
                                 : 'text-muted-foreground hover:bg-accent hover:text-foreground hover:shadow-sm'
                         )}
                     >
-                        <item.icon className="h-5 w-5" />
+                        <item.icon className="h-5 w-5 shrink-0" />
                         <span className="flex-1">{item.title}</span>
                         {item.badge && (
                             <span className="flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs text-white font-semibold shadow-md">
@@ -153,6 +204,34 @@ export function Sidebar() {
                     </Link>
                 ))}
             </nav>
-        </aside>
+        </div>
+    );
+
+    return (
+        <>
+            {/* Desktop sidebar */}
+            <aside className="hidden md:flex fixed left-0 top-0 z-40 h-screen w-64 flex-col border-r border-border/30 bg-card/95 backdrop-blur-sm shadow-xl shadow-black/5 dark:shadow-black/20">
+                {sidebarContent}
+            </aside>
+
+            {/* Mobile overlay */}
+            {isOpen && (
+                <div
+                    className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden"
+                    onClick={() => setIsOpen(false)}
+                    aria-hidden="true"
+                />
+            )}
+
+            {/* Mobile drawer */}
+            <aside
+                className={cn(
+                    'fixed left-0 top-0 z-50 h-screen w-72 flex-col border-r border-border/30 bg-card shadow-xl shadow-black/20 transition-transform duration-300 ease-in-out md:hidden flex',
+                    isOpen ? 'translate-x-0' : '-translate-x-full'
+                )}
+            >
+                {sidebarContent}
+            </aside>
+        </>
     );
 }

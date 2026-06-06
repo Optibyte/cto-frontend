@@ -11,21 +11,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 export default function SettingsPage() {
     return (
         <div className="space-y-6 fade-in">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-                    <p className="text-muted-foreground">
-                        Manage your profile and application preferences
-                    </p>
-                </div>
+            <div className="flex flex-col gap-1">
+                <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Settings</h1>
+                <p className="text-muted-foreground text-sm md:text-base">
+                    Manage your profile and application preferences
+                </p>
             </div>
 
             <Tabs defaultValue="profile" className="space-y-6">
-                <TabsList className="grid w-full grid-cols-4 rounded-xl bg-secondary/20 p-1">
-                    <TabsTrigger value="profile" className="rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Profile</TabsTrigger>
-                    <TabsTrigger value="notifications" className="rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Notifications</TabsTrigger>
-                    <TabsTrigger value="appearance" className="rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Appearance</TabsTrigger>
-                    <TabsTrigger value="security" className="rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">Security</TabsTrigger>
+                <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 rounded-xl bg-secondary/20 p-1 h-auto">
+                    <TabsTrigger value="profile" className="rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm text-xs md:text-sm py-2">Profile</TabsTrigger>
+                    <TabsTrigger value="notifications" className="rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm text-xs md:text-sm py-2">Notifications</TabsTrigger>
+                    <TabsTrigger value="appearance" className="rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm text-xs md:text-sm py-2">Appearance</TabsTrigger>
+                    <TabsTrigger value="security" className="rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm text-xs md:text-sm py-2">Security</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="profile" className="space-y-6">
