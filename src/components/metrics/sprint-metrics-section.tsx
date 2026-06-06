@@ -104,9 +104,16 @@ export function SprintMetricsSection({ memberSprintData, memberName, userId }: P
     if (!sprint) return null;
 
     const handleStartEdit = () => {
+        // Default sprint number to last sprint + 1 so new sprint entry is pre-filled
+        const maxSprintNumber = memberSprintData.reduce(
+            (max, s) => Math.max(max, s.sprintNumber ?? 0),
+            0,
+        );
+        const nextSprintNumber = maxSprintNumber + 1;
+
         const vals: Record<string, string> = {
-            sprintNumber: String(sprint.sprintNumber ?? ''),
-            sprintName: sprint.sprintName || `Sprint ${sprint.sprintNumber}`,
+            sprintNumber: String(nextSprintNumber),
+            sprintName: `Sprint-${nextSprintNumber}`,
         };
         SPRINT_COLS.forEach(col => {
             vals[col.key] = String(sprint[col.key] ?? 0);

@@ -210,10 +210,24 @@ const fileBulkUpload = async (endpoint: string, file: File) => {
 };
 
 // ── Employees Bulk Upload ──────────────────────────────────
-const EMPLOYEES_URL = `${API_BASE_URL}/api/v1/employees`;
+const EMPLOYEES_URL = `${API_BASE_URL}/api/v1/users`;
+const EMPLOYEES_BULK_URL = `${API_BASE_URL}/api/v1/employees`;
 
 export const adminEmployeesAPI = {
-    bulkUpload: (file: File) => fileBulkUpload(`${EMPLOYEES_URL}/bulk-upload`, file),
+    getAll: (page?: number, limit?: number) => {
+        const params = new URLSearchParams();
+        if (page && limit) { params.set('page', String(page)); params.set('limit', String(limit)); }
+        const qs = params.toString();
+        return apiFetch(qs ? `${EMPLOYEES_URL}?${qs}` : EMPLOYEES_URL);
+    },
+    getOne: (id: string) => apiFetch(`${EMPLOYEES_URL}/${id}`),
+    create: (data: any) =>
+        apiFetch(EMPLOYEES_URL, { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: string, data: any) =>
+        apiFetch(`${EMPLOYEES_URL}/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    delete: (id: string) =>
+        apiFetch(`${EMPLOYEES_URL}/${id}`, { method: 'DELETE' }),
+    bulkUpload: (file: File) => fileBulkUpload(`${EMPLOYEES_BULK_URL}/bulk-upload`, file),
 };
 
 // ── Sprint Metrics Bulk Upload ─────────────────────────────
