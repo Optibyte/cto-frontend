@@ -308,10 +308,10 @@ export default function MetricsDashboardPage() {
         <div className="space-y-8">
             <div className="flex flex-col gap-6 pb-6 border-b border-border/10">
                 <div className="space-y-1">
-                    <h1 className="text-4xl font-extrabold tracking-tight text-gradient">
+                    <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-gradient">
                         Dashboard
                     </h1>
-                    <p className="text-muted-foreground text-lg font-medium opacity-80">
+                    <p className="text-muted-foreground text-base md:text-lg font-medium opacity-80">
                         View and analyze project and team performance metrics across all sources
                     </p>
                 </div>

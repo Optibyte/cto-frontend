@@ -631,6 +631,21 @@ export default function AdminPage() {
 
     const tabConfig = TABS.find(t => t.key === activeTab)!;
 
+    const primaryActionLabel: Record<TabKey, string> = {
+        organizations: 'Add Organization',
+        markets: 'Add Market',
+        accounts: 'Add Account',
+        projects: 'Add Project',
+        'ai-projects': 'Add AI Project',
+        teams: 'Add Team',
+        members: 'Add Team Members',
+        users: 'Add User',
+        'onboard-employee': 'Add Employee',
+        'report-schedules': 'Schedule Report',
+    };
+
+    const bulkUploadLabel = activeTab === 'onboard-employee' ? 'Upload Employees' : 'Upload Users';
+
 
 
     return (
@@ -639,25 +654,25 @@ export default function AdminPage() {
 
             {/* Header */}
 
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
 
                 <div>
 
-                    <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
+                    <h1 className="text-2xl md:text-3xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
 
-                        <Building2 className="inline h-8 w-8 mr-2 text-primary" />
+                        <Building2 className="inline h-7 w-7 md:h-8 md:w-8 mr-2 text-primary" />
 
                         Admin Console
 
                     </h1>
 
-                    <p className="text-muted-foreground mt-1">Manage your organization hierarchy — Markets, Accounts, Projects, Teams, Members & Users</p>
+                    <p className="text-muted-foreground mt-1 text-sm md:text-base">Manage your organization hierarchy — Markets, Accounts, Projects, Teams, Members &amp; Users</p>
 
                 </div>
 
                 {!(role === 'TEAM_LEAD' && activeTab !== 'members' && activeTab !== 'users' && activeTab !== 'onboard-employee') && (
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
 
                         {(activeTab === 'users' || activeTab === 'onboard-employee') && (
 
@@ -673,19 +688,19 @@ export default function AdminPage() {
 
                                 }}
 
-                                className="rounded-xl gap-2 border-violet-500/40 text-violet-500 hover:bg-violet-500/10"
+                                className="w-full justify-center rounded-xl gap-2 border-violet-500/40 text-violet-500 hover:bg-violet-500/10 sm:w-auto whitespace-nowrap"
 
                             >
 
-                                <Upload className="h-4 w-4" /> Bulk Upload 
+                                <Upload className="h-4 w-4" /> {bulkUploadLabel}
 
                             </Button>
 
                         )}
 
-                        <Button onClick={() => handleCreate()} className="rounded-xl gap-2 shadow-lg shadow-primary/20">
+                        <Button onClick={() => handleCreate()} className="w-full justify-center rounded-xl gap-2 shadow-lg shadow-primary/20 sm:w-auto whitespace-nowrap">
 
-                            <Plus className="h-4 w-4" /> Add {tabConfig.label.slice(0, -1)}
+                            <Plus className="h-4 w-4" /> {primaryActionLabel[activeTab]}
 
                         </Button>
 
@@ -3866,9 +3881,28 @@ function BulkUploadDialog({ open, onOpenChange, type, onSuccess }: BulkUploadDia
 
                 } catch { }
 
-                const uniqueProjectNames = Array.from(new Set(projectList.map((p: any) => p.name).filter(Boolean))).sort();
+                const projectNameById = new Map(
+                    projectList
+                        .filter((p: any) => p.id && p.name)
+                        .map((p: any) => [p.id, p.name])
+                );
 
-                const uniqueTeamNames = Array.from(new Set(teamList.map((t: any) => t.name).filter(Boolean))).sort();
+                const projectTeamPairs = teamList
+                    .map((team: any) => {
+                        const projectId = team.projectId || team.project?.id;
+                        const projectName = team.project?.name || projectNameById.get(projectId);
+                        return {
+                            project: projectName,
+                            team: team.name,
+                        };
+                    })
+                    .filter((item: any) => item.project && item.team)
+                    .sort((a: any, b: any) => a.project.localeCompare(b.project) || a.team.localeCompare(b.team));
+
+                const uniqueProjectNames = Array.from(new Set(projectTeamPairs.map((item: any) => item.project))).sort();
+
+                const firstProjectName = uniqueProjectNames[0] || 'E-commerce Platform';
+                const firstTeamName = projectTeamPairs.find((item: any) => item.project === firstProjectName)?.team || 'Alpha Team';
 
                 const lookupSheet = workbook.addWorksheet('Template Lists');
 
@@ -3880,9 +3914,13 @@ function BulkUploadDialog({ open, onOpenChange, type, onSuccess }: BulkUploadDia
 
                     { header: 'Teams', key: 'team', width: 35 },
 
+                    { header: 'Mapped Project', key: 'mappedProject', width: 35 },
+
+                    { header: 'Mapped Team', key: 'mappedTeam', width: 35 },
+
                 ];
 
-                const maxLookupRows = Math.max(uniqueProjectNames.length, uniqueTeamNames.length, 1);
+                const maxLookupRows = Math.max(uniqueProjectNames.length, projectTeamPairs.length, 1);
 
                 for (let i = 0; i < maxLookupRows; i++) {
 
@@ -3890,7 +3928,11 @@ function BulkUploadDialog({ open, onOpenChange, type, onSuccess }: BulkUploadDia
 
                         project: uniqueProjectNames[i] || '',
 
-                        team: uniqueTeamNames[i] || '',
+                        team: '',
+
+                        mappedProject: projectTeamPairs[i]?.project || '',
+
+                        mappedTeam: projectTeamPairs[i]?.team || '',
 
                     });
 
@@ -3930,9 +3972,9 @@ function BulkUploadDialog({ open, onOpenChange, type, onSuccess }: BulkUploadDia
 
                     role: 'developer',
 
-                    project: uniqueProjectNames[0] || 'E-commerce Platform',
+                    project: firstProjectName,
 
-                    team: uniqueTeamNames[0] || 'Alpha Team'
+                    team: firstTeamName
 
                 });
 
@@ -3980,7 +4022,7 @@ function BulkUploadDialog({ open, onOpenChange, type, onSuccess }: BulkUploadDia
 
                     }
 
-                    if (uniqueTeamNames.length > 0) {
+                    if (projectTeamPairs.length > 0) {
 
                         worksheet.getCell(`G${i}`).dataValidation = {
 
@@ -3994,9 +4036,9 @@ function BulkUploadDialog({ open, onOpenChange, type, onSuccess }: BulkUploadDia
 
                             errorTitle: 'Invalid Team',
 
-                            error: 'Please select a team from the dropdown list.',
+                            error: 'Please select a team mapped to the selected project.',
 
-                            formulae: [`'Template Lists'!$B$2:$B$${uniqueTeamNames.length + 1}`]
+                            formulae: [`OFFSET('Template Lists'!$D$2,MATCH($F${i},'Template Lists'!$C$2:$C$${projectTeamPairs.length + 1},0)-1,0,COUNTIF('Template Lists'!$C$2:$C$${projectTeamPairs.length + 1},$F${i}),1)`]
 
                         };
 

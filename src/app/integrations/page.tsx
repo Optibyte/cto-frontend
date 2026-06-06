@@ -95,14 +95,14 @@ export default function IntegrationsPage() {
     return (
         <div className="space-y-6 fade-in">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Integrations</h1>
-                    <p className="text-muted-foreground mt-1">
+                    <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Integrations</h1>
+                    <p className="text-muted-foreground mt-1 text-sm md:text-base">
                         Connect your tools to automate real-time data collection
                     </p>
                 </div>
-                <Button variant="outline" size="sm" className="gap-2 rounded-xl" onClick={fetchStatus} disabled={statusLoading}>
+                <Button variant="outline" size="sm" className="gap-2 rounded-xl w-fit" onClick={fetchStatus} disabled={statusLoading}>
                     <RefreshCw className={cn('h-4 w-4', statusLoading && 'animate-spin')} />
                     Refresh
                 </Button>
