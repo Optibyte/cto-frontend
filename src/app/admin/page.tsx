@@ -2684,13 +2684,13 @@ function EntityDialog({ open, onOpenChange, tab, editItem, onSave, organizations
 
                                 <Select value={form.teamId || ''} onValueChange={v => set('teamId', v)}>
 
-                                    <SelectTrigger className="rounded-xl"><SelectValue placeholder="Select team" /></SelectTrigger>
+                                    <SelectTrigger className="w-full rounded-xl"><SelectValue placeholder="Select team" /></SelectTrigger>
 
-                                    <SelectContent>
+                                    <SelectContent className="z-[60]">
 
                                         {teams
 
-                                            .filter((t: any) => role === 'ORG' || role === 'ACCOUNT' || role === 'PROJECT_MANAGER' || t.id === teamId || t.teamLeadId === localStorage.getItem('current_user_id'))
+                                            .filter((t: any) => ['CTO', 'ORG', 'MARKET', 'ACCOUNT', 'PROJECT_MANAGER', 'PROJECT'].includes(role || '') || t.id === teamId || t.teamLeadId === currentUserId)
 
                                             .map((t: any) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)
 

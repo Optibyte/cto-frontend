@@ -47,7 +47,7 @@ export function PlotEditorDialog({ isOpen, onClose, plot, onSave, maxSprint, raw
     <Dialog open={isOpen} onOpenChange={o => !o && onClose()}>
       <DialogContent className="sm:max-w-[900px] rounded-3xl border-border/50 bg-background/95 backdrop-blur-3xl overflow-hidden p-0 shadow-2xl">
         <div className="p-6 pb-3 border-b border-border/10 bg-violet-500/5">
-          <DialogTitle className="text-xl font-black tracking-tight">Power BI Plot Designer</DialogTitle>
+          <DialogTitle className="text-xl font-black tracking-tight">Custom Plot Designer</DialogTitle>
           <DialogDescription className="text-xs">Configure your data source, scope, dimensions and metrics.</DialogDescription>
         </div>
         <div className="p-6 space-y-5 max-h-[75vh] overflow-y-auto custom-scrollbar">
