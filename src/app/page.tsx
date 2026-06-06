@@ -16,7 +16,7 @@ export default function DashboardPage() {
   }, [isAuthenticated, router]);
 
   return (
-    <div className="h-screen w-screen flex items-center justify-center bg-slate-950">
+    <div className="flex h-[60vh] w-full items-center justify-center">
       <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
     </div>
   );

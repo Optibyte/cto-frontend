@@ -211,15 +211,7 @@ export function Header() {
             <div className="flex items-center gap-2">
                 {mounted ? (
                     <>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => window.dispatchEvent(new Event('reset-filters'))}
-                            className="h-9 rounded-xl text-xs text-muted-foreground hover:text-foreground hidden md:flex border-border/50 hover:bg-primary/5 mr-1"
-                        >
-                            <RefreshCw className="h-4 w-4 mr-1.5" />
-                            Reset All
-                        </Button>
+                      
                         <ThemeToggle />
 
                         {/* ── Bell Notifications Dialog ─────────────────────── */}
@@ -228,8 +220,8 @@ export function Header() {
                                 <Button variant="ghost" size="icon" className="relative hover:bg-primary/10 transition-colors rounded-xl">
                                     <Bell className="h-5 w-5" />
                                     {unreadCount > 0 && (
-                                        <span className="absolute -top-1 -right-1 flex h-4 min-w-[1rem] px-1 items-center justify-center rounded-full bg-rose-500 text-[8px] font-bold text-white ring-2 ring-background animate-pulse shadow-lg shadow-rose-500/50">
-                                            {unreadCount > 99 ? '99+' : unreadCount}
+                                        <span className="absolute -top-1 -right-1 flex h-4 min-w-[1rem] px-1 items-center justify-center rounded-full bg-rose-500 text-[9px] font-bold text-white ring-2 ring-background">
+                                            {unreadCount}
                                         </span>
                                     )}
                                 </Button>
