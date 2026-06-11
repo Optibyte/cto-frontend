@@ -197,25 +197,28 @@ export function Header() {
     const totalCount = allAlerts.length;
 
     const currentRole = ROLES.find(r => r.value === role) || ROLES[0];
-    const displayEmail = user?.email || user?.user?.email || 'user@skillvector.com';
+    const displayEmail = user?.email || user?.user?.email || 'user@compass.com';
+    const displayName = user?.fullName || user?.user?.fullName || '';
+    const initials = displayName
+        ? displayName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
+        : displayEmail.slice(0, 2).toUpperCase();
 
     return (
         <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-border/30 bg-background px-4 md:px-6 transition-all shadow-sm shadow-black/5 dark:shadow-black/10">
             {/* Mobile hamburger */}
             <MobileMenuButton />
 
-            <div className="flex flex-1 items-center justify-center">
-                <div className="flex items-center justify-center px-4 py-2 rounded-xl border border-primary bg-primary/10">
-                    <span className="text-sm md:text-lg font-bold text-primary truncate max-w-[160px] md:max-w-none">
-                        {currentRole.label}
-                    </span>
-                </div>
-            </div>
+            <div className="flex-1" />
 
             <div className="flex items-center gap-2">
                 {mounted ? (
                     <>
-                      
+                        {/* Role Badge */}
+                        <div className="flex items-center justify-center px-3 py-1.5 rounded-lg border border-primary/20 bg-primary/5 mr-1 shrink-0">
+                            <span className="text-xs md:text-sm font-bold text-primary truncate">
+                                {currentRole.label}
+                            </span>
+                        </div>
                         <ThemeToggle />
 
                         {/* ── Bell Notifications Dialog ─────────────────────── */}
@@ -345,9 +348,9 @@ export function Header() {
                         {/* ── User Menu ─────────────────────────────────────── */}
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="hover:bg-primary/10 transition-colors rounded-xl overflow-hidden border border-border/40 p-0 h-9 w-9">
-                                    <span className="h-full w-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-primary/5">
-                                        <User className="h-5 w-5 text-primary" />
+                                <Button variant="ghost" size="icon" className="hover:bg-primary/10 transition-colors rounded-full overflow-hidden border-2 border-primary/30 p-0 h-9 w-9 hover:border-primary/60" title={displayEmail}>
+                                    <span className={`h-full w-full flex items-center justify-center text-[13px] font-black text-white ${currentRole.color} select-none`}>
+                                        {initials}
                                     </span>
                                 </Button>
                             </DropdownMenuTrigger>

@@ -140,7 +140,7 @@ export default function AdminPage() {
 
             } else if (tab === 'onboard-employee') {
 
-                result = search ? await adminEmployeesAPI.getAll() : await adminEmployeesAPI.getAll(page, PAGE_SIZE);
+                result = await adminEmployeesAPI.getAll(page, PAGE_SIZE, search);
 
             } else {
 

@@ -29,6 +29,7 @@ import {
     Search,
     X,
     Menu,
+    LayoutTemplate,
 } from 'lucide-react';
 import { useState, useEffect, createContext, useContext } from 'react';
 
@@ -81,6 +82,11 @@ const navigationItems: NavItem[] = [
         icon: FileSearch,
         href: '/audit',
     },
+    {
+        title: 'Templates',
+        icon: LayoutTemplate,
+        href: '/templates',
+    },
 ];
 
 const ROLE_LABELS: Record<string, string> = {
@@ -102,8 +108,8 @@ interface SidebarContextType {
 }
 const SidebarContext = createContext<SidebarContextType>({
     isOpen: false,
-    setIsOpen: () => {},
-    toggle: () => {},
+    setIsOpen: () => { },
+    toggle: () => { },
 });
 
 export function useSidebar() {
@@ -163,13 +169,18 @@ export function Sidebar() {
     const sidebarContent = (
         <div className="flex flex-col h-full">
             {/* Logo */}
-            <div className="flex h-24 items-center justify-between border-b border-border/10 bg-gradient-to-b from-primary/5 to-transparent px-4 shrink-0">
-                <Link href="/" className="flex flex-col items-center gap-2 transition-transform hover:translate-y-[-1px] duration-300 flex-1 justify-center">
-                    <div className="flex items-center gap-2">
-                        <img src="/ct-icon.png" alt="Icon" className="h-[22px] w-auto object-contain shrink-0" />
-                        <span className="text-[22px] font-black text-foreground tracking-tight leading-none whitespace-nowrap">SkillVector</span>
+            <div className="flex h-24 items-center justify-between border-b border-border/10 bg-gradient-to-b from-primary/5 to-transparent px-6 shrink-0">
+                <Link href="/" className="flex items-center gap-3 transition-transform hover:translate-y-[-1px] duration-300 flex-1">
+                    <img src="/cto-logo.webp" alt="Compass Logo" className="w-[80px] h-[50px] object-contain shrink-0" />
+                    <div className="flex flex-col justify-center select-none">
+                        <span className="text-[20px] font-extrabold tracking-[0.02em] text-[#091e42] dark:text-white leading-none font-sans">
+                            COMPASS
+                        </span>
+                        <div className="h-[1.5px] w-full bg-gradient-to-r from-blue-600 via-teal-500 to-emerald-500 my-[4px]" />
+                        <span className="text-[5.5px] font-bold tracking-[0.05em] text-[#091e42]/80 dark:text-white/80 uppercase leading-none font-sans">
+                            AI TRACKING GOVERNANCE PLATFORM
+                        </span>
                     </div>
-                    <img src="/logo.png" alt="CitiusTech Logo" className="h-[36px] w-auto object-contain shrink-0" />
                 </Link>
                 {/* Close button on mobile */}
                 <button
