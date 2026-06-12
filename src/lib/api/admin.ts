@@ -210,13 +210,14 @@ const fileBulkUpload = async (endpoint: string, file: File) => {
 };
 
 // ── Employees Bulk Upload ──────────────────────────────────
-const EMPLOYEES_URL = `${API_BASE_URL}/api/v1/users`;
+const EMPLOYEES_URL = `${API_BASE_URL}/api/v1/employees`;
 const EMPLOYEES_BULK_URL = `${API_BASE_URL}/api/v1/employees`;
 
 export const adminEmployeesAPI = {
-    getAll: (page?: number, limit?: number) => {
+    getAll: (page?: number, limit?: number, search?: string) => {
         const params = new URLSearchParams();
         if (page && limit) { params.set('page', String(page)); params.set('limit', String(limit)); }
+        if (search) { params.set('search', search); }
         const qs = params.toString();
         return apiFetch(qs ? `${EMPLOYEES_URL}?${qs}` : EMPLOYEES_URL);
     },

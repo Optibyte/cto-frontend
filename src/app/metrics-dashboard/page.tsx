@@ -4,11 +4,12 @@ import { useState, useMemo, useEffect } from 'react';
 import { AnalyticsDashboard } from '@/components/metrics/analytics-dashboard';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useOrgHierarchy } from '@/hooks/use-hierarchy';
-import { Filter, Lock, ChevronDown } from 'lucide-react';
+import { Filter, Lock, ChevronDown, LayoutTemplate } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useRole, useDataFence } from '@/contexts/role-context';
 import { Badge } from '@/components/ui/badge';
 import { adminProjectsAPI, adminTeamsAPI } from '@/lib/api/admin';
+import Link from 'next/link';
 
 export default function MetricsDashboardPage() {
     const { role, user } = useRole();
@@ -307,13 +308,23 @@ export default function MetricsDashboardPage() {
     return (
         <div className="space-y-8">
             <div className="flex flex-col gap-6 pb-6 border-b border-border/10">
-                <div className="space-y-1">
-                    <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-gradient">
-                        Dashboard
-                    </h1>
-                    <p className="text-muted-foreground text-base md:text-lg font-medium opacity-80">
-                        View and analyze project and team performance metrics across all sources
-                    </p>
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="space-y-1">
+                        <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-gradient">
+                            Dashboard
+                        </h1>
+                        <p className="text-muted-foreground text-base md:text-lg font-medium opacity-80">
+                            View and analyze project and team performance metrics across all sources
+                        </p>
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                        <Link href="/templates" className="no-underline">
+                            <Button className="rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-bold px-4 py-2.5 text-xs flex items-center gap-2 shadow-md shadow-violet-500/10 cursor-pointer transition-all">
+                                <LayoutTemplate className="h-4 w-4" />
+                                Templates
+                            </Button>
+                        </Link>
+                    </div>
                 </div>
 
                 {/* Scope badge for restricted users */}

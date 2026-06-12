@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/compone
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { useState, useEffect, useMemo } from 'react';
-import { Maximize2, X, Activity, Layers, Zap, BarChart3, LayoutGrid, Download, Edit3, Check, Settings2, Plus, Trash2, Shield, Globe, FileText, ArrowUp, ArrowDown, Target } from 'lucide-react';
+import { Maximize2, X, Activity, Layers, Zap, BarChart3, LayoutGrid, Download, Edit3, Check, Settings2, Plus, Trash2, Shield, Globe, FileText, ArrowUp, ArrowDown, Target, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSprintAnalytics, useSprintMetrics, useMetrics } from '@/hooks/use-metrics';
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,8 @@ import { PlotEditorDialog } from './powerbi-editor';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PDFReportGenerator } from './pdf-report-generator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useTemplate } from '@/hooks/useTemplate';
+import { TemplateChartsRenderer } from './template-charts';
 import {
     ResponsiveContainer,
     ComposedChart,
@@ -230,6 +232,8 @@ export function AnalyticsDashboard({ filters, onFilterChange }: { filters: any; 
     const { data: analytics, isLoading: isLoadingAnalytics } = useSprintAnalytics(filters);
     const { data: rawMetricsData, isLoading: isLoadingRaw } = useSprintMetrics(filters);
     const { data: manualMetricsData, isLoading: isLoadingManual } = useMetrics({ ...filters, source: 'manual' });
+
+    const { selectedTemplate } = useTemplate();
 
     const [editMode, setEditMode] = useState(false);
     const [plots, setPlots] = useState<PlotConfig[]>(STARTER_PLOTS);
@@ -712,7 +716,48 @@ export function AnalyticsDashboard({ filters, onFilterChange }: { filters: any; 
                 </TabsList>
 
                 <TabsContent value="consolidated" className="space-y-6">
-                    {selectedStarterId !== 'custom' && starterStats && activeStarterConfig ? (
+                    {selectedTemplate !== 'set7' ? (
+                        <>
+                            {/* Template Set Header */}
+                            <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-3xl bg-white/50 dark:bg-black/20 border border-border/50 backdrop-blur-xl shadow-sm">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 rounded-xl bg-violet-500/10 text-violet-600">
+                                        <Sparkles className="w-5 h-5 animate-pulse" />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-lg font-black tracking-tight leading-none text-slate-800 dark:text-slate-100">
+                                            {selectedTemplate === 'set1' ? 'Set 1 - Standard Analytics' :
+                                             selectedTemplate === 'set2' ? 'Set 2 - Executive Overview' :
+                                             selectedTemplate === 'set3' ? 'Set 3 - Business Flow' :
+                                             selectedTemplate === 'set4' ? 'Set 4 - Advanced Diagnostics' :
+                                             selectedTemplate === 'set5' ? 'Set 5 - Hierarchical Flow' :
+                                             selectedTemplate === 'set6' ? 'Set 6 - Performance Monitor' :
+                                             'Set 7 - Relay Operations'}
+                                        </h2>
+                                        <p className="text-[10px] text-muted-foreground font-medium mt-0.5">
+                                            Active template layout applied to this dashboard
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => window.location.href = '/templates'}
+                                        className="rounded-xl font-bold text-xs h-9 bg-background/50 border-border/50 hover:bg-violet-500/10 hover:text-violet-700 transition-colors"
+                                    >
+                                        Change Template
+                                    </Button>
+                                </div>
+                            </div>
+
+                            <TemplateChartsRenderer
+                                selectedTemplate={selectedTemplate}
+                                rawData={rawData}
+                                analytics={analytics}
+                                manualData={manualData}
+                            />
+                        </>
+                    ) : selectedStarterId !== 'custom' && starterStats && activeStarterConfig ? (
                         <>
                             {/* Consolidated Starter Plot Dashboard Header */}
                             <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-3xl bg-white/50 dark:bg-black/20 border border-border/50 backdrop-blur-xl shadow-sm">
