@@ -727,12 +727,12 @@ export function AnalyticsDashboard({ filters, onFilterChange }: { filters: any; 
                                     <div>
                                         <h2 className="text-lg font-black tracking-tight leading-none text-slate-800 dark:text-slate-100">
                                             {selectedTemplate === 'set1' ? 'Set 1 - Standard Analytics' :
-                                             selectedTemplate === 'set2' ? 'Set 2 - Executive Overview' :
-                                             selectedTemplate === 'set3' ? 'Set 3 - Business Flow' :
-                                             selectedTemplate === 'set4' ? 'Set 4 - Advanced Diagnostics' :
-                                             selectedTemplate === 'set5' ? 'Set 5 - Hierarchical Flow' :
-                                             selectedTemplate === 'set6' ? 'Set 6 - Performance Monitor' :
-                                             'Set 7 - Relay Operations'}
+                                                selectedTemplate === 'set2' ? 'Set 2 - Executive Overview' :
+                                                    selectedTemplate === 'set3' ? 'Set 3 - Business Flow' :
+                                                        selectedTemplate === 'set4' ? 'Set 4 - Advanced Diagnostics' :
+                                                            selectedTemplate === 'set5' ? 'Set 5 - Hierarchical Flow' :
+                                                                selectedTemplate === 'set6' ? 'Set 6 - Performance Monitor' :
+                                                                    'Set 7 - Relay Operations'}
                                         </h2>
                                         <p className="text-[10px] text-muted-foreground font-medium mt-0.5">
                                             Active template layout applied to this dashboard
@@ -822,7 +822,7 @@ export function AnalyticsDashboard({ filters, onFilterChange }: { filters: any; 
                                         </div>
                                         <div className="h-[280px]">
                                             <ResponsiveContainer width="100%" height="100%">
-                                                <ComposedChart data={starterStats.sprintsList} margin={{ top: 25, right: 30, left: -20, bottom: 0 }}>
+                                                <ComposedChart data={starterStats.sprintsList} margin={{ top: 25, right: 45, left: -20, bottom: 0 }}>
                                                     <defs>
                                                         <linearGradient id="trendGradient" x1="0" y1="0" x2="0" y2="1">
                                                             <stop offset="0%" stopColor={activeStarterConfig.color} stopOpacity={0.2} />
@@ -853,7 +853,7 @@ export function AnalyticsDashboard({ filters, onFilterChange }: { filters: any; 
                                                         strokeDasharray="4 4"
                                                         label={{
                                                             value: `LCL (${starterStats.lcl.toFixed(1)})`,
-                                                            position: 'insideBottomRight',
+                                                            position: 'insideTopLeft',
                                                             fill: '#ef4444',
                                                             fontSize: 9,
                                                             fontWeight: 'bold'
@@ -1382,7 +1382,7 @@ export function AnalyticsDashboard({ filters, onFilterChange }: { filters: any; 
                             <div className="flex-1 p-10 min-h-0 overflow-hidden">
                                 {expandingStarterKey === 'trend' && (
                                     <ResponsiveContainer width="100%" height="100%">
-                                        <ComposedChart data={starterStats.sprintsList} margin={{ top: 25, right: 30, left: -20, bottom: 0 }}>
+                                        <ComposedChart data={starterStats.sprintsList} margin={{ top: 25, right: 45, left: -20, bottom: 0 }}>
                                             <defs>
                                                 <linearGradient id="trendGradientExpanded" x1="0" y1="0" x2="0" y2="1">
                                                     <stop offset="0%" stopColor={activeStarterConfig.color} stopOpacity={0.2} />
@@ -1413,7 +1413,7 @@ export function AnalyticsDashboard({ filters, onFilterChange }: { filters: any; 
                                                 strokeDasharray="4 4"
                                                 label={{
                                                     value: `LCL (${starterStats.lcl.toFixed(1)})`,
-                                                    position: 'insideBottomRight',
+                                                    position: 'insideTopLeft',
                                                     fill: '#ef4444',
                                                     fontSize: 11,
                                                     fontWeight: 'bold'

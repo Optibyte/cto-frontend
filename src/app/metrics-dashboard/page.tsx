@@ -338,7 +338,7 @@ export default function MetricsDashboardPage() {
                 )}
 
                 {/* Filters Region */}
-                <div className="flex flex-wrap items-center gap-4 bg-white dark:bg-card p-3 rounded-2xl border border-border/10 shadow-sm">
+                <div className="flex flex-wrap items-center gap-4 p-3 rounded-2xl border border-border/10 shadow-sm filters-card">
                     <div className="flex items-center gap-2 mr-2 opacity-50">
                         <Filter className="w-5 h-5" />
                     </div>
