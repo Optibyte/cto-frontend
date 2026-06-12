@@ -711,7 +711,7 @@ export function AnalyticsDashboard({ filters, onFilterChange }: { filters: any; 
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
                 <TabsList className="bg-background/50 border border-border/50 h-12 p-1 rounded-2xl w-full max-w-md mx-auto flex">
-                    <TabsTrigger value="consolidated" className="flex-1 rounded-xl text-xs font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm">Consolidated Analytics</TabsTrigger>
+                    <TabsTrigger value="consolidated" className="flex-1 rounded-xl text-xs font-bold data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm">Consolidated Analytics</TabsTrigger>
                     <TabsTrigger value="ai-monitor" className="flex-1 rounded-xl text-xs font-bold data-[state=active]:bg-violet-600 data-[state=active]:text-white data-[state=active]:shadow-md">Transformation Comparison</TabsTrigger>
                 </TabsList>
 
