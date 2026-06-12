@@ -173,11 +173,11 @@ export function Sidebar() {
                 <Link href="/" className="flex items-center gap-3 transition-transform hover:translate-y-[-1px] duration-300 flex-1">
                     <img src="/cto-logo.webp" alt="Compass Logo" className="w-[80px] h-[50px] object-contain shrink-0" />
                     <div className="flex flex-col justify-center select-none">
-                        <span className="text-[20px] font-extrabold tracking-[0.02em] text-[#091e42] dark:text-white leading-none font-sans">
+                        <span className="text-[20px] font-extrabold tracking-[0.02em] leading-none font-sans logo-title">
                             COMPASS
                         </span>
                         <div className="h-[1.5px] w-full bg-gradient-to-r from-blue-600 via-teal-500 to-emerald-500 my-[4px]" />
-                        <span className="text-[5.5px] font-bold tracking-[0.05em] text-[#091e42]/80 dark:text-white/80 uppercase leading-none font-sans">
+                        <span className="text-[5.5px] font-bold tracking-[0.05em] uppercase leading-none font-sans logo-subtitle">
                             AI TRACKING GOVERNANCE PLATFORM
                         </span>
                     </div>

@@ -38,8 +38,8 @@ export function ThemeToggle() {
             className="relative hover:bg-accent transition-colors"
             title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
         >
-            <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-            <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+            <Sun className="h-5 w-5 transition-all theme-toggle-sun" />
+            <Moon className="absolute h-5 w-5 transition-all theme-toggle-moon" />
             <span className="sr-only">Toggle theme</span>
         </Button>
     );
