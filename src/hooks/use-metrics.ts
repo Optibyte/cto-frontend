@@ -2,6 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { metricsAPI, sprintMetricsAPI, sprintParametersAPI, sprintAlertsAPI } from '@/lib/api/client';
+import { dashboardAPI } from '@/lib/api/dashboard';
 
 export function useMetrics(filters?: any) {
     return useQuery({
@@ -256,6 +257,99 @@ export function useMarkAllAlertsRead() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['sprint-alerts'] });
             queryClient.invalidateQueries({ queryKey: ['sprint-alerts-count'] });
+        },
+    });
+}
+
+export function useKpiFacts(filters?: any) {
+    return useQuery({
+        queryKey: ['kpi-facts', filters],
+        queryFn: () => dashboardAPI.getKpiFacts(filters),
+        retry: 1,
+        staleTime: 30_000,
+    });
+}
+
+export function useKpiFactsTransformation(filters?: any, enabled = true) {
+    const { activeTab, ...apiFilters } = filters || {};
+    return useQuery({
+        queryKey: ['kpi-facts-transformation', filters],
+        queryFn: () => dashboardAPI.getKpiFactsTransformation(apiFilters),
+        retry: 1,
+        staleTime: 0,
+        enabled,
+    });
+}
+
+export function useKpiFactsProductivity(filters?: any, enabled = true) {
+    const { activeTab, ...apiFilters } = filters || {};
+    return useQuery({
+        queryKey: ['kpi-facts-productivity', filters],
+        queryFn: () => dashboardAPI.getKpiFactsProductivity(apiFilters),
+        retry: 1,
+        staleTime: 0,
+        enabled,
+    });
+}
+
+export function useKpiFactsAdoption(filters?: any, enabled = true) {
+    const { activeTab, ...apiFilters } = filters || {};
+    return useQuery({
+        queryKey: ['kpi-facts-adoption', filters],
+        queryFn: () => dashboardAPI.getKpiFactsAdoption(apiFilters),
+        retry: 1,
+        staleTime: 0,
+        enabled,
+    });
+}
+
+export function useKpiFactsAssets(filters?: any, enabled = true) {
+    const { activeTab, ...apiFilters } = filters || {};
+    return useQuery({
+        queryKey: ['kpi-facts-assets', filters],
+        queryFn: () => dashboardAPI.getKpiFactsAssets(apiFilters),
+        retry: 1,
+        staleTime: 0,
+        enabled,
+    });
+}
+
+export function useKpiFactsTokens(filters?: any, enabled = true) {
+    const { activeTab, ...apiFilters } = filters || {};
+    return useQuery({
+        queryKey: ['kpi-facts-tokens', filters],
+        queryFn: () => dashboardAPI.getKpiFactsTokens(apiFilters),
+        retry: 1,
+        staleTime: 0,
+        enabled,
+    });
+}
+
+export function useKpiFactsAgentic(filters?: any, enabled = true) {
+    const { activeTab, ...apiFilters } = filters || {};
+    return useQuery({
+        queryKey: ['kpi-facts-agentic', filters],
+        queryFn: () => dashboardAPI.getKpiFactsAgentic(apiFilters),
+        retry: 1,
+        staleTime: 0,
+        enabled,
+    });
+}
+
+export function useSaveManualMetrics() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (payload: any) => dashboardAPI.saveManualMetrics(payload),
+        onSuccess: () => {
+            // Invalidate the legacy monolithic key (used by manual-metrics-tab for editing)
+            queryClient.invalidateQueries({ queryKey: ['kpi-facts'] });
+            // Invalidate all 6 domain-specific keys (used by dashboard cards)
+            queryClient.invalidateQueries({ queryKey: ['kpi-facts-transformation'] });
+            queryClient.invalidateQueries({ queryKey: ['kpi-facts-productivity'] });
+            queryClient.invalidateQueries({ queryKey: ['kpi-facts-adoption'] });
+            queryClient.invalidateQueries({ queryKey: ['kpi-facts-assets'] });
+            queryClient.invalidateQueries({ queryKey: ['kpi-facts-tokens'] });
+            queryClient.invalidateQueries({ queryKey: ['kpi-facts-agentic'] });
         },
     });
 }
