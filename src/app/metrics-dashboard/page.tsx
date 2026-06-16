@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { useRole, useDataFence } from '@/contexts/role-context';
 import { Badge } from '@/components/ui/badge';
 import { adminProjectsAPI, adminTeamsAPI } from '@/lib/api/admin';
+import { cn } from '@/lib/utils';
 import Link from 'next/link';
 
 export default function MetricsDashboardPage() {
@@ -310,24 +311,58 @@ export default function MetricsDashboardPage() {
     return (
         <div className="space-y-8">
             <div className="flex flex-col gap-6 pb-6 border-b border-border/10">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                     <div className="space-y-1">
                         <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-gradient">
                             Dashboard
                         </h1>
-                        <p className="text-muted-foreground text-base md:text-lg font-medium opacity-80">
-                            {activeTab === 'ai-governance'
-                                ? 'Access dedicated telemetry, AI-assisted operations, and organizational efficiency indices. Select a specialized intelligence vertical below.'
-                                : 'View and analyze project and team performance metrics across all sources'}
-                        </p>
+                        
                     </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                        <Link href="/templates" className="no-underline">
-                            <Button className="rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-bold px-4 py-2.5 text-xs flex items-center gap-2 shadow-md shadow-violet-500/10 cursor-pointer transition-all">
-                                <LayoutTemplate className="h-4 w-4" />
-                                Templates
-                            </Button>
-                        </Link>
+                    <div className="flex flex-wrap items-center gap-3 shrink-0">
+                        {/* Executive View */}
+                        <button
+                            onClick={() => setActiveTab('executive-view')}
+                            className={cn(
+                                "flex items-center justify-center text-center px-4 py-2.5 rounded-2xl transition-all duration-300 w-full sm:w-[180px] h-12 cursor-pointer shadow-md select-none border-2",
+                                activeTab === 'executive-view'
+                                    ? "bg-blue-600 border-white text-white shadow-blue-500/25 scale-[1.03]"
+                                    : "bg-blue-700/95 border-transparent text-blue-100 hover:bg-blue-600 hover:text-white"
+                            )}
+                        >
+                            <span className="text-xs font-black tracking-tight uppercase">
+                                Executive View
+                            </span>
+                        </button>
+
+                        {/* Delivery View */}
+                        <button
+                            onClick={() => setActiveTab('delivery-view')}
+                            className={cn(
+                                "flex items-center justify-center text-center px-4 py-2.5 rounded-2xl transition-all duration-300 w-full sm:w-[180px] h-12 cursor-pointer shadow-md select-none border-2",
+                                activeTab === 'delivery-view'
+                                    ? "bg-blue-600 border-white text-white shadow-blue-500/25 scale-[1.03]"
+                                    : "bg-blue-700/95 border-transparent text-blue-100 hover:bg-blue-600 hover:text-white"
+                            )}
+                        >
+                            <span className="text-xs font-black tracking-tight uppercase">
+                                Delivery View
+                            </span>
+                        </button>
+
+                        {/* Engineering View */}
+                        <button
+                            onClick={() => setActiveTab('ai-governance')}
+                            className={cn(
+                                "flex items-center justify-center text-center px-4 py-2.5 rounded-2xl transition-all duration-300 w-full sm:w-[180px] h-12 cursor-pointer shadow-md select-none border-2",
+                                ['ai-governance', 'adoption-details', 'assets-details', 'tokens-details', 'agent-details', 'consolidated', 'ai-monitor'].includes(activeTab)
+                                    ? "bg-blue-600 border-white text-white shadow-blue-500/25 scale-[1.03]"
+                                    : "bg-blue-700/95 border-transparent text-blue-100 hover:bg-blue-600 hover:text-white"
+                            )}
+                        >
+                            <span className="text-xs font-black tracking-tight uppercase">
+                                Engineering View
+                            </span>
+                        </button>
                     </div>
                 </div>
 

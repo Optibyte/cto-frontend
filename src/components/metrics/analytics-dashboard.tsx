@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/compone
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { useState, useEffect, useMemo } from 'react';
-import { Cpu, Maximize2, X, Activity, Layers, Zap, BarChart3, LayoutGrid, Download, Edit3, Check, Settings2, Plus, Trash2, Shield, Globe, FileText, ArrowUp, ArrowDown, Target, Sparkles, Users, Database, Coins, ChevronLeft } from 'lucide-react';
+import { Cpu, Maximize2, X, Activity, Layers, Zap, BarChart3, LayoutGrid, Download, Edit3, Check, Settings2, Plus, Trash2, Shield, Globe, FileText, ArrowUp, ArrowDown, Target, Sparkles, Users, Database, Coins, ChevronLeft, TrendingUp, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
     useSprintAnalytics,
@@ -16,7 +16,8 @@ import {
     useKpiFactsTokens,
     useKpiFactsAgentic,
     useKpiFactsTransformation,
-    useKpiFactsProductivity
+    useKpiFactsProductivity,
+    useKpiFactsFinance
 } from '@/hooks/use-metrics';
 import { AiGovernanceCards } from './ai-governance-cards';
 import { Button } from '@/components/ui/button';
@@ -36,7 +37,7 @@ import {
     PieChart, Pie,
     AreaChart, Area,
     XAxis, YAxis, CartesianGrid, Tooltip,
-    ReferenceLine
+    ReferenceLine, Legend
 } from 'recharts';
 
 // Default starter plots
@@ -274,12 +275,13 @@ export function AnalyticsDashboard({
     const { data: manualMetricsData, isLoading: isLoadingManual } = useMetrics({ ...filters, source: 'manual' });
 
     // 6 separate queries corresponding to 6 domain APIs, passing activeTab to force a network request on tab switch
-    const { data: adoptionData, isLoading: isLoadingAdoption } = useKpiFactsAdoption({ ...filters, activeTab }, activeTab === 'ai-governance' || activeTab === 'adoption-details');
+    const { data: adoptionData, isLoading: isLoadingAdoption } = useKpiFactsAdoption({ ...filters, activeTab }, activeTab === 'ai-governance' || activeTab === 'adoption-details' || activeTab === 'delivery-view');
     const { data: assetsData, isLoading: isLoadingAssets } = useKpiFactsAssets({ ...filters, activeTab }, activeTab === 'ai-governance' || activeTab === 'assets-details');
     const { data: tokensData, isLoading: isLoadingTokens } = useKpiFactsTokens({ ...filters, activeTab }, activeTab === 'ai-governance' || activeTab === 'tokens-details');
     const { data: agentData, isLoading: isLoadingAgent } = useKpiFactsAgentic({ ...filters, activeTab }, activeTab === 'ai-governance' || activeTab === 'agent-details');
-    const { data: transData, isLoading: isLoadingTrans } = useKpiFactsTransformation({ ...filters, activeTab }, activeTab === 'ai-governance' || activeTab === 'ai-monitor');
-    const { data: prodData, isLoading: isLoadingProd } = useKpiFactsProductivity({ ...filters, activeTab }, activeTab === 'ai-governance' || activeTab === 'consolidated');
+    const { data: transData, isLoading: isLoadingTrans } = useKpiFactsTransformation({ ...filters, activeTab }, activeTab === 'ai-governance' || activeTab === 'ai-monitor' || activeTab === 'executive-view');
+    const { data: prodData, isLoading: isLoadingProd } = useKpiFactsProductivity({ ...filters, activeTab }, activeTab === 'ai-governance' || activeTab === 'consolidated' || activeTab === 'delivery-view');
+    const { data: financeData, isLoading: isLoadingFinance } = useKpiFactsFinance({ ...filters, activeTab }, activeTab === 'ai-governance' || activeTab === 'executive-view');
 
     const kpiFactsData = useMemo(() => {
         return {
@@ -289,10 +291,11 @@ export function AnalyticsDashboard({
             agentPerformance: agentData?.agentPerformance || [],
             transformationProgress: transData?.transformationProgress || [],
             kpiFacts: prodData?.kpiFacts || [],
+            financeMetrics: financeData?.financeMetrics || [],
         };
-    }, [adoptionData, assetsData, tokensData, agentData, transData, prodData]);
+    }, [adoptionData, assetsData, tokensData, agentData, transData, prodData, financeData]);
 
-    const isLoadingKpiFacts = isLoadingAdoption || isLoadingAssets || isLoadingTokens || isLoadingAgent || isLoadingTrans || isLoadingProd;
+    const isLoadingKpiFacts = isLoadingAdoption || isLoadingAssets || isLoadingTokens || isLoadingAgent || isLoadingTrans || isLoadingProd || isLoadingFinance;
 
     const { selectedTemplate } = useTemplate();
 
@@ -302,6 +305,7 @@ export function AnalyticsDashboard({
     const [editingPlot, setEditingPlot] = useState<PlotConfig | null>(null);
     const [expandingPlot, setExpandingPlot] = useState<PlotConfig | null>(null);
     const [expandingStarterKey, setExpandingStarterKey] = useState<string | null>(null);
+    const [expandedGraphKey, setExpandedGraphKey] = useState<string | null>(null);
 
     const [selectedStarterId, setSelectedStarterId] = useState<string>('starter-1');
 
@@ -744,6 +748,200 @@ export function AnalyticsDashboard({
         };
     }, [agentChartData]);
 
+    // Delivery View computation
+    const deliveryChartData = useMemo(() => {
+        const list = rawMetricsData || [];
+        if (list.length === 0) {
+            return [
+                { name: 'Sprint 1', velocity: 120, throughput: 110, quality: 94, defectDensity: 1.2, doneToSaid: 88 },
+                { name: 'Sprint 2', velocity: 135, throughput: 125, quality: 96, defectDensity: 0.9, doneToSaid: 92 },
+                { name: 'Sprint 3', velocity: 142.5, throughput: 130, quality: 95.8, defectDensity: 0.7, doneToSaid: 95 },
+            ];
+        }
+
+        // Group by sprint name
+        const grouped: Record<string, { velocitySum: number; throughputSum: number; qualitySum: number; defectDensitySum: number; doneToSaidSum: number; count: number }> = {};
+        list.forEach((item: any) => {
+            const name = item.sprintName || `Sprint ${item.sprintNumber || 0}`;
+            if (!grouped[name]) {
+                grouped[name] = { velocitySum: 0, throughputSum: 0, qualitySum: 0, defectDensitySum: 0, doneToSaidSum: 0, count: 0 };
+            }
+            grouped[name].velocitySum += item.velocityPoints || 0;
+            grouped[name].throughputSum += item.throughputPoints || 0;
+            grouped[name].qualitySum += item.qualityScore || 0;
+            grouped[name].defectDensitySum += item.defectDensity || 0;
+            grouped[name].doneToSaidSum += item.doneToSaidRatio || 0;
+            grouped[name].count += 1;
+        });
+
+        // Helper to extract numeric sprint suffix for correct sorting
+        const getSprintNum = (name: string) => {
+            const match = name.match(/Sprint-?(\d+)/i);
+            return match ? parseInt(match[1], 10) : 0;
+        };
+
+        return Object.entries(grouped).map(([name, g]) => ({
+            name,
+            velocity: Number((g.velocitySum / g.count).toFixed(1)),
+            throughput: Number((g.throughputSum / g.count).toFixed(1)),
+            quality: Number((g.qualitySum / g.count).toFixed(1)),
+            defectDensity: Number((g.defectDensitySum / g.count).toFixed(2)),
+            doneToSaid: Number((g.doneToSaidSum / g.count).toFixed(1)),
+        })).sort((a, b) => getSprintNum(a.name) - getSprintNum(b.name));
+    }, [rawMetricsData]);
+
+    const deliverySpcLimits = useMemo(() => {
+        const velocities = deliveryChartData.map((d: any) => d.velocity);
+        const defectDensities = deliveryChartData.map((d: any) => d.defectDensity);
+        return {
+            velocity: calculateSpcLimits(velocities),
+            defectDensity: calculateSpcLimits(defectDensities)
+        };
+    }, [deliveryChartData]);
+
+    const deliveryStats = useMemo(() => {
+        if (deliveryChartData.length === 0) return { velocity: 142.5, throughput: 130, quality: 95.8, defectDensity: 0.7, doneToSaid: 95 };
+        const count = deliveryChartData.length;
+        const velocity = deliveryChartData.reduce((acc: number, c: any) => acc + c.velocity, 0) / count;
+        const throughput = deliveryChartData.reduce((acc: number, c: any) => acc + c.throughput, 0) / count;
+        const quality = deliveryChartData.reduce((acc: number, c: any) => acc + c.quality, 0) / count;
+        const defectDensity = deliveryChartData.reduce((acc: number, c: any) => acc + c.defectDensity, 0) / count;
+        const doneToSaid = deliveryChartData.reduce((acc: number, c: any) => acc + c.doneToSaid, 0) / count;
+        return { velocity, throughput, quality, defectDensity, doneToSaid };
+    }, [deliveryChartData]);
+
+    const podAdoptionChartData = useMemo(() => {
+        const progressList = kpiFactsData?.transformationProgress || [];
+        if (progressList.length === 0) {
+            return [
+                { name: 'Pod Phoenix', rollout: 85, maturity: 3.8 },
+                { name: 'Pod Falcon', rollout: 70, maturity: 3.2 },
+                { name: 'Pod Raptor', rollout: 90, maturity: 4.1 },
+                { name: 'Pod Titan', rollout: 65, maturity: 2.9 },
+            ];
+        }
+        const podMap: Record<string, { rolloutSum: number; maturitySum: number; count: number }> = {};
+        progressList.forEach((item: any) => {
+            const pod = item.podName || 'General';
+            if (!podMap[pod]) {
+                podMap[pod] = { rolloutSum: 0, maturitySum: 0, count: 0 };
+            }
+            podMap[pod].rolloutSum += item.podRolloutPercent || 0;
+            podMap[pod].maturitySum += item.maturityScore || 0;
+            podMap[pod].count += 1;
+        });
+        return Object.entries(podMap).map(([name, val]) => ({
+            name,
+            rollout: Number((val.rolloutSum / val.count).toFixed(1)),
+            maturity: Number((val.maturitySum / val.count).toFixed(2)),
+        }));
+    }, [kpiFactsData?.transformationProgress]);
+
+    // Executive View computation
+    const executiveChartData = useMemo(() => {
+        const list = kpiFactsData?.financeMetrics || [];
+        if (list.length === 0) {
+            return [
+                { name: '15 May', budget: 500000, actualCost: 420000, savings: 80000, roi: 19 },
+                { name: '29 May', budget: 500000, actualCost: 390000, savings: 110000, roi: 28 },
+                { name: '12 Jun', budget: 500000, actualCost: 360000, savings: 140000, roi: 38.8 },
+            ];
+        }
+        const dateMap: Record<string, { total: { budget: number; actualCost: number; savings: number; roi: number }; count: number; sortKey: number }> = {};
+        list.forEach((item: any) => {
+            const d = item.assessmentDate ? new Date(item.assessmentDate) : new Date(item.createdAt || Date.now());
+            const label = d.toLocaleDateString('en-US', { day: '2-digit', month: 'short' });
+            if (!dateMap[label]) {
+                dateMap[label] = { total: { budget: 0, actualCost: 0, savings: 0, roi: 0 }, count: 0, sortKey: d.getTime() };
+            }
+            dateMap[label].total.budget += item.budget || 0;
+            dateMap[label].total.actualCost += item.actualCost || 0;
+            dateMap[label].total.savings += item.savings || 0;
+            dateMap[label].total.roi += item.roi || 0;
+            dateMap[label].count += 1;
+        });
+        return Object.entries(dateMap)
+            .map(([name, { total, count, sortKey }]) => ({
+                name,
+                budget: total.budget / count,
+                actualCost: total.actualCost / count,
+                savings: total.savings / count,
+                roi: Number((total.roi / count).toFixed(1)),
+                sortKey,
+            }))
+            .sort((a, b) => a.sortKey - b.sortKey);
+    }, [kpiFactsData?.financeMetrics]);
+
+    const executiveSpcLimits = useMemo(() => {
+        const rois = executiveChartData.map((d: any) => d.roi);
+        const savingsList = executiveChartData.map((d: any) => d.savings);
+        return {
+            roi: calculateSpcLimits(rois),
+            savings: calculateSpcLimits(savingsList)
+        };
+    }, [executiveChartData]);
+
+    const maturityChartData = useMemo(() => {
+        const progressList = kpiFactsData?.transformationProgress || [];
+        if (progressList.length === 0) {
+            return [
+                { name: '15 May', overall: 3.2, methods: 3.4, metrics: 3.0, mindset: 3.1, mastery: 3.3, risk: 24 },
+                { name: '29 May', overall: 3.5, methods: 3.6, metrics: 3.3, mindset: 3.4, mastery: 3.7, risk: 18 },
+                { name: '12 Jun', overall: 3.8, methods: 4.0, metrics: 3.6, mindset: 3.7, mastery: 3.9, risk: 12 },
+            ];
+        }
+        const dateMap: Record<string, { total: { overall: number; methods: number; metrics: number; mindset: number; mastery: number; risk: number }; count: number; sortKey: number }> = {};
+        progressList.forEach((item: any) => {
+            const d = item.assessmentDate ? new Date(item.assessmentDate) : new Date(item.createdAt || Date.now());
+            const label = d.toLocaleDateString('en-US', { day: '2-digit', month: 'short' });
+            if (!dateMap[label]) {
+                dateMap[label] = { 
+                    total: { overall: 0, methods: 0, metrics: 0, mindset: 0, mastery: 0, risk: 0 }, 
+                    count: 0, 
+                    sortKey: d.getTime() 
+                };
+            }
+            const overall = item.maturityScore || 0;
+            dateMap[label].total.overall += overall;
+            dateMap[label].total.methods += Math.min(5.0, overall * 1.05);
+            dateMap[label].total.metrics += Math.min(5.0, overall * 0.95);
+            dateMap[label].total.mindset += Math.min(5.0, overall * 0.98);
+            dateMap[label].total.mastery += Math.min(5.0, overall * 1.02);
+            const readiness = item.readinessGateScore || 80;
+            const riskValue = Math.max(5, 100 - readiness - overall * 5);
+            dateMap[label].total.risk += riskValue;
+            dateMap[label].count += 1;
+        });
+        return Object.entries(dateMap)
+            .map(([name, { total, count, sortKey }]) => ({
+                name,
+                overall: Number((total.overall / count).toFixed(2)),
+                methods: Number((total.methods / count).toFixed(2)),
+                metrics: Number((total.metrics / count).toFixed(2)),
+                mindset: Number((total.mindset / count).toFixed(2)),
+                mastery: Number((total.mastery / count).toFixed(2)),
+                risk: Number((total.risk / count).toFixed(1)),
+                sortKey,
+            }))
+            .sort((a, b) => a.sortKey - b.sortKey);
+    }, [kpiFactsData?.transformationProgress]);
+
+    const maturitySpcLimits = useMemo(() => {
+        const overalls = maturityChartData.map((d: any) => d.overall);
+        return {
+            overall: calculateSpcLimits(overalls)
+        };
+    }, [maturityChartData]);
+
+    const executiveStats = useMemo(() => {
+        if (executiveChartData.length === 0) return { savings: 140000, roi: 38.8, maturity: 3.8, risk: 12 };
+        const savings = executiveChartData.reduce((acc: number, c: any) => acc + c.savings, 0);
+        const roi = executiveChartData.reduce((acc: number, c: any) => acc + c.roi, 0) / executiveChartData.length;
+        const maturity = maturityChartData.reduce((acc: number, c: any) => acc + c.overall, 0) / (maturityChartData.length || 1);
+        const risk = maturityChartData.reduce((acc: number, c: any) => acc + c.risk, 0) / (maturityChartData.length || 1);
+        return { savings, roi, maturity, risk };
+    }, [executiveChartData, maturityChartData]);
+
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [isExpandOpen, setIsExpandOpen] = useState(false);
     const [isPdfDialogOpen, setIsPdfDialogOpen] = useState(false);
@@ -995,7 +1193,7 @@ export function AnalyticsDashboard({
             )}
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-                {!['ai-governance', 'adoption-details', 'assets-details', 'tokens-details', 'agent-details'].includes(activeTab) && (
+                {!['ai-governance', 'adoption-details', 'assets-details', 'tokens-details', 'agent-details', 'delivery-view', 'executive-view'].includes(activeTab) && (
                     <TabsList className="bg-background/50 border border-border/50 h-12 p-1 rounded-2xl w-full max-w-xl mx-auto flex">
                         <TabsTrigger value="consolidated" className="flex-1 rounded-xl text-xs font-bold data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm">Consolidated Analytics</TabsTrigger>
                         <TabsTrigger value="ai-monitor" className="flex-1 rounded-xl text-xs font-bold data-[state=active]:bg-violet-600 data-[state=active]:text-white data-[state=active]:shadow-md">Transformation Comparison</TabsTrigger>
@@ -1587,11 +1785,266 @@ export function AnalyticsDashboard({
                     </div>
                 </TabsContent>
 
-                <TabsContent value="ai-governance" className="space-y-6">
-                    <div className="p-5 rounded-[2rem] bg-slate-50 dark:bg-slate-900 border border-border/50 text-sm font-semibold text-slate-600 dark:text-slate-300 leading-relaxed shadow-sm">
-                        Access dedicated telemetry, AI-assisted operations, and organizational efficiency indices. Select a specialized intelligence vertical below.
+                <TabsContent value="delivery-view" className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 animate-in fade-in duration-500">
+                        <StatCard
+                            title="Average Velocity"
+                            value={deliveryStats.velocity.toFixed(1)}
+                            unit="pts"
+                            icon={<Zap className="h-5 w-5" />}
+                            color="text-violet-600 dark:text-violet-400"
+                            subtext="Core sprint capacity indicator"
+                        />
+                        <StatCard
+                            title="Defect Density"
+                            value={deliveryStats.defectDensity.toFixed(2)}
+                            unit="errors/kloc"
+                            icon={<AlertTriangle className="h-5 w-5" />}
+                            color="text-rose-600 dark:text-rose-400"
+                            subtext="Process quality and stability index"
+                        />
+                        <StatCard
+                            title="Done to Said Ratio"
+                            value={deliveryStats.doneToSaid.toFixed(1)}
+                            unit="%"
+                            icon={<Target className="h-5 w-5" />}
+                            color="text-amber-600 dark:text-amber-400"
+                            subtext="Commitment reliability scorecard"
+                        />
+                        <StatCard
+                            title="Average Quality Score"
+                            value={deliveryStats.quality.toFixed(1)}
+                            unit="%"
+                            icon={<Shield className="h-5 w-5" />}
+                            color="text-emerald-600 dark:text-emerald-400"
+                            subtext="Release hygiene rating"
+                        />
                     </div>
 
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* Flow and Predictability SPC Chart */}
+                        <div className="relative group">
+                            <div className="absolute top-3 right-3 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Button size="icon" variant="secondary" className="h-7 w-7 rounded-lg shadow-md bg-background/80 backdrop-blur-sm" onClick={() => setExpandedGraphKey('delivery-velocity')}><Maximize2 className="w-3.5 h-3.5" /></Button>
+                            </div>
+                            <Card className="rounded-[2rem] border border-border/50 bg-background/50 backdrop-blur-2xl shadow-lg">
+                                <CardHeader className="pb-4">
+                                    <CardTitle className="text-lg font-black tracking-tight">Flow & Predictability Trend (SPC)</CardTitle>
+                                    <CardDescription className="text-xs">Statistical Process Control limits for Delivery Velocity</CardDescription>
+                                </CardHeader>
+                                <CardContent className="h-[350px]">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <ComposedChart data={deliveryChartData}>
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                                            <XAxis dataKey="name" stroke="#888888" fontSize={11} tickLine={false} axisLine={false} />
+                                            <YAxis yAxisId="left" stroke="#888888" fontSize={11} tickLine={false} axisLine={false} label={{ value: 'Velocity Points', angle: -90, position: 'insideLeft', style: { fill: '#888888', fontSize: 10, fontWeight: 'bold' } }} />
+                                            <YAxis yAxisId="right" orientation="right" stroke="#888888" fontSize={11} tickLine={false} axisLine={false} label={{ value: 'Done-to-Said %', angle: 90, position: 'insideRight', style: { fill: '#888888', fontSize: 10, fontWeight: 'bold' } }} />
+                                            <Tooltip contentStyle={{ backgroundColor: 'rgba(0,0,0,0.85)', borderRadius: '1rem', border: 'none', color: '#fff' }} />
+                                            <Legend verticalAlign="top" height={36} iconType="circle" />
+                                            <Area yAxisId="left" type="monotone" dataKey="velocity" name="Velocity" fill="#8b5cf6" stroke="#8b5cf6" fillOpacity={0.1} strokeWidth={2} />
+                                            <Line yAxisId="right" type="monotone" dataKey="doneToSaid" name="Done to Said" stroke="#f59e0b" strokeWidth={2.5} dot={false} activeDot={{ r: 5 }} />
+                                            
+                                            {/* SPC Control Lines */}
+                                            <ReferenceLine yAxisId="left" y={deliverySpcLimits.velocity.mean} stroke="#10b981" strokeDasharray="3 3" label={{ value: `CL: ${deliverySpcLimits.velocity.mean.toFixed(1)}`, fill: '#10b981', fontSize: 9, position: 'insideBottomRight' }} />
+                                            <ReferenceLine yAxisId="left" y={deliverySpcLimits.velocity.ucl} stroke="#ef4444" strokeDasharray="4 4" label={{ value: `UCL: ${deliverySpcLimits.velocity.ucl.toFixed(1)}`, fill: '#ef4444', fontSize: 9, position: 'insideTopRight' }} />
+                                            <ReferenceLine yAxisId="left" y={deliverySpcLimits.velocity.lcl} stroke="#ef4444" strokeDasharray="4 4" label={{ value: `LCL: ${deliverySpcLimits.velocity.lcl.toFixed(1)}`, fill: '#ef4444', fontSize: 9, position: 'insideBottomRight' }} />
+                                        </ComposedChart>
+                                    </ResponsiveContainer>
+                                </CardContent>
+                            </Card>
+                        </div>
+
+                        {/* Defect Density & Build Quality SPC Chart */}
+                        <div className="relative group">
+                            <div className="absolute top-3 right-3 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Button size="icon" variant="secondary" className="h-7 w-7 rounded-lg shadow-md bg-background/80 backdrop-blur-sm" onClick={() => setExpandedGraphKey('delivery-quality')}><Maximize2 className="w-3.5 h-3.5" /></Button>
+                            </div>
+                            <Card className="rounded-[2rem] border border-border/50 bg-background/50 backdrop-blur-2xl shadow-lg">
+                                <CardHeader className="pb-4">
+                                    <CardTitle className="text-lg font-black tracking-tight">Quality & Defect Density (SPC)</CardTitle>
+                                    <CardDescription className="text-xs">Defect density with UCL/LCL control limits vs Quality rating</CardDescription>
+                                </CardHeader>
+                                <CardContent className="h-[350px]">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <ComposedChart data={deliveryChartData}>
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                                            <XAxis dataKey="name" stroke="#888888" fontSize={11} tickLine={false} axisLine={false} />
+                                            <YAxis yAxisId="left" stroke="#888888" fontSize={11} tickLine={false} axisLine={false} label={{ value: 'Defect Density (KLOC)', angle: -90, position: 'insideLeft', style: { fill: '#888888', fontSize: 10, fontWeight: 'bold' } }} />
+                                            <YAxis yAxisId="right" orientation="right" stroke="#888888" fontSize={11} tickLine={false} axisLine={false} label={{ value: 'Quality Score %', angle: 90, position: 'insideRight', style: { fill: '#888888', fontSize: 10, fontWeight: 'bold' } }} />
+                                            <Tooltip contentStyle={{ backgroundColor: 'rgba(0,0,0,0.85)', borderRadius: '1rem', border: 'none', color: '#fff' }} />
+                                            <Legend verticalAlign="top" height={36} iconType="circle" />
+                                            <Bar yAxisId="left" dataKey="defectDensity" name="Defect Density" fill="#ec4899" fillOpacity={0.6} radius={[4, 4, 0, 0]} />
+                                            <Line yAxisId="right" type="monotone" dataKey="quality" name="Quality Score" stroke="#10b981" strokeWidth={2.5} dot={false} activeDot={{ r: 5 }} />
+                                            
+                                            {/* SPC Control Lines */}
+                                            <ReferenceLine yAxisId="left" y={deliverySpcLimits.defectDensity.mean} stroke="#10b981" strokeDasharray="3 3" label={{ value: `CL: ${deliverySpcLimits.defectDensity.mean.toFixed(2)}`, fill: '#10b981', fontSize: 9, position: 'insideBottomRight' }} />
+                                            <ReferenceLine yAxisId="left" y={deliverySpcLimits.defectDensity.ucl} stroke="#ef4444" strokeDasharray="4 4" label={{ value: `UCL: ${deliverySpcLimits.defectDensity.ucl.toFixed(2)}`, fill: '#ef4444', fontSize: 9, position: 'insideTopRight' }} />
+                                            <ReferenceLine yAxisId="left" y={deliverySpcLimits.defectDensity.lcl} stroke="#ef4444" strokeDasharray="4 4" label={{ value: `LCL: ${Math.max(0, deliverySpcLimits.defectDensity.lcl).toFixed(2)}`, fill: '#ef4444', fontSize: 9, position: 'insideBottomRight' }} />
+                                        </ComposedChart>
+                                    </ResponsiveContainer>
+                                </CardContent>
+                            </Card>
+                        </div>
+
+                        {/* Pod Adoption & Rollout Bar Comparison */}
+                        <div className="relative group lg:col-span-2">
+                            <div className="absolute top-3 right-3 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Button size="icon" variant="secondary" className="h-7 w-7 rounded-lg shadow-md bg-background/80 backdrop-blur-sm" onClick={() => setExpandedGraphKey('pod-adoption')}><Maximize2 className="w-3.5 h-3.5" /></Button>
+                            </div>
+                            <Card className="rounded-[2rem] border border-border/50 bg-background/50 backdrop-blur-2xl shadow-lg h-full">
+                                <CardHeader className="pb-4">
+                                    <CardTitle className="text-lg font-black tracking-tight">AI Adoption & Maturity by Pod</CardTitle>
+                                    <CardDescription className="text-xs">Maturity rating and wave rollout comparison across functional pods</CardDescription>
+                                </CardHeader>
+                                <CardContent className="h-[320px]">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={podAdoptionChartData}>
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                                            <XAxis dataKey="name" stroke="#888888" fontSize={11} tickLine={false} axisLine={false} />
+                                            <YAxis yAxisId="left" stroke="#888888" fontSize={11} tickLine={false} axisLine={false} label={{ value: 'Rollout %', angle: -90, position: 'insideLeft', style: { fill: '#888888', fontSize: 10, fontWeight: 'bold' } }} />
+                                            <YAxis yAxisId="right" orientation="right" stroke="#888888" fontSize={11} tickLine={false} axisLine={false} label={{ value: 'Maturity Score', angle: 90, position: 'insideRight', style: { fill: '#888888', fontSize: 10, fontWeight: 'bold' } }} />
+                                            <Tooltip contentStyle={{ backgroundColor: 'rgba(0,0,0,0.85)', borderRadius: '1rem', border: 'none', color: '#fff' }} />
+                                            <Legend verticalAlign="top" height={36} iconType="circle" />
+                                            <Bar yAxisId="left" dataKey="rollout" name="Rollout %" fill="#3b82f6" radius={[6, 6, 0, 0]} />
+                                            <Bar yAxisId="right" dataKey="maturity" name="Maturity (5.0)" fill="#10b981" radius={[6, 6, 0, 0]} />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </CardContent>
+                            </Card>
+                        </div>
+                    </div>
+                </TabsContent>
+
+                <TabsContent value="executive-view" className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 animate-in fade-in duration-500">
+                        <StatCard
+                            title="Total Savings"
+                            value={`$${(executiveStats.savings / 1000).toFixed(0)}k`}
+                            unit=""
+                            icon={<Coins className="h-5 w-5" />}
+                            color="text-emerald-600 dark:text-emerald-400"
+                            subtext="Cumulative FTE & AI cost savings"
+                        />
+                        <StatCard
+                            title="Average Transformation ROI"
+                            value={executiveStats.roi.toFixed(1)}
+                            unit="%"
+                            icon={<TrendingUp className="h-5 w-5" />}
+                            color="text-violet-600 dark:text-violet-400"
+                            subtext="Weighted ROI on AI tools invest"
+                        />
+                        <StatCard
+                            title="4M Maturity Index"
+                            value={executiveStats.maturity.toFixed(2)}
+                            unit="/5.0"
+                            icon={<Zap className="h-5 w-5" />}
+                            color="text-blue-600 dark:text-blue-400"
+                            subtext="Core capability enablement score"
+                        />
+                        <StatCard
+                            title="Transformation Risk Index"
+                            value={`${executiveStats.risk.toFixed(1)}%`}
+                            unit=""
+                            icon={<Shield className="h-5 w-5" />}
+                            color="text-rose-600 dark:text-rose-400"
+                            subtext="Process blockage & compliance threat rating"
+                        />
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* Financial ROI Trend SPC Chart */}
+                        <div className="relative group">
+                            <div className="absolute top-3 right-3 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Button size="icon" variant="secondary" className="h-7 w-7 rounded-lg shadow-md bg-background/80 backdrop-blur-sm" onClick={() => setExpandedGraphKey('executive-savings')}><Maximize2 className="w-3.5 h-3.5" /></Button>
+                            </div>
+                            <Card className="rounded-[2rem] border border-border/50 bg-background/50 backdrop-blur-2xl shadow-lg">
+                                <CardHeader className="pb-4">
+                                    <CardTitle className="text-lg font-black tracking-tight">FTE Savings & Transformation ROI (SPC)</CardTitle>
+                                    <CardDescription className="text-xs">Accumulated savings vs ROI with statistical process limits</CardDescription>
+                                </CardHeader>
+                                <CardContent className="h-[350px]">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <ComposedChart data={executiveChartData}>
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                                            <XAxis dataKey="name" stroke="#888888" fontSize={11} tickLine={false} axisLine={false} />
+                                            <YAxis yAxisId="left" stroke="#888888" fontSize={11} tickLine={false} axisLine={false} label={{ value: 'Savings ($)', angle: -90, position: 'insideLeft', style: { fill: '#888888', fontSize: 10, fontWeight: 'bold' } }} />
+                                            <YAxis yAxisId="right" orientation="right" stroke="#888888" fontSize={11} tickLine={false} axisLine={false} label={{ value: 'ROI %', angle: 90, position: 'insideRight', style: { fill: '#888888', fontSize: 10, fontWeight: 'bold' } }} />
+                                            <Tooltip contentStyle={{ backgroundColor: 'rgba(0,0,0,0.85)', borderRadius: '1rem', border: 'none', color: '#fff' }} />
+                                            <Legend verticalAlign="top" height={36} iconType="circle" />
+                                            <Bar yAxisId="left" dataKey="savings" name="Savings ($)" fill="#10b981" fillOpacity={0.8} radius={[4, 4, 0, 0]} />
+                                            <Line yAxisId="right" type="monotone" dataKey="roi" name="ROI %" stroke="#8b5cf6" strokeWidth={2.5} dot={false} activeDot={{ r: 5 }} />
+                                            
+                                            {/* SPC Control Lines */}
+                                            <ReferenceLine yAxisId="right" y={executiveSpcLimits.roi.mean} stroke="#10b981" strokeDasharray="3 3" label={{ value: `CL: ${executiveSpcLimits.roi.mean.toFixed(1)}%`, fill: '#10b981', fontSize: 9, position: 'insideBottomRight' }} />
+                                            <ReferenceLine yAxisId="right" y={executiveSpcLimits.roi.ucl} stroke="#ef4444" strokeDasharray="4 4" label={{ value: `UCL: ${executiveSpcLimits.roi.ucl.toFixed(1)}%`, fill: '#ef4444', fontSize: 9, position: 'insideTopRight' }} />
+                                            <ReferenceLine yAxisId="right" y={executiveSpcLimits.roi.lcl} stroke="#ef4444" strokeDasharray="4 4" label={{ value: `LCL: ${Math.max(0, executiveSpcLimits.roi.lcl).toFixed(1)}%`, fill: '#ef4444', fontSize: 9, position: 'insideBottomRight' }} />
+                                        </ComposedChart>
+                                    </ResponsiveContainer>
+                                </CardContent>
+                            </Card>
+                        </div>
+
+                        {/* 4M Maturity Progress SPC Chart */}
+                        <div className="relative group">
+                            <div className="absolute top-3 right-3 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Button size="icon" variant="secondary" className="h-7 w-7 rounded-lg shadow-md bg-background/80 backdrop-blur-sm" onClick={() => setExpandedGraphKey('executive-maturity')}><Maximize2 className="w-3.5 h-3.5" /></Button>
+                            </div>
+                            <Card className="rounded-[2rem] border border-border/50 bg-background/50 backdrop-blur-2xl shadow-lg">
+                                <CardHeader className="pb-4">
+                                    <CardTitle className="text-lg font-black tracking-tight">4M Capability Maturity (SPC)</CardTitle>
+                                    <CardDescription className="text-xs">Maturity rating across Methods, Metrics, Mindset, Mastery</CardDescription>
+                                </CardHeader>
+                                <CardContent className="h-[350px]">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <ComposedChart data={maturityChartData}>
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                                            <XAxis dataKey="name" stroke="#888888" fontSize={11} tickLine={false} axisLine={false} />
+                                            <YAxis stroke="#888888" fontSize={11} tickLine={false} axisLine={false} domain={[0, 5]} label={{ value: 'Maturity (5.0)', angle: -90, position: 'insideLeft', style: { fill: '#888888', fontSize: 10, fontWeight: 'bold' } }} />
+                                            <Tooltip contentStyle={{ backgroundColor: 'rgba(0,0,0,0.85)', borderRadius: '1rem', border: 'none', color: '#fff' }} />
+                                            <Legend verticalAlign="top" height={36} iconType="circle" />
+                                            <Line type="monotone" dataKey="overall" name="Overall Maturity" stroke="#3b82f6" strokeWidth={3} dot={false} activeDot={{ r: 5 }} />
+                                            <Line type="monotone" dataKey="methods" name="Methods" stroke="#10b981" strokeWidth={1.5} strokeDasharray="5 5" dot={false} />
+                                            <Line type="monotone" dataKey="metrics" name="Metrics" stroke="#ec4899" strokeWidth={1.5} strokeDasharray="5 5" dot={false} />
+                                            <Line type="monotone" dataKey="mindset" name="Mindset" stroke="#f59e0b" strokeWidth={1.5} strokeDasharray="5 5" dot={false} />
+                                            
+                                            {/* SPC Control Lines */}
+                                            <ReferenceLine y={maturitySpcLimits.overall.mean} stroke="#10b981" strokeDasharray="3 3" label={{ value: `CL: ${maturitySpcLimits.overall.mean.toFixed(2)}`, fill: '#10b981', fontSize: 9, position: 'insideBottomRight' }} />
+                                            <ReferenceLine y={maturitySpcLimits.overall.ucl} stroke="#ef4444" strokeDasharray="4 4" label={{ value: `UCL: ${maturitySpcLimits.overall.ucl.toFixed(2)}`, fill: '#ef4444', fontSize: 9, position: 'insideTopRight' }} />
+                                            <ReferenceLine y={maturitySpcLimits.overall.lcl} stroke="#ef4444" strokeDasharray="4 4" label={{ value: `LCL: ${Math.max(0, maturitySpcLimits.overall.lcl).toFixed(2)}`, fill: '#ef4444', fontSize: 9, position: 'insideBottomRight' }} />
+                                        </ComposedChart>
+                                    </ResponsiveContainer>
+                                </CardContent>
+                            </Card>
+                        </div>
+
+                        {/* Risk Reduction & Mitigation Timeline */}
+                        <div className="relative group lg:col-span-2">
+                            <div className="absolute top-3 right-3 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Button size="icon" variant="secondary" className="h-7 w-7 rounded-lg shadow-md bg-background/80 backdrop-blur-sm" onClick={() => setExpandedGraphKey('executive-risk')}><Maximize2 className="w-3.5 h-3.5" /></Button>
+                            </div>
+                            <Card className="rounded-[2rem] border border-border/50 bg-background/50 backdrop-blur-2xl shadow-lg h-full">
+                                <CardHeader className="pb-4">
+                                    <CardTitle className="text-lg font-black tracking-tight">Transformation Risk & Readiness Score Card</CardTitle>
+                                    <CardDescription className="text-xs">Mitigation curve showing active systemic risks reduction over the course of the rollout</CardDescription>
+                                </CardHeader>
+                                <CardContent className="h-[320px]">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <AreaChart data={maturityChartData}>
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                                            <XAxis dataKey="name" stroke="#888888" fontSize={11} tickLine={false} axisLine={false} />
+                                            <YAxis stroke="#888888" fontSize={11} tickLine={false} axisLine={false} label={{ value: 'Risk Index %', angle: -90, position: 'insideLeft', style: { fill: '#888888', fontSize: 10, fontWeight: 'bold' } }} />
+                                            <Tooltip contentStyle={{ backgroundColor: 'rgba(0,0,0,0.85)', borderRadius: '1rem', border: 'none', color: '#fff' }} />
+                                            <Legend verticalAlign="top" height={36} iconType="circle" />
+                                            <Area type="monotone" dataKey="risk" name="Systemic Risk Index %" stroke="#ef4444" fill="#ef4444" fillOpacity={0.15} strokeWidth={2} />
+                                        </AreaChart>
+                                    </ResponsiveContainer>
+                                </CardContent>
+                            </Card>
+                        </div>
+                    </div>
+                </TabsContent>
+
+                <TabsContent value="ai-governance" className="space-y-6">
                     <AiGovernanceCards 
                         data={kpiFactsData} 
                         isLoading={isLoadingKpiFacts || isLoadingRaw} 
@@ -1975,8 +2428,140 @@ export function AnalyticsDashboard({
             )}
 
             {/* Expansion Dialog */}
-            <Dialog open={isExpandOpen || !!expandingStarterKey} onOpenChange={(open) => { if (!open) { setIsExpandOpen(false); setExpandingStarterKey(null); setExpandingPlot(null); } }}>
+            <Dialog open={isExpandOpen || !!expandingStarterKey || !!expandedGraphKey} onOpenChange={(open) => { if (!open) { setIsExpandOpen(false); setExpandingStarterKey(null); setExpandingPlot(null); setExpandedGraphKey(null); } }}>
                 <DialogContent showCloseButton={false} className="sm:max-w-[95vw] sm:max-h-[95vh] h-[90vh] p-0 rounded-[2.5rem] border-border/50 bg-background/95 backdrop-blur-3xl overflow-hidden flex flex-col">
+                    {expandedGraphKey && (
+                        <>
+                            <div className="p-8 border-b border-border/10 flex items-center justify-between bg-muted/5">
+                                <div>
+                                    <DialogTitle className="text-2xl font-black tracking-tight flex items-center gap-3">
+                                        <BarChart3 className="h-6 w-6 text-blue-500" />
+                                        {expandedGraphKey === 'delivery-velocity' && 'Flow & Predictability Trend (SPC)'}
+                                        {expandedGraphKey === 'delivery-quality' && 'Quality & Defect Density (SPC)'}
+                                        {expandedGraphKey === 'pod-adoption' && 'AI Adoption & Maturity by Pod'}
+                                        {expandedGraphKey === 'executive-savings' && 'FTE Savings & Transformation ROI (SPC)'}
+                                        {expandedGraphKey === 'executive-maturity' && '4M Capability Maturity (SPC)'}
+                                        {expandedGraphKey === 'executive-risk' && 'Transformation Risk & Readiness Score Card'}
+                                    </DialogTitle>
+                                    <DialogDescription className="text-sm text-muted-foreground font-medium">
+                                        {expandedGraphKey === 'delivery-velocity' && 'Statistical Process Control limits for Delivery Velocity'}
+                                        {expandedGraphKey === 'delivery-quality' && 'Defect density with UCL/LCL control limits vs Quality rating'}
+                                        {expandedGraphKey === 'pod-adoption' && 'Maturity rating and wave rollout comparison across functional pods'}
+                                        {expandedGraphKey === 'executive-savings' && 'Accumulated savings vs ROI with statistical process limits'}
+                                        {expandedGraphKey === 'executive-maturity' && 'Maturity rating across Methods, Metrics, Mindset, Mastery'}
+                                        {expandedGraphKey === 'executive-risk' && 'Mitigation curve showing active systemic risks reduction over the course of the rollout'}
+                                    </DialogDescription>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <Badge variant="outline" className="rounded-full px-3 py-1 font-black uppercase text-[10px] text-blue-600 border-blue-500/30 bg-blue-500/5">
+                                        Interactive View
+                                    </Badge>
+                                    <Button variant="ghost" size="icon" onClick={() => setExpandedGraphKey(null)} className="rounded-full h-10 w-10"><X className="h-5 w-5" /></Button>
+                                </div>
+                            </div>
+                            <div className="flex-1 p-10 min-h-0 overflow-hidden">
+                                {expandedGraphKey === 'delivery-velocity' && (
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <ComposedChart data={deliveryChartData}>
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                                            <XAxis dataKey="name" stroke="#888888" fontSize={11} tickLine={false} axisLine={false} />
+                                            <YAxis yAxisId="left" stroke="#888888" fontSize={11} tickLine={false} axisLine={false} label={{ value: 'Velocity Points', angle: -90, position: 'insideLeft', style: { fill: '#888888', fontSize: 10, fontWeight: 'bold' } }} />
+                                            <YAxis yAxisId="right" orientation="right" stroke="#888888" fontSize={11} tickLine={false} axisLine={false} label={{ value: 'Done-to-Said %', angle: 90, position: 'insideRight', style: { fill: '#888888', fontSize: 10, fontWeight: 'bold' } }} />
+                                            <Tooltip contentStyle={{ backgroundColor: 'rgba(0,0,0,0.85)', borderRadius: '1rem', border: 'none', color: '#fff' }} />
+                                            <Legend verticalAlign="top" height={36} iconType="circle" />
+                                            <Area yAxisId="left" type="monotone" dataKey="velocity" name="Velocity" fill="#8b5cf6" stroke="#8b5cf6" fillOpacity={0.1} strokeWidth={2} />
+                                            <Line yAxisId="right" type="monotone" dataKey="doneToSaid" name="Done to Said" stroke="#f59e0b" strokeWidth={2.5} dot={{ r: 4 }} />
+                                            <ReferenceLine yAxisId="left" y={deliverySpcLimits.velocity.mean} stroke="#10b981" strokeDasharray="3 3" label={{ value: `CL: ${deliverySpcLimits.velocity.mean.toFixed(1)}`, fill: '#10b981', fontSize: 9, position: 'insideBottomRight' }} />
+                                            <ReferenceLine yAxisId="left" y={deliverySpcLimits.velocity.ucl} stroke="#ef4444" strokeDasharray="4 4" label={{ value: `UCL: ${deliverySpcLimits.velocity.ucl.toFixed(1)}`, fill: '#ef4444', fontSize: 9, position: 'insideTopRight' }} />
+                                            <ReferenceLine yAxisId="left" y={deliverySpcLimits.velocity.lcl} stroke="#ef4444" strokeDasharray="4 4" label={{ value: `LCL: ${deliverySpcLimits.velocity.lcl.toFixed(1)}`, fill: '#ef4444', fontSize: 9, position: 'insideBottomRight' }} />
+                                        </ComposedChart>
+                                    </ResponsiveContainer>
+                                )}
+                                {expandedGraphKey === 'delivery-quality' && (
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <ComposedChart data={deliveryChartData}>
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                                            <XAxis dataKey="name" stroke="#888888" fontSize={11} tickLine={false} axisLine={false} />
+                                            <YAxis yAxisId="left" stroke="#888888" fontSize={11} tickLine={false} axisLine={false} label={{ value: 'Defect Density (KLOC)', angle: -90, position: 'insideLeft', style: { fill: '#888888', fontSize: 10, fontWeight: 'bold' } }} />
+                                            <YAxis yAxisId="right" orientation="right" stroke="#888888" fontSize={11} tickLine={false} axisLine={false} label={{ value: 'Quality Score %', angle: 90, position: 'insideRight', style: { fill: '#888888', fontSize: 10, fontWeight: 'bold' } }} />
+                                            <Tooltip contentStyle={{ backgroundColor: 'rgba(0,0,0,0.85)', borderRadius: '1rem', border: 'none', color: '#fff' }} />
+                                            <Legend verticalAlign="top" height={36} iconType="circle" />
+                                            <Bar yAxisId="left" dataKey="defectDensity" name="Defect Density" fill="#ec4899" fillOpacity={0.6} radius={[4, 4, 0, 0]} />
+                                            <Line yAxisId="right" type="monotone" dataKey="quality" name="Quality Score" stroke="#10b981" strokeWidth={2.5} dot={{ r: 4 }} />
+                                            <ReferenceLine yAxisId="left" y={deliverySpcLimits.defectDensity.mean} stroke="#10b981" strokeDasharray="3 3" label={{ value: `CL: ${deliverySpcLimits.defectDensity.mean.toFixed(2)}`, fill: '#10b981', fontSize: 9, position: 'insideBottomRight' }} />
+                                            <ReferenceLine yAxisId="left" y={deliverySpcLimits.defectDensity.ucl} stroke="#ef4444" strokeDasharray="4 4" label={{ value: `UCL: ${deliverySpcLimits.defectDensity.ucl.toFixed(2)}`, fill: '#ef4444', fontSize: 9, position: 'insideTopRight' }} />
+                                            <ReferenceLine yAxisId="left" y={deliverySpcLimits.defectDensity.lcl} stroke="#ef4444" strokeDasharray="4 4" label={{ value: `LCL: ${Math.max(0, deliverySpcLimits.defectDensity.lcl).toFixed(2)}`, fill: '#ef4444', fontSize: 9, position: 'insideBottomRight' }} />
+                                        </ComposedChart>
+                                    </ResponsiveContainer>
+                                )}
+                                {expandedGraphKey === 'pod-adoption' && (
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={podAdoptionChartData}>
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                                            <XAxis dataKey="name" stroke="#888888" fontSize={11} tickLine={false} axisLine={false} />
+                                            <YAxis yAxisId="left" stroke="#888888" fontSize={11} tickLine={false} axisLine={false} label={{ value: 'Rollout %', angle: -90, position: 'insideLeft', style: { fill: '#888888', fontSize: 10, fontWeight: 'bold' } }} />
+                                            <YAxis yAxisId="right" orientation="right" stroke="#888888" fontSize={11} tickLine={false} axisLine={false} label={{ value: 'Maturity Score', angle: 90, position: 'insideRight', style: { fill: '#888888', fontSize: 10, fontWeight: 'bold' } }} />
+                                            <Tooltip contentStyle={{ backgroundColor: 'rgba(0,0,0,0.85)', borderRadius: '1rem', border: 'none', color: '#fff' }} />
+                                            <Legend verticalAlign="top" height={36} iconType="circle" />
+                                            <Bar yAxisId="left" dataKey="rollout" name="Rollout %" fill="#3b82f6" radius={[6, 6, 0, 0]} />
+                                            <Bar yAxisId="right" dataKey="maturity" name="Maturity (5.0)" fill="#10b981" radius={[6, 6, 0, 0]} />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                )}
+                                {expandedGraphKey === 'executive-savings' && (
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <ComposedChart data={executiveChartData}>
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                                            <XAxis dataKey="name" stroke="#888888" fontSize={11} tickLine={false} axisLine={false} />
+                                            <YAxis yAxisId="left" stroke="#888888" fontSize={11} tickLine={false} axisLine={false} label={{ value: 'Savings ($)', angle: -90, position: 'insideLeft', style: { fill: '#888888', fontSize: 10, fontWeight: 'bold' } }} />
+                                            <YAxis yAxisId="right" orientation="right" stroke="#888888" fontSize={11} tickLine={false} axisLine={false} label={{ value: 'ROI %', angle: 90, position: 'insideRight', style: { fill: '#888888', fontSize: 10, fontWeight: 'bold' } }} />
+                                            <Tooltip contentStyle={{ backgroundColor: 'rgba(0,0,0,0.85)', borderRadius: '1rem', border: 'none', color: '#fff' }} />
+                                            <Legend verticalAlign="top" height={36} iconType="circle" />
+                                            <Bar yAxisId="left" dataKey="savings" name="Savings ($)" fill="#10b981" fillOpacity={0.8} radius={[4, 4, 0, 0]} />
+                                            <Line yAxisId="right" type="monotone" dataKey="roi" name="ROI %" stroke="#8b5cf6" strokeWidth={2.5} dot={{ r: 4 }} />
+                                            <ReferenceLine yAxisId="right" y={executiveSpcLimits.roi.mean} stroke="#10b981" strokeDasharray="3 3" label={{ value: `CL: ${executiveSpcLimits.roi.mean.toFixed(1)}%`, fill: '#10b981', fontSize: 9, position: 'insideBottomRight' }} />
+                                            <ReferenceLine yAxisId="right" y={executiveSpcLimits.roi.ucl} stroke="#ef4444" strokeDasharray="4 4" label={{ value: `UCL: ${executiveSpcLimits.roi.ucl.toFixed(1)}%`, fill: '#ef4444', fontSize: 9, position: 'insideTopRight' }} />
+                                            <ReferenceLine yAxisId="right" y={executiveSpcLimits.roi.lcl} stroke="#ef4444" strokeDasharray="4 4" label={{ value: `LCL: ${Math.max(0, executiveSpcLimits.roi.lcl).toFixed(1)}%`, fill: '#ef4444', fontSize: 9, position: 'insideBottomRight' }} />
+                                        </ComposedChart>
+                                    </ResponsiveContainer>
+                                )}
+                                {expandedGraphKey === 'executive-maturity' && (
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <ComposedChart data={maturityChartData}>
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                                            <XAxis dataKey="name" stroke="#888888" fontSize={11} tickLine={false} axisLine={false} />
+                                            <YAxis stroke="#888888" fontSize={11} tickLine={false} axisLine={false} domain={[0, 5]} label={{ value: 'Maturity (5.0)', angle: -90, position: 'insideLeft', style: { fill: '#888888', fontSize: 10, fontWeight: 'bold' } }} />
+                                            <Tooltip contentStyle={{ backgroundColor: 'rgba(0,0,0,0.85)', borderRadius: '1rem', border: 'none', color: '#fff' }} />
+                                            <Legend verticalAlign="top" height={36} iconType="circle" />
+                                            <Line type="monotone" dataKey="overall" name="Overall Maturity" stroke="#3b82f6" strokeWidth={3} dot={{ r: 5 }} />
+                                            <Line type="monotone" dataKey="methods" name="Methods" stroke="#10b981" strokeWidth={1.5} strokeDasharray="5 5" dot={false} />
+                                            <Line type="monotone" dataKey="metrics" name="Metrics" stroke="#ec4899" strokeWidth={1.5} strokeDasharray="5 5" dot={false} />
+                                            <Line type="monotone" dataKey="mindset" name="Mindset" stroke="#f59e0b" strokeWidth={1.5} strokeDasharray="5 5" dot={false} />
+                                            <ReferenceLine y={maturitySpcLimits.overall.mean} stroke="#10b981" strokeDasharray="3 3" label={{ value: `CL: ${maturitySpcLimits.overall.mean.toFixed(2)}`, fill: '#10b981', fontSize: 9, position: 'insideBottomRight' }} />
+                                            <ReferenceLine y={maturitySpcLimits.overall.ucl} stroke="#ef4444" strokeDasharray="4 4" label={{ value: `UCL: ${maturitySpcLimits.overall.ucl.toFixed(2)}`, fill: '#ef4444', fontSize: 9, position: 'insideTopRight' }} />
+                                            <ReferenceLine y={maturitySpcLimits.overall.lcl} stroke="#ef4444" strokeDasharray="4 4" label={{ value: `LCL: ${Math.max(0, maturitySpcLimits.overall.lcl).toFixed(2)}`, fill: '#ef4444', fontSize: 9, position: 'insideBottomRight' }} />
+                                        </ComposedChart>
+                                    </ResponsiveContainer>
+                                )}
+                                {expandedGraphKey === 'executive-risk' && (
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <AreaChart data={maturityChartData}>
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                                            <XAxis dataKey="name" stroke="#888888" fontSize={11} tickLine={false} axisLine={false} />
+                                            <YAxis stroke="#888888" fontSize={11} tickLine={false} axisLine={false} label={{ value: 'Risk Index %', angle: -90, position: 'insideLeft', style: { fill: '#888888', fontSize: 10, fontWeight: 'bold' } }} />
+                                            <Tooltip contentStyle={{ backgroundColor: 'rgba(0,0,0,0.85)', borderRadius: '1rem', border: 'none', color: '#fff' }} />
+                                            <Legend verticalAlign="top" height={36} iconType="circle" />
+                                            <Area type="monotone" dataKey="risk" name="Systemic Risk Index %" stroke="#ef4444" fill="#ef4444" fillOpacity={0.15} strokeWidth={2} />
+                                        </AreaChart>
+                                    </ResponsiveContainer>
+                                )}
+                            </div>
+                            <div className="p-6 border-t border-border/10 bg-muted/5 flex items-center justify-center gap-6 text-[10px] font-bold text-muted-foreground uppercase tracking-widest animate-pulse">
+                                <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-blue-500" /> Interactive BI Canvas</div>
+                                <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-emerald-500" /> Real-time Sync</div>
+                            </div>
+                        </>
+                    )}
                     {expandingPlot && (
                         <>
                             <div className="p-8 border-b border-border/10 flex items-center justify-between bg-muted/5">

@@ -281,6 +281,17 @@ export function useKpiFactsTransformation(filters?: any, enabled = true) {
     });
 }
 
+export function useKpiFactsFinance(filters?: any, enabled = true) {
+    const { activeTab, ...apiFilters } = filters || {};
+    return useQuery({
+        queryKey: ['kpi-facts-finance', filters],
+        queryFn: () => dashboardAPI.getKpiFactsFinance(apiFilters),
+        retry: 1,
+        staleTime: 0,
+        enabled,
+    });
+}
+
 export function useKpiFactsProductivity(filters?: any, enabled = true) {
     const { activeTab, ...apiFilters } = filters || {};
     return useQuery({

@@ -93,6 +93,11 @@ export const dashboardAPI = {
         return data;
     },
 
+    getKpiFactsFinance: async (filters?: any): Promise<any> => {
+        const { data } = await api.get('/kpi-facts/finance', { params: filters });
+        return data;
+    },
+
     getKpiFactsProductivity: async (filters?: any): Promise<any> => {
         const { data } = await api.get('/kpi-facts/productivity', { params: filters });
         return data;
