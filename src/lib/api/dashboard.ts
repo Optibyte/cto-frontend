@@ -6,6 +6,17 @@ const api = axios.create({
     headers: { 'Content-Type': 'application/json' },
 });
 
+// Add request interceptor to inject token
+api.interceptors.request.use((config) => {
+    if (typeof window !== 'undefined') {
+        const token = localStorage.getItem('access_token');
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+        }
+    }
+    return config;
+});
+
 export interface KPIItem {
     current: number;
     previous: number;
@@ -69,6 +80,46 @@ export const dashboardAPI = {
 
     getRecentActivity: async (): Promise<ActivityItem[]> => {
         const { data } = await api.get('/activity');
+        return data;
+    },
+
+    getKpiFacts: async (filters?: any): Promise<any> => {
+        const { data } = await api.get('/kpi-facts', { params: filters });
+        return data;
+    },
+
+    getKpiFactsTransformation: async (filters?: any): Promise<any> => {
+        const { data } = await api.get('/kpi-facts/transformation', { params: filters });
+        return data;
+    },
+
+    getKpiFactsProductivity: async (filters?: any): Promise<any> => {
+        const { data } = await api.get('/kpi-facts/productivity', { params: filters });
+        return data;
+    },
+
+    getKpiFactsAdoption: async (filters?: any): Promise<any> => {
+        const { data } = await api.get('/kpi-facts/adoption', { params: filters });
+        return data;
+    },
+
+    getKpiFactsAssets: async (filters?: any): Promise<any> => {
+        const { data } = await api.get('/kpi-facts/assets', { params: filters });
+        return data;
+    },
+
+    getKpiFactsTokens: async (filters?: any): Promise<any> => {
+        const { data } = await api.get('/kpi-facts/tokens', { params: filters });
+        return data;
+    },
+
+    getKpiFactsAgentic: async (filters?: any): Promise<any> => {
+        const { data } = await api.get('/kpi-facts/agentic', { params: filters });
+        return data;
+    },
+
+    saveManualMetrics: async (payload: any): Promise<any> => {
+        const { data } = await api.post('/manual-metrics', payload);
         return data;
     },
 };

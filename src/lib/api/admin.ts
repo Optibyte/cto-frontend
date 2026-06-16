@@ -184,9 +184,14 @@ export const adminUsersAPI = {
 };
 
 // ── File upload helper (shared for both bulk APIs) ─────────
-const fileBulkUpload = async (endpoint: string, file: File) => {
+const fileBulkUpload = async (endpoint: string, file: File, extraParams?: Record<string, string>) => {
     const formData = new FormData();
     formData.append('file', file);
+    if (extraParams) {
+        Object.entries(extraParams).forEach(([k, v]) => {
+            formData.append(k, v);
+        });
+    }
 
     const headers: Record<string, string> = {};
     if (typeof window !== 'undefined') {
@@ -237,6 +242,14 @@ const SPRINT_METRICS_URL = `${API_BASE_URL}/api/v1/sprint-metrics`;
 export const adminSprintMetricsAPI = {
     bulkUpload: (file: File) => fileBulkUpload(`${SPRINT_METRICS_URL}/bulk-upload`, file),
 };
+
+// ── Manual AI Metrics Bulk Upload ─────────────────────────
+const DASHBOARD_URL = `${API_BASE_URL}/api/v1/dashboard`;
+
+export const adminManualMetricsAPI = {
+    bulkUpload: (file: File, category: string) => fileBulkUpload(`${DASHBOARD_URL}/manual-metrics/bulk-upload`, file, { category }),
+};
+
 
 // ── Audit Logs ─────────────────────────────────────────────
 const AUDIT_LOGS_URL = `${API_BASE_URL}/api/v1/audit-logs`;
