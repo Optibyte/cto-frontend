@@ -251,13 +251,13 @@ const KPI_METRIC_OPTIONS = [
     { value: 'sprintCount', label: 'Total Sprints', icon: LayoutGrid, defaultTitle: 'Total Sprints', unit: '' },
 ];
 
-export function AnalyticsDashboard({ 
-    filters, 
-    onFilterChange, 
-    activeTab: externalActiveTab, 
-    onActiveTabChange 
-}: { 
-    filters: any; 
+export function AnalyticsDashboard({
+    filters,
+    onFilterChange,
+    activeTab: externalActiveTab,
+    onActiveTabChange
+}: {
+    filters: any;
     onFilterChange?: (key: any, value: string) => void;
     activeTab?: string;
     onActiveTabChange?: (tab: string) => void;
@@ -895,10 +895,10 @@ export function AnalyticsDashboard({
             const d = item.assessmentDate ? new Date(item.assessmentDate) : new Date(item.createdAt || Date.now());
             const label = d.toLocaleDateString('en-US', { day: '2-digit', month: 'short' });
             if (!dateMap[label]) {
-                dateMap[label] = { 
-                    total: { overall: 0, methods: 0, metrics: 0, mindset: 0, mastery: 0, risk: 0 }, 
-                    count: 0, 
-                    sortKey: d.getTime() 
+                dateMap[label] = {
+                    total: { overall: 0, methods: 0, metrics: 0, mindset: 0, mastery: 0, risk: 0 },
+                    count: 0,
+                    sortKey: d.getTime()
                 };
             }
             const overall = item.maturityScore || 0;
@@ -1007,32 +1007,87 @@ export function AnalyticsDashboard({
     const exportCSV = () => {
         try {
             const rows: string[][] = [];
+            let filename = `Analytics_Export_${new Date().toISOString().split('T')[0]}.csv`;
 
-            // Section 1: KPI Summary
-            rows.push(['=== KPI Summary ===']);
-            rows.push(['Metric', 'Value']);
-            const dtsVal = (analytics?.kpi?.avgDoneToSaid || 0) > 1 ? analytics?.kpi?.avgDoneToSaid : (analytics?.kpi?.avgDoneToSaid || 0) * 100;
-            rows.push(['Avg Done-to-Said', `${Number(dtsVal).toFixed(1)}%`]);
-            rows.push(['Tech Debt Index', Number(analytics?.kpi?.avgTechDebt || 0).toFixed(2)]);
-            rows.push(['Active Projects', String(analytics?.kpi?.totalProjectCount ?? analytics?.kpi?.projectCount ?? 0)]);
-            rows.push(['Avg Throughput', `${Number(analytics?.kpi?.avgThroughput || 0).toFixed(1)} Pts`]);
-            rows.push(['Avg Quality', `${Number(analytics?.kpi?.avgQuality || 0).toFixed(1)}%`]);
-            rows.push(['Avg Velocity', `${Number(analytics?.kpi?.avgVelocity || 0).toFixed(1)} Pts`]);
-            rows.push(['Sprint Count', String(analytics?.kpi?.sprintCount || 0)]);
-            rows.push([]);
-
-            // Section 2: Raw Sprint Data
-            if (rawData.length > 0) {
-                rows.push(['=== Sprint-Level Metrics ===']);
-                const cols = ['sprintNumber', 'teamName', 'velocityPoints', 'throughputPoints', 'qualityScore', 'doneToSaidRatio', 'technicalDebtIndex'];
-                const headers = ['Sprint', 'Team', 'Velocity', 'Throughput', 'Quality Score', 'Done-to-Said Ratio', 'Tech Debt Index'];
-                rows.push(headers);
-                rawData.forEach((r: any) => {
-                    rows.push(cols.map(c => {
-                        if (c === 'teamName') return r.team?.name || r.teamName || '';
-                        return String(r[c] ?? '');
-                    }));
+            if (activeTab === 'adoption-details') {
+                rows.push(['=== Adoption & Fluency Telemetry Summary ===']);
+                rows.push(['Metric', 'Value']);
+                rows.push(['Active Users', `${Math.round(adoptStats.activeUsers)} devs`]);
+                rows.push(['Certification Rate', `${adoptStats.certPercent.toFixed(1)}%`]);
+                rows.push(['Tool Adoption', `${adoptStats.rate.toFixed(1)}%`]);
+                rows.push([]);
+                rows.push(['=== Date-wise Adoption Details ===']);
+                rows.push(['Date/Period', 'Active Users (devs)', 'Certification Rate (%)', 'Tool Adoption Rate (%)']);
+                adoptChartData.forEach(d => {
+                    rows.push([d.name, String(d.activeUsers), String(d.certificationPercent), String(d.adoptionRate)]);
                 });
+                filename = `Adoption_Telemetry_Export_${new Date().toISOString().split('T')[0]}.csv`;
+            } else if (activeTab === 'assets-details') {
+                rows.push(['=== Assets & Reuse Telemetry Summary ===']);
+                rows.push(['Metric', 'Value']);
+                rows.push(['Reuse Rate', `${assetStats.avgReuseRate.toFixed(1)}%`]);
+                rows.push(['Prompt Reuse', `${assetStats.totalReuse.toLocaleString()} runs`]);
+                rows.push(['Template Rate', `${assetStats.templateUsage.toFixed(1)}%`]);
+                rows.push([]);
+                rows.push(['=== Date-wise Assets & Reuse Details ===']);
+                rows.push(['Date/Period', 'Reuse Rate (%)', 'Prompt Reuse (runs)', 'Template Rate (%)']);
+                assetChartData.forEach(d => {
+                    rows.push([d.name, String(d.reuseRate), String(d.promptReuse), String(d.templateUsage)]);
+                });
+                filename = `Assets_Telemetry_Export_${new Date().toISOString().split('T')[0]}.csv`;
+            } else if (activeTab === 'tokens-details') {
+                rows.push(['=== Tokens & Cost Telemetry Summary ===']);
+                rows.push(['Metric', 'Value']);
+                rows.push(['Total Spend', `$${Math.round(tokenStats.totalSpend).toLocaleString()}`]);
+                rows.push(['Total Tokens', `${tokenStats.totalTokens.toFixed(1)}M`]);
+                rows.push(['Cache Hit Ratio', `${tokenStats.cacheHitRatio.toFixed(1)}%`]);
+                rows.push([]);
+                rows.push(['=== Date-wise Tokens & Cost Details ===']);
+                rows.push(['Date/Period', 'Spend ($)', 'Tokens (Millions)', 'Cache Hit Ratio (%)']);
+                tokenChartData.forEach(d => {
+                    rows.push([d.name, String(d.spend), String(d.tokens), String(d.cacheHit)]);
+                });
+                filename = `Tokens_Telemetry_Export_${new Date().toISOString().split('T')[0]}.csv`;
+            } else if (activeTab === 'agent-details') {
+                rows.push(['=== Agent Performance Telemetry Summary ===']);
+                rows.push(['Metric', 'Value']);
+                rows.push(['Eval Pass Rate', `${agentStats.passRate.toFixed(1)}%`]);
+                rows.push(['HITL Acceptance', `${agentStats.hitlAcceptanceRate.toFixed(1)}%`]);
+                rows.push(['Hallucination Rate', `${agentStats.hallucinationRate.toFixed(1)}%`]);
+                rows.push([]);
+                rows.push(['=== Date-wise Agent Performance Details ===']);
+                rows.push(['Date/Period', 'Eval Pass Rate (%)', 'HITL Acceptance (%)', 'Hallucination Rate (%)']);
+                agentChartData.forEach(d => {
+                    rows.push([d.name, String(d.evalPassRate), String(d.hitlAcceptance), String(d.hallucination)]);
+                });
+                filename = `Agent_Performance_Telemetry_Export_${new Date().toISOString().split('T')[0]}.csv`;
+            } else {
+                // Section 1: KPI Summary
+                rows.push(['=== KPI Summary ===']);
+                rows.push(['Metric', 'Value']);
+                const dtsVal = (analytics?.kpi?.avgDoneToSaid || 0) > 1 ? analytics?.kpi?.avgDoneToSaid : (analytics?.kpi?.avgDoneToSaid || 0) * 100;
+                rows.push(['Avg Done-to-Said', `${Number(dtsVal).toFixed(1)}%`]);
+                rows.push(['Tech Debt Index', Number(analytics?.kpi?.avgTechDebt || 0).toFixed(2)]);
+                rows.push(['Active Projects', String(analytics?.kpi?.totalProjectCount ?? analytics?.kpi?.projectCount ?? 0)]);
+                rows.push(['Avg Throughput', `${Number(analytics?.kpi?.avgThroughput || 0).toFixed(1)} Pts`]);
+                rows.push(['Avg Quality', `${Number(analytics?.kpi?.avgQuality || 0).toFixed(1)}%`]);
+                rows.push(['Avg Velocity', `${Number(analytics?.kpi?.avgVelocity || 0).toFixed(1)} Pts`]);
+                rows.push(['Sprint Count', String(analytics?.kpi?.sprintCount || 0)]);
+                rows.push([]);
+
+                // Section 2: Raw Sprint Data
+                if (rawData.length > 0) {
+                    rows.push(['=== Sprint-Level Metrics ===']);
+                    const cols = ['sprintNumber', 'teamName', 'velocityPoints', 'throughputPoints', 'qualityScore', 'doneToSaidRatio', 'technicalDebtIndex'];
+                    const headers = ['Sprint', 'Team', 'Velocity', 'Throughput', 'Quality Score', 'Done-to-Said Ratio', 'Tech Debt Index'];
+                    rows.push(headers);
+                    rawData.forEach((r: any) => {
+                        rows.push(cols.map(c => {
+                            if (c === 'teamName') return r.team?.name || r.teamName || '';
+                            return String(r[c] ?? '');
+                        }));
+                    });
+                }
             }
 
             const csvContent = rows.map(r => r.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
@@ -1040,7 +1095,7 @@ export function AnalyticsDashboard({
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `Analytics_Export_${new Date().toISOString().split('T')[0]}.csv`;
+            a.download = filename;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -1089,106 +1144,106 @@ export function AnalyticsDashboard({
             {/* KPI Cards Header & Grid */}
             {activeTab === 'consolidated' && (
                 <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-75">
-                        Performance KPIs
-                    </span>
-                    <div className="flex items-center gap-2">
-                        {selectedStarterId === 'custom' && (
+                    <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-75">
+                            Performance KPIs
+                        </span>
+                        <div className="flex items-center gap-2">
+                            {selectedStarterId === 'custom' && (
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setIsKpiConfigOpen(true)}
+                                    className="rounded-xl h-8 text-[10px] font-black tracking-wider uppercase text-violet-600 hover:text-violet-700 hover:bg-violet-500/10 transition-colors"
+                                >
+                                    <Settings2 className="w-3.5 h-3.5 mr-1.5" /> Customize KPIs
+                                </Button>
+                            )}
                             <Button
-                                variant="ghost"
+                                variant="outline"
                                 size="sm"
-                                onClick={() => setIsKpiConfigOpen(true)}
-                                className="rounded-xl h-8 text-[10px] font-black tracking-wider uppercase text-violet-600 hover:text-violet-700 hover:bg-violet-500/10 transition-colors"
+                                onClick={openPdfDialog}
+                                className="rounded-xl h-8 text-[10px] font-black tracking-wider uppercase bg-background/50 border-border/50 hover:bg-violet-500/10 hover:text-violet-700 transition-colors"
                             >
-                                <Settings2 className="w-3.5 h-3.5 mr-1.5" /> Customize KPIs
+                                <FileText className="w-3.5 h-3.5 mr-1.5" /> Export PDF
                             </Button>
-                        )}
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={openPdfDialog}
-                            className="rounded-xl h-8 text-[10px] font-black tracking-wider uppercase bg-background/50 border-border/50 hover:bg-violet-500/10 hover:text-violet-700 transition-colors"
-                        >
-                            <FileText className="w-3.5 h-3.5 mr-1.5" /> Export PDF
-                        </Button>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={exportCSV}
-                            className="rounded-xl h-8 text-[10px] font-black tracking-wider uppercase bg-background/50 border-border/50 hover:bg-emerald-500/10 hover:text-emerald-700 transition-colors"
-                        >
-                            <Download className="w-3.5 h-3.5 mr-1.5" /> Export CSV
-                        </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={exportCSV}
+                                className="rounded-xl h-8 text-[10px] font-black tracking-wider uppercase bg-background/50 border-border/50 hover:bg-emerald-500/10 hover:text-emerald-700 transition-colors"
+                            >
+                                <Download className="w-3.5 h-3.5 mr-1.5" /> Export CSV
+                            </Button>
+                        </div>
                     </div>
-                </div>
 
-                {selectedStarterId !== 'custom' && starterStats && activeStarterConfig ? (
-                    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                        {/* 1. Average Card */}
-                        <StatCard
-                            title={`AVERAGE ${activeStarterConfig.label}`}
-                            value={starterStats.avg.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
-                            unit={activeStarterConfig.unit}
-                            icon={<BarChart3 className="h-5 w-5" />}
-                            color={activeStarterConfig.kpiColors.avg}
-                            subtext={`Across ${starterStats.totalCount} Sprints`}
-                        />
-                        {/* 2. Highest Card */}
-                        <StatCard
-                            title={`HIGHEST ${activeStarterConfig.label}`}
-                            value={starterStats.highestVal.toLocaleString(undefined, { maximumFractionDigits: 1 })}
-                            unit={activeStarterConfig.unit}
-                            icon={<ArrowUp className="h-5 w-5" />}
-                            color={activeStarterConfig.kpiColors.highest}
-                            subtext={starterStats.highestSprintLabel}
-                        />
-                        {/* 3. Lowest Card */}
-                        <StatCard
-                            title={`LOWEST ${activeStarterConfig.label}`}
-                            value={starterStats.lowestVal.toLocaleString(undefined, { maximumFractionDigits: 1 })}
-                            unit={activeStarterConfig.unit}
-                            icon={<ArrowDown className="h-5 w-5" />}
-                            color={activeStarterConfig.kpiColors.lowest}
-                            subtext={starterStats.lowestSprintLabel}
-                        />
-                        {/* 4. Stability Card */}
-                        <StatCard
-                            title="STABILITY"
-                            value={`${starterStats.stability.toFixed(1)}%`}
-                            unit=""
-                            icon={<Shield className="h-5 w-5" />}
-                            color={activeStarterConfig.kpiColors.stability}
-                            subtext="Within Control Limits"
-                        />
-                        {/* 5. Total Card */}
-                        <StatCard
-                            title={activeStarterConfig.agg === 'sum' ? `TOTAL ${activeStarterConfig.label}` : `AVG ${activeStarterConfig.label}`}
-                            value={starterStats.totalVal.toLocaleString(undefined, { maximumFractionDigits: 1 })}
-                            unit={activeStarterConfig.agg === 'sum' ? activeStarterConfig.unit : ''}
-                            icon={<Target className="h-5 w-5" />}
-                            color={activeStarterConfig.kpiColors.total}
-                            subtext={activeStarterConfig.agg === 'sum' ? `Sum of ${starterStats.totalCount} Sprints` : `Mean of ${starterStats.totalCount} Sprints`}
-                        />
-                    </div>
-                ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        {kpiCards.map((card, idx) => {
-                            const valObj = getKpiValueAndUnit(card.metric);
-                            const MetricIcon = getKpiIcon(card.metric);
-                            return (
-                                <StatCard
-                                    key={idx}
-                                    title={card.title}
-                                    value={valObj.value}
-                                    unit={valObj.unit}
-                                    icon={<MetricIcon className="h-5 w-5" />}
-                                    color={card.color}
-                                />
-                            );
-                        })}
-                    </div>
-                )}
+                    {selectedStarterId !== 'custom' && starterStats && activeStarterConfig ? (
+                        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                            {/* 1. Average Card */}
+                            <StatCard
+                                title={`AVERAGE ${activeStarterConfig.label}`}
+                                value={starterStats.avg.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
+                                unit={activeStarterConfig.unit}
+                                icon={<BarChart3 className="h-5 w-5" />}
+                                color={activeStarterConfig.kpiColors.avg}
+                                subtext={`Across ${starterStats.totalCount} Sprints`}
+                            />
+                            {/* 2. Highest Card */}
+                            <StatCard
+                                title={`HIGHEST ${activeStarterConfig.label}`}
+                                value={starterStats.highestVal.toLocaleString(undefined, { maximumFractionDigits: 1 })}
+                                unit={activeStarterConfig.unit}
+                                icon={<ArrowUp className="h-5 w-5" />}
+                                color={activeStarterConfig.kpiColors.highest}
+                                subtext={starterStats.highestSprintLabel}
+                            />
+                            {/* 3. Lowest Card */}
+                            <StatCard
+                                title={`LOWEST ${activeStarterConfig.label}`}
+                                value={starterStats.lowestVal.toLocaleString(undefined, { maximumFractionDigits: 1 })}
+                                unit={activeStarterConfig.unit}
+                                icon={<ArrowDown className="h-5 w-5" />}
+                                color={activeStarterConfig.kpiColors.lowest}
+                                subtext={starterStats.lowestSprintLabel}
+                            />
+                            {/* 4. Stability Card */}
+                            <StatCard
+                                title="STABILITY"
+                                value={`${starterStats.stability.toFixed(1)}%`}
+                                unit=""
+                                icon={<Shield className="h-5 w-5" />}
+                                color={activeStarterConfig.kpiColors.stability}
+                                subtext="Within Control Limits"
+                            />
+                            {/* 5. Total Card */}
+                            <StatCard
+                                title={activeStarterConfig.agg === 'sum' ? `TOTAL ${activeStarterConfig.label}` : `AVG ${activeStarterConfig.label}`}
+                                value={starterStats.totalVal.toLocaleString(undefined, { maximumFractionDigits: 1 })}
+                                unit={activeStarterConfig.agg === 'sum' ? activeStarterConfig.unit : ''}
+                                icon={<Target className="h-5 w-5" />}
+                                color={activeStarterConfig.kpiColors.total}
+                                subtext={activeStarterConfig.agg === 'sum' ? `Sum of ${starterStats.totalCount} Sprints` : `Mean of ${starterStats.totalCount} Sprints`}
+                            />
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            {kpiCards.map((card, idx) => {
+                                const valObj = getKpiValueAndUnit(card.metric);
+                                const MetricIcon = getKpiIcon(card.metric);
+                                return (
+                                    <StatCard
+                                        key={idx}
+                                        title={card.title}
+                                        value={valObj.value}
+                                        unit={valObj.unit}
+                                        icon={<MetricIcon className="h-5 w-5" />}
+                                        color={card.color}
+                                    />
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -1843,7 +1898,7 @@ export function AnalyticsDashboard({
                                             <Legend verticalAlign="top" height={36} iconType="circle" />
                                             <Area yAxisId="left" type="monotone" dataKey="velocity" name="Velocity" fill="#8b5cf6" stroke="#8b5cf6" fillOpacity={0.1} strokeWidth={2} />
                                             <Line yAxisId="right" type="monotone" dataKey="doneToSaid" name="Done to Said" stroke="#f59e0b" strokeWidth={2.5} dot={false} activeDot={{ r: 5 }} />
-                                            
+
                                             {/* SPC Control Lines */}
                                             <ReferenceLine yAxisId="left" y={deliverySpcLimits.velocity.mean} stroke="#10b981" strokeDasharray="3 3" label={{ value: `CL: ${deliverySpcLimits.velocity.mean.toFixed(1)}`, fill: '#10b981', fontSize: 9, position: 'insideBottomRight' }} />
                                             <ReferenceLine yAxisId="left" y={deliverySpcLimits.velocity.ucl} stroke="#ef4444" strokeDasharray="4 4" label={{ value: `UCL: ${deliverySpcLimits.velocity.ucl.toFixed(1)}`, fill: '#ef4444', fontSize: 9, position: 'insideTopRight' }} />
@@ -1875,7 +1930,7 @@ export function AnalyticsDashboard({
                                             <Legend verticalAlign="top" height={36} iconType="circle" />
                                             <Bar yAxisId="left" dataKey="defectDensity" name="Defect Density" fill="#ec4899" fillOpacity={0.6} radius={[4, 4, 0, 0]} />
                                             <Line yAxisId="right" type="monotone" dataKey="quality" name="Quality Score" stroke="#10b981" strokeWidth={2.5} dot={false} activeDot={{ r: 5 }} />
-                                            
+
                                             {/* SPC Control Lines */}
                                             <ReferenceLine yAxisId="left" y={deliverySpcLimits.defectDensity.mean} stroke="#10b981" strokeDasharray="3 3" label={{ value: `CL: ${deliverySpcLimits.defectDensity.mean.toFixed(2)}`, fill: '#10b981', fontSize: 9, position: 'insideBottomRight' }} />
                                             <ReferenceLine yAxisId="left" y={deliverySpcLimits.defectDensity.ucl} stroke="#ef4444" strokeDasharray="4 4" label={{ value: `UCL: ${deliverySpcLimits.defectDensity.ucl.toFixed(2)}`, fill: '#ef4444', fontSize: 9, position: 'insideTopRight' }} />
@@ -1973,7 +2028,7 @@ export function AnalyticsDashboard({
                                             <Legend verticalAlign="top" height={36} iconType="circle" />
                                             <Bar yAxisId="left" dataKey="savings" name="Savings ($)" fill="#10b981" fillOpacity={0.8} radius={[4, 4, 0, 0]} />
                                             <Line yAxisId="right" type="monotone" dataKey="roi" name="ROI %" stroke="#8b5cf6" strokeWidth={2.5} dot={false} activeDot={{ r: 5 }} />
-                                            
+
                                             {/* SPC Control Lines */}
                                             <ReferenceLine yAxisId="right" y={executiveSpcLimits.roi.mean} stroke="#10b981" strokeDasharray="3 3" label={{ value: `CL: ${executiveSpcLimits.roi.mean.toFixed(1)}%`, fill: '#10b981', fontSize: 9, position: 'insideBottomRight' }} />
                                             <ReferenceLine yAxisId="right" y={executiveSpcLimits.roi.ucl} stroke="#ef4444" strokeDasharray="4 4" label={{ value: `UCL: ${executiveSpcLimits.roi.ucl.toFixed(1)}%`, fill: '#ef4444', fontSize: 9, position: 'insideTopRight' }} />
@@ -2006,7 +2061,7 @@ export function AnalyticsDashboard({
                                             <Line type="monotone" dataKey="methods" name="Methods" stroke="#10b981" strokeWidth={1.5} strokeDasharray="5 5" dot={false} />
                                             <Line type="monotone" dataKey="metrics" name="Metrics" stroke="#ec4899" strokeWidth={1.5} strokeDasharray="5 5" dot={false} />
                                             <Line type="monotone" dataKey="mindset" name="Mindset" stroke="#f59e0b" strokeWidth={1.5} strokeDasharray="5 5" dot={false} />
-                                            
+
                                             {/* SPC Control Lines */}
                                             <ReferenceLine y={maturitySpcLimits.overall.mean} stroke="#10b981" strokeDasharray="3 3" label={{ value: `CL: ${maturitySpcLimits.overall.mean.toFixed(2)}`, fill: '#10b981', fontSize: 9, position: 'insideBottomRight' }} />
                                             <ReferenceLine y={maturitySpcLimits.overall.ucl} stroke="#ef4444" strokeDasharray="4 4" label={{ value: `UCL: ${maturitySpcLimits.overall.ucl.toFixed(2)}`, fill: '#ef4444', fontSize: 9, position: 'insideTopRight' }} />
@@ -2045,9 +2100,9 @@ export function AnalyticsDashboard({
                 </TabsContent>
 
                 <TabsContent value="ai-governance" className="space-y-6">
-                    <AiGovernanceCards 
-                        data={kpiFactsData} 
-                        isLoading={isLoadingKpiFacts || isLoadingRaw} 
+                    <AiGovernanceCards
+                        data={kpiFactsData}
+                        isLoading={isLoadingKpiFacts || isLoadingRaw}
                         rawMetricsData={rawMetricsData}
                         onTabChange={setActiveTab}
                     />
@@ -2062,16 +2117,34 @@ export function AnalyticsDashboard({
                                 <p className="text-[10px] text-muted-foreground font-medium mt-0.5">Date-wise statistics on active developers, certifications, and AI tool adoption rates</p>
                             </div>
                         </div>
-                        <Button 
-                            variant="outline" 
-                            onClick={() => setActiveTab('ai-governance')}
-                            className="rounded-xl font-bold text-xs h-9 bg-background/50 border-border/50 hover:bg-slate-500/10 transition-colors flex items-center gap-1.5"
-                        >
-                            <ChevronLeft className="w-4 h-4" /> Back to Hub
-                        </Button>
+                        <div className="flex items-center gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => (window as any).generatePDFReport?.()}
+                                className="rounded-xl h-9 text-[10px] font-black tracking-wider uppercase bg-background/50 border-border/50 hover:bg-violet-500/10 hover:text-violet-700 transition-colors"
+                            >
+                                <FileText className="w-3.5 h-3.5 mr-1.5" /> Export PDF
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={exportCSV}
+                                className="rounded-xl h-9 text-[10px] font-black tracking-wider uppercase bg-background/50 border-border/50 hover:bg-emerald-500/10 hover:text-emerald-700 transition-colors"
+                            >
+                                <Download className="w-3.5 h-3.5 mr-1.5" /> Export CSV
+                            </Button>
+                            <Button
+                                variant="outline"
+                                onClick={() => setActiveTab('ai-governance')}
+                                className="rounded-xl font-bold text-xs h-9 bg-background/50 border-border/50 hover:bg-slate-500/10 transition-colors flex items-center gap-1.5"
+                            >
+                                <ChevronLeft className="w-4 h-4" /> Back to Hub
+                            </Button>
+                        </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div id="adoption-kpi-cards" className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <StatCard
                             title="Active Users"
                             value={Math.round(adoptStats.activeUsers)}
@@ -2099,7 +2172,7 @@ export function AnalyticsDashboard({
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <Card className="rounded-[2rem] border-[1.5px] border-border/50 bg-background/50 backdrop-blur-2xl p-6">
+                        <Card id="adoption-chart-trend" className="rounded-[2rem] border-[1.5px] border-border/50 bg-background/50 backdrop-blur-2xl p-6">
                             <h3 className="text-sm font-black tracking-tight mb-4">Adoption & Certification Trend by Date</h3>
                             <div className="h-[300px]">
                                 <ResponsiveContainer width="100%" height="100%">
@@ -2117,7 +2190,7 @@ export function AnalyticsDashboard({
                                 </ResponsiveContainer>
                             </div>
                         </Card>
-                        <Card className="rounded-[2rem] border-[1.5px] border-border/50 bg-background/50 backdrop-blur-2xl p-6">
+                        <Card id="adoption-chart-growth" className="rounded-[2rem] border-[1.5px] border-border/50 bg-background/50 backdrop-blur-2xl p-6">
                             <h3 className="text-sm font-black tracking-tight mb-4">Active User Growth by Date</h3>
                             <div className="h-[300px]">
                                 <ResponsiveContainer width="100%" height="100%">
@@ -2146,16 +2219,34 @@ export function AnalyticsDashboard({
                                 <p className="text-[10px] text-muted-foreground font-medium mt-0.5">Date-wise statistics on shared assets, prompt reuse counts, and template adoption rates</p>
                             </div>
                         </div>
-                        <Button 
-                            variant="outline" 
-                            onClick={() => setActiveTab('ai-governance')}
-                            className="rounded-xl font-bold text-xs h-9 bg-background/50 border-border/50 hover:bg-slate-500/10 transition-colors flex items-center gap-1.5"
-                        >
-                            <ChevronLeft className="w-4 h-4" /> Back to Hub
-                        </Button>
+                        <div className="flex items-center gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => (window as any).generatePDFReport?.()}
+                                className="rounded-xl h-9 text-[10px] font-black tracking-wider uppercase bg-background/50 border-border/50 hover:bg-violet-500/10 hover:text-violet-700 transition-colors"
+                            >
+                                <FileText className="w-3.5 h-3.5 mr-1.5" /> Export PDF
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={exportCSV}
+                                className="rounded-xl h-9 text-[10px] font-black tracking-wider uppercase bg-background/50 border-border/50 hover:bg-emerald-500/10 hover:text-emerald-700 transition-colors"
+                            >
+                                <Download className="w-3.5 h-3.5 mr-1.5" /> Export CSV
+                            </Button>
+                            <Button
+                                variant="outline"
+                                onClick={() => setActiveTab('ai-governance')}
+                                className="rounded-xl font-bold text-xs h-9 bg-background/50 border-border/50 hover:bg-slate-500/10 transition-colors flex items-center gap-1.5"
+                            >
+                                <ChevronLeft className="w-4 h-4" /> Back to Hub
+                            </Button>
+                        </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div id="assets-kpi-cards" className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <StatCard
                             title="Reuse Rate"
                             value={`${assetStats.avgReuseRate.toFixed(1)}%`}
@@ -2183,15 +2274,15 @@ export function AnalyticsDashboard({
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <Card className="rounded-[2rem] border-[1.5px] border-border/50 bg-background/50 backdrop-blur-2xl p-6">
+                        <Card id="assets-chart-volume" className="rounded-[2rem] border-[1.5px] border-border/50 bg-background/50 backdrop-blur-2xl p-6">
                             <h3 className="text-sm font-black tracking-tight mb-4">Prompt Reuse Volume by Date</h3>
                             <div className="h-[300px]">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <AreaChart data={assetChartData} margin={{ top: 20, right: 65, left: -20, bottom: 0 }}>
                                         <defs>
                                             <linearGradient id="colorPrompt" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                                                <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                                                <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                                                <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                                             </linearGradient>
                                         </defs>
                                         <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
@@ -2206,7 +2297,7 @@ export function AnalyticsDashboard({
                                 </ResponsiveContainer>
                             </div>
                         </Card>
-                        <Card className="rounded-[2rem] border-[1.5px] border-border/50 bg-background/50 backdrop-blur-2xl p-6">
+                        <Card id="assets-chart-rate" className="rounded-[2rem] border-[1.5px] border-border/50 bg-background/50 backdrop-blur-2xl p-6">
                             <h3 className="text-sm font-black tracking-tight mb-4">Reuse & Template Rate by Date</h3>
                             <div className="h-[300px]">
                                 <ResponsiveContainer width="100%" height="100%">
@@ -2236,16 +2327,34 @@ export function AnalyticsDashboard({
                                 <p className="text-[10px] text-muted-foreground font-medium mt-0.5">Date-wise statistics on total spend, API token volume, and cache hit efficiency</p>
                             </div>
                         </div>
-                        <Button 
-                            variant="outline" 
-                            onClick={() => setActiveTab('ai-governance')}
-                            className="rounded-xl font-bold text-xs h-9 bg-background/50 border-border/50 hover:bg-slate-500/10 transition-colors flex items-center gap-1.5"
-                        >
-                            <ChevronLeft className="w-4 h-4" /> Back to Hub
-                        </Button>
+                        <div className="flex items-center gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => (window as any).generatePDFReport?.()}
+                                className="rounded-xl h-9 text-[10px] font-black tracking-wider uppercase bg-background/50 border-border/50 hover:bg-violet-500/10 hover:text-violet-700 transition-colors"
+                            >
+                                <FileText className="w-3.5 h-3.5 mr-1.5" /> Export PDF
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={exportCSV}
+                                className="rounded-xl h-9 text-[10px] font-black tracking-wider uppercase bg-background/50 border-border/50 hover:bg-emerald-500/10 hover:text-emerald-700 transition-colors"
+                            >
+                                <Download className="w-3.5 h-3.5 mr-1.5" /> Export CSV
+                            </Button>
+                            <Button
+                                variant="outline"
+                                onClick={() => setActiveTab('ai-governance')}
+                                className="rounded-xl font-bold text-xs h-9 bg-background/50 border-border/50 hover:bg-slate-500/10 transition-colors flex items-center gap-1.5"
+                            >
+                                <ChevronLeft className="w-4 h-4" /> Back to Hub
+                            </Button>
+                        </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div id="tokens-kpi-cards" className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <StatCard
                             title="Total Spend"
                             value={`$${Math.round(tokenStats.totalSpend).toLocaleString()}`}
@@ -2273,7 +2382,7 @@ export function AnalyticsDashboard({
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <Card className="rounded-[2rem] border-[1.5px] border-border/50 bg-background/50 backdrop-blur-2xl p-6">
+                        <Card id="tokens-chart-spend" className="rounded-[2rem] border-[1.5px] border-border/50 bg-background/50 backdrop-blur-2xl p-6">
                             <h3 className="text-sm font-black tracking-tight mb-4">Spend vs Tokens Volume by Date</h3>
                             <div className="h-[300px]">
                                 <ResponsiveContainer width="100%" height="100%">
@@ -2292,15 +2401,15 @@ export function AnalyticsDashboard({
                                 </ResponsiveContainer>
                             </div>
                         </Card>
-                        <Card className="rounded-[2rem] border-[1.5px] border-border/50 bg-background/50 backdrop-blur-2xl p-6">
+                        <Card id="tokens-chart-cache" className="rounded-[2rem] border-[1.5px] border-border/50 bg-background/50 backdrop-blur-2xl p-6">
                             <h3 className="text-sm font-black tracking-tight mb-4">Cache Hit Efficiency by Date</h3>
                             <div className="h-[300px]">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <AreaChart data={tokenChartData} margin={{ top: 20, right: 65, left: -20, bottom: 0 }}>
                                         <defs>
                                             <linearGradient id="colorCache" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3}/>
-                                                <stop offset="95%" stopColor="#f59e0b" stopOpacity={0}/>
+                                                <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3} />
+                                                <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
                                             </linearGradient>
                                         </defs>
                                         <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
@@ -2327,16 +2436,34 @@ export function AnalyticsDashboard({
                                 <p className="text-[10px] text-muted-foreground font-medium mt-0.5">Date-wise statistics on AI evaluation pass rates, human-in-the-loop validation, and hallucination rates</p>
                             </div>
                         </div>
-                        <Button 
-                            variant="outline" 
-                            onClick={() => setActiveTab('ai-governance')}
-                            className="rounded-xl font-bold text-xs h-9 bg-background/50 border-border/50 hover:bg-slate-500/10 transition-colors flex items-center gap-1.5"
-                        >
-                            <ChevronLeft className="w-4 h-4" /> Back to Hub
-                        </Button>
+                        <div className="flex items-center gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => (window as any).generatePDFReport?.()}
+                                className="rounded-xl h-9 text-[10px] font-black tracking-wider uppercase bg-background/50 border-border/50 hover:bg-violet-500/10 hover:text-violet-700 transition-colors"
+                            >
+                                <FileText className="w-3.5 h-3.5 mr-1.5" /> Export PDF
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={exportCSV}
+                                className="rounded-xl h-9 text-[10px] font-black tracking-wider uppercase bg-background/50 border-border/50 hover:bg-emerald-500/10 hover:text-emerald-700 transition-colors"
+                            >
+                                <Download className="w-3.5 h-3.5 mr-1.5" /> Export CSV
+                            </Button>
+                            <Button
+                                variant="outline"
+                                onClick={() => setActiveTab('ai-governance')}
+                                className="rounded-xl font-bold text-xs h-9 bg-background/50 border-border/50 hover:bg-slate-500/10 transition-colors flex items-center gap-1.5"
+                            >
+                                <ChevronLeft className="w-4 h-4" /> Back to Hub
+                            </Button>
+                        </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div id="agent-kpi-cards" className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <StatCard
                             title="Eval Pass Rate"
                             value={`${agentStats.passRate.toFixed(1)}%`}
@@ -2364,7 +2491,7 @@ export function AnalyticsDashboard({
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <Card className="rounded-[2rem] border-[1.5px] border-border/50 bg-background/50 backdrop-blur-2xl p-6">
+                        <Card id="agent-chart-trend" className="rounded-[2rem] border-[1.5px] border-border/50 bg-background/50 backdrop-blur-2xl p-6">
                             <h3 className="text-sm font-black tracking-tight mb-4">Validation & Performance by Date</h3>
                             <div className="h-[300px]">
                                 <ResponsiveContainer width="100%" height="100%">
@@ -2382,15 +2509,15 @@ export function AnalyticsDashboard({
                                 </ResponsiveContainer>
                             </div>
                         </Card>
-                        <Card className="rounded-[2rem] border-[1.5px] border-border/50 bg-background/50 backdrop-blur-2xl p-6">
+                        <Card id="agent-chart-hallucination" className="rounded-[2rem] border-[1.5px] border-border/50 bg-background/50 backdrop-blur-2xl p-6">
                             <h3 className="text-sm font-black tracking-tight mb-4">Hallucination Rate by Date</h3>
                             <div className="h-[300px]">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <AreaChart data={agentChartData} margin={{ top: 20, right: 65, left: -20, bottom: 0 }}>
                                         <defs>
                                             <linearGradient id="colorHall" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="5%" stopColor="#ec4899" stopOpacity={0.3}/>
-                                                <stop offset="95%" stopColor="#ec4899" stopOpacity={0}/>
+                                                <stop offset="5%" stopColor="#ec4899" stopOpacity={0.3} />
+                                                <stop offset="95%" stopColor="#ec4899" stopOpacity={0} />
                                             </linearGradient>
                                         </defs>
                                         <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
@@ -3044,6 +3171,7 @@ export function AnalyticsDashboard({
                 plots={[...plots, ...aiPlots, ...dynamicBarPlots].filter(p => pdfSelectedIds.has(p.id))}
                 filters={filters}
                 rawData={rawData}
+                activeTab={activeTab}
                 starterChartIds={
                     selectedStarterId !== 'custom' && starterStats && activeStarterConfig
                         ? [
