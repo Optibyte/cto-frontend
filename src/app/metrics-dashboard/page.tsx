@@ -62,19 +62,19 @@ export default function MetricsDashboardPage() {
 
     const fixedAccountName = useMemo(() => {
         if (!fixedAccountId) return '';
-        let match = hierarchy?.markets?.flatMap((m:any) => m.accounts)?.find((a:any) => a.id === fixedAccountId)?.name;
+        let match = hierarchy?.markets?.flatMap((m: any) => m.accounts)?.find((a: any) => a.id === fixedAccountId)?.name;
         return match || u?.account?.name || fixedAccountId;
     }, [fixedAccountId, hierarchy, u]);
 
     const fixedMarketName = useMemo(() => {
         if (!fixedMarketId) return '';
-        let match = hierarchy?.markets?.find((m:any) => m.id === fixedMarketId)?.name;
+        let match = hierarchy?.markets?.find((m: any) => m.id === fixedMarketId)?.name;
         return match || u?.market?.name || fixedMarketId;
     }, [fixedMarketId, hierarchy, u]);
 
     const fixedOrgName = useMemo(() => {
         if (!fixedOrgId) return '';
-        let match = hierarchy?.organizations?.find((o:any) => o.id === fixedOrgId)?.name;
+        let match = hierarchy?.organizations?.find((o: any) => o.id === fixedOrgId)?.name;
         return match || u?.organization?.name || fixedOrgId;
     }, [fixedOrgId, hierarchy, u]);
 
@@ -175,9 +175,9 @@ export default function MetricsDashboardPage() {
 
     const clearFilters = () => {
         setFilters({
-            org: 'all', 
-            country: 'all', 
-            market: isMarketScoped && fixedMarketName ? fixedMarketName : 'all', 
+            org: 'all',
+            country: 'all',
+            market: isMarketScoped && fixedMarketName ? fixedMarketName : 'all',
             account: isAccountScoped && fixedAccountName ? fixedAccountName : 'all',
             project: isProjectScoped && fixedProjectName ? fixedProjectName : 'all',
             team: isTeamScoped && fixedTeamName ? fixedTeamName : 'all',
@@ -191,10 +191,10 @@ export default function MetricsDashboardPage() {
     // Build API filters: for scoped roles, always inject their scope IDs
     const apiFilters = useMemo(() => {
         const f: Record<string, string> = {};
-        Object.entries(filters).forEach(([k, v]) => { 
+        Object.entries(filters).forEach(([k, v]) => {
             if (v !== 'all' && k !== 'dateRange' && k !== 'startDate' && k !== 'endDate') {
-                f[k] = v; 
-            } 
+                f[k] = v;
+            }
         });
 
         if (filters.dateRange === '30d') {
@@ -316,7 +316,7 @@ export default function MetricsDashboardPage() {
                         <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-gradient">
                             Dashboard
                         </h1>
-                        
+
                     </div>
                     <div className="flex flex-wrap items-center gap-3 shrink-0">
                         {/* Executive View */}
@@ -465,10 +465,10 @@ export default function MetricsDashboardPage() {
 
             {/* Content */}
             <div className="animate-in fade-in slide-in-from-top-4 duration-1000">
-                <AnalyticsDashboard 
-                    filters={apiFilters} 
-                    activeTab={activeTab} 
-                    onActiveTabChange={setActiveTab} 
+                <AnalyticsDashboard
+                    filters={apiFilters}
+                    activeTab={activeTab}
+                    onActiveTabChange={setActiveTab}
                 />
             </div>
         </div>
