@@ -200,7 +200,7 @@ export function Sidebar() {
                         href={item.href}
                         className={cn(
                             'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200',
-                            pathname === item.href
+                            pathname === item.href || (item.href === '/metrics-dashboard' && pathname.startsWith('/metrics-dashboard/')) || (item.href === '/admin' && pathname.startsWith('/admin/'))
                                 ? 'bg-primary text-primary-foreground shadow-md shadow-primary/30'
                                 : 'text-muted-foreground hover:bg-accent hover:text-foreground hover:shadow-sm'
                         )}
